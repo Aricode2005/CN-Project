@@ -1,0 +1,5 @@
+out/
+data/*.db
+data/*.log
+*.class
+.DS_Store
