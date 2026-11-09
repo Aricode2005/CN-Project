@@ -6,408 +6,499 @@
 <title>Telnet Lab · JU-Main-R</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
-/* Visual language: the textbook's byte blocks. IAC is yellow, verbs are blue, SB/SE are pink,
-   option names and data bytes are white. Arrows are magenta like the slides. Everything sits on
-   a deep "night network" background with a sticky VTY terminal on the left. */
+/* ==========================================================================
+   TELNET LAB — art direction: "the terminal room, 1969"
+   Telnet is older than the web: a terminal attached to a remote machine.
+   The page is split the way that room was. On the left, a live amber-phosphor
+   CRT you actually type into. On the right, the specification printed on
+   green-bar continuous-form paper with tractor-feed holes, the way RFC 854 was
+   read. Bytes on the wire are shown as punched paper tape.
+   ========================================================================== */
 :root {
-  --bg: #070b14; --bg-2: #0b1220; --panel: #0f1728; --panel-2: #0c1322; --rule: #1d2840; --rule-2: #162036;
-  --ink: #eaf0fb; --ink-2: #a2aec6; --muted: #66748f;
-  --cyan: #46d3f5; --magenta: #ff4fa3; --violet: #9b8cff; --good: #33d17a; --bad: #ff5468; --warn: #ffb547;
-  --b-iac: #ffd84a; --b-verb: #86cfee; --b-sb: #f6a9d0; --b-opt: #f4f6fb; --b-ink: #10141f;
-  --c2s: #ff5468; --s2c: #46a0ff;
-  --term-bg: #03060c; --term-ink: #cfe3ff;
-  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
-  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
-  --r: 14px;
+  /* machine (left) */
+  --crt: #0f0e0b; --crt-2: #17150f; --crt-3: #221f17; --crt-rule: #343024;
+  --phos: #ffb340; --phos-hi: #ffd79a; --phos-dim: #9c7436; --phos-glow: rgba(255, 179, 64, .35);
+  /* paper (right) */
+  --paper: #f5f2e7; --bar: #e3eedb; --ink: #1d1b16; --ink-2: #4a463b; --muted: #6e685a; --rule: #cdc5ae; --rule-2: #e0d9c6;
+  --c2s: #b5361f; --s2c: #1f5ea8; --arrow: #b0185a; --good: #2b7a43; --bad: #b3261e; --warn: #9a6400; --cyan: #1f5ea8;
+  /* textbook byte colours (from the slides) */
+  --b-iac: #ffd84a; --b-verb: #86cfee; --b-sb: #f6a9d0; --b-opt: #ffffff; --b-ink: #10141f; --iac-ink: #8a5a00;
+  --tape: #eadcae; --tape-edge: #d4c48f; --hole: #2a2519;
+  /* type */
+  --display: "Bricolage Grotesque", "Segoe UI", sans-serif; --text: "IBM Plex Sans", "Segoe UI", sans-serif; --mono: "IBM Plex Mono", Consolas, monospace;
+  --t-xs: 11px; --t-s: 12.5px; --t-m: 14.5px; --t-l: 19px; --t-xl: 34px; --t-2xl: clamp(64px, 7vw, 104px);
+  /* space */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  --dock: clamp(440px, 42vw, 720px); --feed: 30px;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 76px; }
-body { margin: 0; color: var(--ink); font-family: var(--display); font-size: 14.5px; line-height: 1.5;
-  background: radial-gradient(1200px 600px at 75% -10%, #13234a 0%, transparent 60%), radial-gradient(900px 500px at -10% 30%, #1a1240 0%, transparent 55%), var(--bg); background-attachment: fixed; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: var(--ink); font: 400 var(--t-m)/1.55 var(--text); background: var(--crt); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--display); }
+p { margin: 0; }
 code, .mono { font-family: var(--mono); }
-code { font-size: .86em; background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 5px; }
-h1, h2, h3 { margin: 0; letter-spacing: -.01em; }
-button { font-family: inherit; }
-:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+code { font-size: .9em; background: rgba(29,27,22,.07); padding: 0 4px; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--phos); outline-offset: 2px; }
 
-/* ---------- top bar */
-.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 18px; padding: 10px 22px; background: rgba(7, 11, 20, .78); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule); }
-.brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-.logo { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, var(--cyan), var(--violet)); color: #071022; font-family: var(--mono); font-weight: 700; font-size: 13px; box-shadow: 0 0 22px rgba(70, 211, 245, .35); }
-.brand b { font-size: 16px; } .brand small { display: block; color: var(--muted); font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; }
-nav.chapters { display: flex; gap: 2px; overflow-x: auto; flex: 1; scrollbar-width: none; }
-nav.chapters a { color: var(--ink-2); text-decoration: none; font-size: 13px; padding: 6px 11px; border-radius: 999px; white-space: nowrap; transition: .2s; }
-nav.chapters a span { font-family: var(--mono); color: var(--muted); margin-right: 5px; font-size: 11px; }
-nav.chapters a:hover { color: var(--ink); background: rgba(255,255,255,.05); }
-nav.chapters a.on { color: #071022; background: var(--cyan); } nav.chapters a.on span { color: #0a2a3a; }
-.stat { display: flex; gap: 6px; }
-.chipst { font-family: var(--mono); font-size: 11px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-2); white-space: nowrap; background: var(--panel-2); }
-.chipst b { color: var(--ink); }
-.chipst.bad { border-color: var(--bad); color: var(--bad); animation: pulse 1.2s infinite; }
-.chipst.hot { border-color: var(--magenta); color: #ffd0e6; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255, 84, 104, .18); } }
+/* --------------------------------------------------------------- split */
+.room { display: grid; grid-template-columns: var(--dock) minmax(0, 1fr); min-height: 100vh; }
 
-/* ---------- layout */
-.layout { display: grid; grid-template-columns: minmax(380px, 46%) minmax(0, 1fr); gap: 22px; padding: 20px 22px 80px; max-width: 1760px; margin: 0 auto; }
-@media (max-width: 1150px) { .layout { grid-template-columns: minmax(0, 1fr); } .dock { position: static !important; max-height: none !important; } }
-.dock { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; display: grid; gap: 12px; padding-right: 2px; }
-.panel { background: linear-gradient(180deg, rgba(20, 30, 52, .82), rgba(13, 20, 36, .82)); border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 18px; box-shadow: 0 10px 40px rgba(0,0,0,.25); min-width: 0; }
-.stack { display: grid; gap: 22px; min-width: 0; }
-
-/* ---------- terminal dock */
-.dock-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.dock-head h2 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
-.led { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-.led.on { background: var(--good); box-shadow: 0 0 10px var(--good); }
-.led.tls { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
-.seg { display: flex; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 11px; padding: 3px; gap: 3px; }
-.seg button { flex: 1; border: 0; background: transparent; color: var(--ink-2); padding: 7px 8px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; display: grid; gap: 1px; text-align: left; }
-.seg button small { font-family: var(--mono); font-weight: 400; font-size: 10.5px; color: var(--muted); }
-.seg button:hover { background: rgba(255,255,255,.05); color: var(--ink); }
-.seg button.on { background: linear-gradient(135deg, rgba(70,211,245,.22), rgba(155,140,255,.18)); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(70,211,245,.45); }
-.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.btn { border: 1px solid var(--rule); background: var(--panel-2); color: var(--ink); padding: 6px 11px; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: .15s; white-space: nowrap; }
-.btn:hover { border-color: var(--cyan); transform: translateY(-1px); }
-.btn:disabled { opacity: .4; cursor: default; transform: none; }
-.btn.prime { background: linear-gradient(135deg, var(--cyan), #6fa8ff); border-color: transparent; color: #061022; }
-.btn.hot { background: linear-gradient(135deg, var(--magenta), #ff7a59); border-color: transparent; color: #1a0610; }
-.btn.k { font-family: var(--mono); font-weight: 500; font-size: 11.5px; padding: 4px 8px; }
-.btn.k.iac { border-color: rgba(255, 216, 74, .45); color: var(--b-iac); }
-select { font: inherit; font-size: 12.5px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--rule); border-radius: 9px; padding: 5px 8px; }
-.term-wrap { position: relative; background: var(--term-bg); border: 1px solid #16233e; border-radius: 12px; padding: 12px 14px; overflow: auto; box-shadow: inset 0 0 40px rgba(70, 160, 255, .06), 0 0 0 1px rgba(255,255,255,.02); }
-.term-wrap::before { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 12px; background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
-.term { font-family: var(--mono); color: var(--term-ink); white-space: pre; line-height: 1.28; outline: none; cursor: text; text-shadow: 0 0 6px rgba(120, 190, 255, .18); }
+/* --------------------------------------------------------------- the machine (sticky dock) */
+.dock { position: sticky; top: 0; height: 100vh; overflow: auto; background: var(--crt); color: var(--phos-hi); padding: 22px 24px 18px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid #000; scrollbar-color: var(--crt-rule) transparent; }
+.ident { display: flex; align-items: flex-end; gap: 14px; }
+.ident h1 { font: 800 56px/.8 var(--display); font-stretch: 75%; letter-spacing: -.02em; color: var(--phos); text-shadow: 0 0 18px var(--phos-glow); }
+.ident .meta { font: 400 10.5px/1.5 var(--mono); color: var(--phos-dim); letter-spacing: .12em; text-transform: uppercase; padding-bottom: 2px; }
+.ident .meta b { color: var(--phos-hi); font-weight: 500; }
+.stat { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; align-self: flex-start; }
+.chipst { font: 500 10.5px/1 var(--mono); padding: 5px 7px 4px; border: 1px solid var(--crt-rule); color: var(--phos-dim); white-space: nowrap; letter-spacing: .04em; }
+.chipst b { color: var(--phos-hi); font-weight: 500; }
+.chipst.bad { border-color: #ff5f45; color: #ff8a75; animation: pulse 1.2s infinite; }
+.chipst.hot { border-color: var(--phos); color: var(--phos); }
+@keyframes pulse { 50% { background: rgba(255, 95, 69, .15); } }
+.dock-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--phos-dim); }
+.dock-h span:first-child { display: flex; align-items: center; gap: 8px; }
+.led { width: 8px; height: 8px; border-radius: 50%; background: var(--crt-rule); }
+.led.on { background: #7dff8a; box-shadow: 0 0 8px #7dff8a; } .led.tls { background: var(--phos); box-shadow: 0 0 8px var(--phos); }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--crt-rule); }
+.modes button { border: 0; background: transparent; color: var(--phos-dim); padding: 9px 10px 8px; cursor: pointer; text-align: left; display: grid; gap: 2px; font: 600 12.5px/1.1 var(--text); transition: background .15s, color .15s; }
+.modes button + button { border-left: 1px solid var(--crt-rule); }
+.modes button small { font: 400 10px/1 var(--mono); color: #6f5a35; letter-spacing: .04em; }
+.modes button:hover { background: var(--crt-2); color: var(--phos-hi); }
+.modes button.on { background: var(--phos); color: var(--crt); } .modes button.on small { color: #5a3d0c; }
+/* the CRT */
+.term-wrap { position: relative; background: radial-gradient(ellipse at 50% 45%, #1d1910 0%, #0b0a07 85%); border: 1px solid var(--crt-rule); border-radius: 18px / 14px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 0 60px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,179,64,.05), 0 0 0 6px var(--crt-2), 0 0 0 7px var(--crt-rule); }
+.term-wrap::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); z-index: 2; }
+.term-wrap::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 30% 0%, rgba(255,215,154,.06), transparent 50%); z-index: 2; }
+.term { position: relative; font-family: var(--mono); color: var(--phos); white-space: pre; line-height: 1.28; outline: none; cursor: text; text-shadow: 0 0 5px var(--phos-glow), 0 0 1px var(--phos); overflow: hidden; }
 .term .ln { height: 1.28em; }
-.term .cur { background: var(--term-ink); color: var(--term-bg); animation: blink 1.05s steps(1) infinite; }
-.term:not(:focus) .cur { animation: none; background: transparent; outline: 1px solid rgba(207, 227, 255, .6); color: inherit; }
-@keyframes blink { 50% { background: transparent; color: var(--term-ink); } }
-.term .inv { background: var(--term-ink); color: var(--term-bg); } .term .b { font-weight: 700; }
-.term-off { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: radial-gradient(circle at 50% 40%, rgba(70,211,245,.1), rgba(3,6,12,.92) 70%); border-radius: 12px; }
-.term-off h3 { font-size: 17px; margin-bottom: 6px; }
-.term-off p { color: var(--ink-2); font-size: 13px; margin: 4px 0; }
-.quick { display: flex; flex-wrap: wrap; gap: 5px; }
-.quick button { font-family: var(--mono); font-size: 11.5px; border: 1px dashed var(--rule); background: transparent; color: var(--ink-2); padding: 3px 8px; border-radius: 7px; cursor: pointer; }
-.quick button:hover { border-style: solid; border-color: var(--cyan); color: var(--ink); }
-.tstat { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); flex-wrap: wrap; }
-.creds { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.term .cur { background: var(--phos); color: var(--crt); animation: blink 1.05s steps(1) infinite; box-shadow: 0 0 8px var(--phos-glow); }
+.term:not(:focus) .cur { animation: none; background: transparent; outline: 1px solid var(--phos-dim); color: inherit; }
+@keyframes blink { 50% { background: transparent; color: var(--phos); } }
+.term .inv { background: var(--phos); color: var(--crt); } .term .b { font-weight: 600; color: var(--phos-hi); }
+.term-off { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(11,10,7,.9); }
+.term-off h3 { font: 700 26px/1.1 var(--display); font-stretch: 80%; color: var(--phos); margin-bottom: 10px; text-shadow: 0 0 14px var(--phos-glow); }
+.term-off p { color: var(--phos-dim); font-size: 13px; margin: 4px 0; }
+.term-off .cred { font: 400 12px/1.6 var(--mono); color: var(--phos-hi); margin-top: 10px; }
+.go { display: flex; justify-content: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.keys { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.key { border: 1px solid var(--crt-rule); border-bottom-width: 3px; background: var(--crt-2); color: var(--phos-hi); padding: 5px 8px 3px; font: 500 11.5px/1 var(--mono); cursor: pointer; transition: transform .08s, border-color .15s; }
+.key:hover { border-color: var(--phos-dim); }
+.key:active { transform: translateY(2px); border-bottom-width: 1px; }
+.key:disabled { opacity: .35; cursor: default; }
+.key.iac { color: var(--b-iac); border-color: #5c4d1d; }
+.dock select { background: var(--crt-2); color: var(--phos-hi); border: 1px solid var(--crt-rule); padding: 5px 6px; font: 400 11.5px var(--mono); }
+.quick { display: flex; flex-wrap: wrap; gap: 4px 12px; border-top: 1px dashed var(--crt-rule); padding-top: 10px; }
+.quick::before { content: "RUN ›"; font: 500 10.5px/1.9 var(--mono); color: #6f5a35; letter-spacing: .1em; }
+.quick button { font: 400 11.5px/1.9 var(--mono); border: 0; background: none; color: var(--phos-dim); padding: 0; cursor: pointer; }
+.quick button:hover { color: var(--phos); text-decoration: underline; text-underline-offset: 3px; }
+.tstat { margin-top: auto; display: flex; justify-content: space-between; gap: 8px; font: 400 10.5px/1.4 var(--mono); color: #6f5a35; flex-wrap: wrap; border-top: 1px solid var(--crt-rule); padding-top: 10px; letter-spacing: .04em; }
+.btn-p { border: 0; background: var(--phos); color: var(--crt); padding: 10px 16px 9px; font: 600 13px/1 var(--text); cursor: pointer; box-shadow: 0 0 20px var(--phos-glow); }
+.btn-p.alt { background: transparent; color: var(--phos); box-shadow: inset 0 0 0 1px var(--phos-dim); }
+.btn-p:hover { filter: brightness(1.08); }
 
-/* ---------- chapters */
-section.ch { scroll-margin-top: 80px; }
-.ch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
-.ch-head h2 { white-space: nowrap; }
-.ch-num { font-family: var(--mono); font-size: 12px; color: var(--cyan); border: 1px solid rgba(70,211,245,.4); border-radius: 7px; padding: 1px 7px; }
-.ch-head h2 { font-size: 21px; font-weight: 600; }
-.ch-head .src { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.lead { color: var(--ink-2); font-size: 14px; max-width: 78ch; margin: 0 0 14px; }
+/* --------------------------------------------------------------- the printout (green-bar paper, tractor feed) */
+.printout { position: relative; background: repeating-linear-gradient(180deg, var(--bar) 0 66px, var(--paper) 66px 132px); background-attachment: local; min-width: 0; padding: 0 calc(var(--feed) + 34px) 0 calc(var(--feed) + 40px); }
+.printout::before, .printout::after { content: ""; position: absolute; top: 0; bottom: 0; width: var(--feed); background: radial-gradient(circle at 50% 50%, var(--crt) 5px, transparent 5.6px) 0 0 / var(--feed) 22px repeat-y, var(--paper); }
+.printout::before { left: 0; border-right: 1px dashed var(--rule); } .printout::after { right: 0; border-left: 1px dashed var(--rule); }
+/* running head + chapter tabs */
+.runhead { position: sticky; top: 0; z-index: 10; margin: 0 calc(-1 * 34px) 0 calc(-1 * 40px); padding: 0 34px 0 40px; background: var(--paper); border-bottom: 1.5px solid var(--ink); display: flex; align-items: stretch; gap: 0; }
+.runhead .rfc { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; color: var(--muted); padding: 14px 16px 12px 0; white-space: nowrap; align-self: center; }
+nav.chapters { display: flex; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+nav.chapters a { color: var(--muted); text-decoration: none; font: 500 12px/1 var(--text); padding: 14px 11px 12px; white-space: nowrap; border-left: 1px solid var(--rule-2); transition: background .15s, color .15s; }
+nav.chapters a span { font: 500 10.5px/1 var(--mono); margin-right: 5px; color: var(--rule); }
+nav.chapters a:hover { color: var(--ink); background: rgba(29,27,22,.04); }
+nav.chapters a.on { color: var(--paper); background: var(--ink); } nav.chapters a.on span { color: var(--phos); }
+/* chapters */
+section.ch { padding: 56px 0 64px; border-bottom: 1.5px dashed var(--rule); scroll-margin-top: 44px; position: relative; }
+section.ch:last-of-type { border-bottom: 0; }
+.ch-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 22px; align-items: end; margin-bottom: 22px; }
+.ch-num { font: 300 var(--t-2xl)/.78 var(--display); font-stretch: 75%; letter-spacing: -.04em; color: var(--ink); grid-column: 1; grid-row: 1 / span 2; }
+.ch-num::before { content: "§"; font-size: .38em; vertical-align: top; margin-right: 4px; color: var(--c2s); font-weight: 500; }
+.ch-head h2 { font: 700 var(--t-xl)/1 var(--display); font-stretch: 85%; letter-spacing: -.02em; }
+.ch-head .src { font: 400 10.5px/1.4 var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; grid-column: 2; grid-row: 1; align-self: end; margin-bottom: 6px; }
+.ch-head h2 { grid-column: 2; grid-row: 2; }
+.lead { color: var(--ink-2); max-width: 74ch; margin: 0 0 22px; }
 .lead b { color: var(--ink); font-weight: 600; }
-.grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-@media (min-width: 1800px) { .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-@media (max-width: 1150px) and (min-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-.sub { font-size: 13px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: .07em; margin: 0 0 8px; font-family: var(--mono); }
-.tabs { display: inline-flex; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 10px; padding: 3px; gap: 3px; margin-bottom: 10px; }
-.tabs button { border: 0; background: transparent; color: var(--ink-2); padding: 5px 12px; border-radius: 7px; cursor: pointer; font-size: 12.5px; font-weight: 600; }
-.tabs button.on { background: rgba(70,211,245,.16); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(70,211,245,.4); }
+.sub { font: 500 10.5px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.sub::after { content: ""; flex: 1; border-top: 1px solid var(--rule); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 32px; align-items: start; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); padding: 8px 13px 7px; font: 600 12.5px/1 var(--text); cursor: pointer; transition: background .15s, color .15s, transform .1s; white-space: nowrap; }
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; background: var(--paper); color: var(--ink); }
+.btn.hot { background: var(--c2s); border-color: var(--c2s); color: #fff; } .btn.hot:hover { background: #8f2817; }
+.tabs { display: inline-flex; border: 1.5px solid var(--ink); margin-bottom: 14px; }
+.tabs button { border: 0; background: transparent; padding: 7px 12px 6px; cursor: pointer; font: 500 12px/1 var(--text); color: var(--ink-2); }
+.tabs button + button { border-left: 1.5px solid var(--ink); }
+.tabs button.on { background: var(--ink); color: var(--paper); }
+.chk { font: 400 11px/1 var(--mono); color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.note { font-size: 13px; color: var(--ink-2); border-left: 3px solid var(--c2s); padding: 2px 0 2px 12px; margin-top: 16px; max-width: 80ch; }
+.note b { color: var(--ink); }
 .diagram { width: 100%; height: auto; display: block; }
-.diagram text { font-family: var(--display); }
+.diagram text { font-family: var(--text); }
 .diagram .m { font-family: var(--mono); }
-.counter { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
-.counter div { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
-.counter b { font-size: 20px; color: var(--ink); display: block; font-weight: 700; }
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* §1 counters as large numerals */
+.counter { display: grid; gap: 18px; padding-top: 8px; }
+.counter div { font: 400 11px/1.3 var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; border-top: 1.5px solid var(--ink); padding-top: 8px; }
+.counter b { display: block; font: 300 56px/.95 var(--display); font-stretch: 75%; color: var(--ink); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.counter div:first-child b { color: var(--c2s); } .counter div:nth-child(2) b { color: var(--s2c); }
 
 /* byte blocks (slide style) */
-.blk { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1.5px solid #0b0f19; font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--b-ink); background: var(--b-opt); margin-left: -1.5px; }
-.blk.iac { background: var(--b-iac); } .blk.verb { background: var(--b-verb); } .blk.sb { background: var(--b-sb); } .blk.d { background: #fff; font-weight: 500; }
-.blk:first-child { border-radius: 4px 0 0 4px; } .blk:last-child { border-radius: 0 4px 4px 0; }
+.blk { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1.5px solid var(--b-ink); font: 600 11.5px var(--mono); color: var(--b-ink); background: var(--b-opt); margin-left: -1.5px; }
+.blk.iac { background: var(--b-iac); } .blk.verb { background: var(--b-verb); } .blk.sb { background: var(--b-sb); } .blk.d { background: #fff; font-weight: 400; }
 
-/* NVT ribbon */
-.ribbon { display: flex; gap: 5px; overflow-x: auto; padding: 6px 2px 10px; min-height: 104px; }
-.byte { display: grid; gap: 3px; justify-items: center; flex: 0 0 auto; animation: drop .35s ease-out; }
-@keyframes drop { from { transform: translateY(-10px); opacity: 0; } }
-.bits { display: grid; grid-template-columns: repeat(8, 9px); gap: 1px; padding: 3px; border-radius: 5px; border-top: 3px solid var(--c2s); background: rgba(255,255,255,.03); }
-.byte.s2c .bits { border-top-color: var(--s2c); }
-.bit { width: 9px; height: 15px; border-radius: 2px; background: rgba(255,255,255,.08); }
-.bit.one { background: var(--ink-2); }
-.bit.msb { box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
-.byte.ctl .bit.msb { background: var(--magenta); } .byte:not(.ctl) .bit.msb { background: #f2c7da; opacity: .55; }
-.byte .lbl { font-family: var(--mono); font-size: 11px; color: var(--ink); max-width: 76px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.byte.ctl .lbl { color: var(--magenta); font-weight: 700; }
-.byte .hx { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
-.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+/* §2 punched paper tape */
+.tape { position: relative; background: var(--tape); border-top: 2px solid var(--tape-edge); border-bottom: 2px solid var(--tape-edge); padding: 10px 14px 8px; overflow-x: auto; box-shadow: 0 6px 14px -10px rgba(29,27,22,.5); }
+.ribbon { display: flex; gap: 2px; min-height: 120px; align-items: flex-start; }
+.byte { display: grid; gap: 4px; justify-items: center; flex: 0 0 auto; width: 30px; animation: punch .35s ease-out; }
+@keyframes punch { from { opacity: 0; transform: translateX(10px); } }
+.bits { display: grid; grid-template-rows: repeat(8, 9px); gap: 1px; padding: 3px 0; position: relative; }
+.bits::after { content: ""; position: absolute; left: 50%; top: 32px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgba(42,37,25,.35); }
+.bit { width: 9px; height: 9px; border-radius: 50%; background: rgba(42,37,25,.08); }
+.bit.one { background: var(--hole); box-shadow: inset 0 1px 1px rgba(0,0,0,.5); }
+.byte.ctl .bit.msb.one { background: var(--c2s); }
+.byte .lbl { font: 600 10.5px/1 var(--mono); color: var(--ink); max-width: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 2px solid var(--c2s); padding-top: 3px; width: 100%; text-align: center; }
+.byte.s2c .lbl { border-top-color: var(--s2c); }
+.byte.ctl .lbl { color: var(--c2s); }
+.byte .hx { font: 400 9px/1 var(--mono); color: #7a6e4c; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 400 11.5px/1.4 var(--mono); color: var(--ink-2); margin-bottom: 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend i.bar { border-radius: 0; height: 3px; width: 16px; vertical-align: 2px; }
+.tape-empty { font: italic 400 14px/1.5 var(--text); color: #7a6e4c; padding: 38px 4px; }
 
 /* tables */
 table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
-table.t th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 7px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
-table.t td { padding: 6px 8px; border-bottom: 1px solid var(--rule-2); vertical-align: middle; }
+table.t th { text-align: left; font: 500 10px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 8px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.t td { padding: 7px 8px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
 table.t td.m { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
 table.t tr { transition: background .6s; }
-table.t tr.flash td { background: rgba(255, 216, 74, .16); transition: none; }
+table.t tr.flash td { background: rgba(255, 216, 74, .5); transition: none; }
 .minibits { display: inline-grid; grid-template-columns: repeat(8, 7px); gap: 1px; vertical-align: middle; }
-.minibits i { width: 7px; height: 12px; border-radius: 1.5px; background: rgba(255,255,255,.1); }
-.minibits i.one { background: var(--ink-2); } .minibits i.one.msb { background: var(--magenta); }
-.cnt { font-family: var(--mono); font-size: 12px; min-width: 30px; display: inline-block; text-align: right; color: var(--ink-2); }
-.cnt.nz { color: var(--b-iac); font-weight: 700; }
-.mini { font-family: var(--mono); font-size: 11px; border: 1px solid var(--rule); background: transparent; color: var(--ink-2); border-radius: 6px; padding: 2px 7px; cursor: pointer; }
-.mini:hover { border-color: var(--cyan); color: var(--ink); }
-.st { font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
-.st.YES { color: #062614; background: var(--good); } .st.NO { color: var(--muted); background: rgba(255,255,255,.06); }
-.st.WANTYES, .st.WANTNO { color: #2a1a00; background: var(--warn); }
+.minibits i { width: 7px; height: 7px; border-radius: 50%; background: rgba(29,27,22,.12); }
+.minibits i.one { background: var(--ink); } .minibits i.one.msb { background: var(--c2s); }
+.cnt { font: 500 12px var(--mono); min-width: 30px; display: inline-block; text-align: right; color: var(--muted); }
+.cnt.nz { color: var(--c2s); font-weight: 600; }
+.mini { font: 500 11px/1 var(--mono); border: 1px solid var(--ink); background: transparent; color: var(--ink); padding: 4px 7px 3px; cursor: pointer; }
+.mini:hover { background: var(--ink); color: var(--paper); }
+.st { font: 600 10px/1 var(--mono); padding: 3px 7px 2px; white-space: nowrap; border: 1px solid currentColor; }
+.st.YES { color: #fff; background: var(--good); border-color: var(--good); } .st.NO { color: var(--muted); }
+.st.WANTYES, .st.WANTNO { color: #fff; background: var(--warn); border-color: var(--warn); }
+.st.TLS { color: var(--s2c); }
 
-/* embedding strip */
-.strip { display: flex; flex-wrap: wrap; align-items: stretch; margin: 6px 0 10px; }
-.cell { min-width: 40px; height: 44px; display: grid; place-items: center; border: 2px solid #0b0f19; background: #fff; color: #10141f; font-family: var(--mono); font-size: 18px; font-weight: 600; margin-left: -2px; transition: .25s; position: relative; }
-.cell.ctl { background: var(--b-sb); font-size: 14px; font-weight: 700; padding: 0 8px; }
-.cell.go { transform: translateY(-6px); box-shadow: 0 6px 16px rgba(70, 211, 245, .5); }
-.cell.erased { background: #3a2230; color: #ff9fbf; text-decoration: line-through; opacity: .7; }
-.cell.erased::after { content: "erased by EC"; position: absolute; top: 100%; font-size: 9.5px; color: var(--magenta); white-space: nowrap; margin-top: 3px; font-weight: 500; text-decoration: none; }
-.result { font-family: var(--mono); font-size: 13px; padding: 8px 12px; border-radius: 10px; background: rgba(51, 209, 122, .1); border: 1px solid rgba(51, 209, 122, .35); display: none; }
+/* §3 embedding strip */
+.strip { display: flex; flex-wrap: wrap; align-items: stretch; margin: 6px 0 22px; }
+.cell { min-width: 40px; height: 46px; display: grid; place-items: center; border: 2px solid var(--b-ink); background: #fff; color: var(--b-ink); font: 600 18px var(--mono); margin-left: -2px; transition: transform .25s, box-shadow .25s; position: relative; }
+.cell.ctl { background: var(--b-sb); font-size: 13px; padding: 0 8px; }
+.cell.ctl:nth-child(10) { background: var(--b-iac); }
+.cell.go { transform: translateY(-8px); box-shadow: 0 8px 0 -4px var(--c2s); }
+.cell.erased { background: #f1ddd8; color: var(--c2s); text-decoration: line-through; }
+.cell.erased::after { content: "erased by EC"; position: absolute; top: 100%; font: 500 9.5px var(--mono); color: var(--c2s); white-space: nowrap; margin-top: 4px; text-decoration: none; }
+.result { font: 400 13px/1.5 var(--mono); padding: 10px 12px; background: #e3efe2; border-left: 3px solid var(--good); display: none; }
 
-/* meanings */
-.mean { display: grid; grid-template-columns: 92px 1fr; gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
-.mean > div { padding: 8px 10px; border-bottom: 1px solid var(--rule-2); }
-.mean .verbcell { background: rgba(134, 207, 238, .1); display: grid; align-content: center; }
-.mean .verbcell b { font-family: var(--mono); font-size: 14px; color: var(--b-verb); }
-.mean .verbcell small { font-family: var(--mono); color: var(--muted); font-size: 10.5px; }
-.mitem { display: flex; justify-content: space-between; gap: 8px; padding: 3px 6px; border-radius: 6px; font-size: 13px; transition: background .8s; }
-.mitem .ex { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-.mitem.flash { background: rgba(255, 79, 163, .22); transition: none; }
-.mitem .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.mitem .n.nz { color: var(--magenta); font-weight: 700; }
-
-/* slide-style sequence */
-.seqbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
-.seq { position: relative; max-height: 560px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--rule); border-radius: 12px; background: rgba(5, 9, 18, .55); padding: 6px 0; }
-.seq-hd { display: grid; grid-template-columns: 74px 1fr 74px; align-items: end; padding: 4px 10px 8px; position: sticky; top: -6px; background: rgba(9, 14, 26, .97); z-index: 2; border-bottom: 1px solid var(--rule-2); }
-.seq-hd div { text-align: center; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+/* §5 meanings + sequence */
+.mean { display: grid; grid-template-columns: 96px 1fr; border-top: 1.5px solid var(--ink); }
+.mean > div { padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+.mean .verbcell { display: grid; align-content: center; gap: 2px; border-right: 1px solid var(--rule); }
+.mean .verbcell b { font: 700 22px/1 var(--display); font-stretch: 75%; color: var(--ink); }
+.mean .verbcell small { font: 400 10px var(--mono); color: var(--muted); }
+.mitem { display: flex; justify-content: space-between; gap: 8px; padding: 4px 6px; font-size: 13px; transition: background .8s; }
+.mitem .ex { font: 400 10.5px var(--mono); color: var(--muted); }
+.mitem.flash { background: rgba(176, 24, 90, .16); transition: none; }
+.mitem .n { font: 500 13px var(--mono); color: var(--rule); }
+.mitem .n.nz { color: var(--arrow); }
+.seqbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.seq { position: relative; max-height: 580px; overflow-y: auto; overflow-x: hidden; border: 1.5px solid var(--ink); background: rgba(255,255,255,.55); padding: 0 0 6px; }
+.seq-hd { display: grid; grid-template-columns: 74px 1fr 74px; align-items: end; padding: 8px 10px; position: sticky; top: 0; background: var(--paper); z-index: 2; border-bottom: 1px solid var(--rule); }
+.seq-hd div { text-align: center; font: 500 10.5px var(--mono); color: var(--ink-2); letter-spacing: .06em; }
 .seq-hd svg { display: block; margin: 0 auto 3px; }
 .msg { display: grid; grid-template-columns: 74px 1fr 74px; align-items: center; padding: 3px 10px; position: relative; }
 .msg.new { animation: fadein .45s ease-out; }
 @keyframes fadein { from { opacity: 0; transform: translateX(var(--fx, 0)); } }
-.msg::before, .msg::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: #2a3a5c; }
+.msg::before, .msg::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .7; }
 .msg::before { left: 47px; } .msg::after { right: 47px; }
-.msg .mid { display: grid; gap: 3px; justify-items: center; padding: 5px 0 6px; }
-.msg .say { font-size: 12.5px; color: var(--ink); text-align: center; }
-.msg .say em { font-style: normal; color: var(--ink-2); }
+.msg .mid { display: grid; gap: 3px; justify-items: center; padding: 6px 0; min-width: 0; }
+.msg .say { font: italic 400 13px/1.3 var(--text); color: var(--ink); text-align: center; }
 .msg .arrow { position: relative; width: 100%; height: 26px; display: flex; align-items: center; }
-.msg .arrow .line { position: absolute; left: -26px; right: -26px; top: 50%; height: 2px; background: var(--magenta); }
+.msg .arrow .line { position: absolute; left: -26px; right: -26px; top: 50%; height: 2px; background: var(--arrow); }
 .msg.s2c .arrow .line::before, .msg.c2s .arrow .line::after { content: ""; position: absolute; top: -5px; border: 6px solid transparent; }
-.msg.c2s .arrow .line::after { right: -2px; border-left: 9px solid var(--magenta); border-right: 0; }
-.msg.s2c .arrow .line::before { left: -2px; border-right: 9px solid var(--magenta); border-left: 0; }
+.msg.c2s .arrow .line::after { right: -2px; border-left: 9px solid var(--arrow); border-right: 0; }
+.msg.s2c .arrow .line::before { left: -2px; border-right: 9px solid var(--arrow); border-left: 0; }
 .msg .blocks { position: relative; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; row-gap: 3px; max-width: 100%; z-index: 1; }
-.msg .mid { min-width: 0; }
 .msg.c2s .blocks { flex-direction: row-reverse; }
-.msg .meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-align: center; }
-.msg .meta .mn { color: var(--magenta); } .msg .meta .sc { color: var(--good); }
+.msg .meta { font: 400 10.5px var(--mono); color: var(--muted); text-align: center; }
+.msg .meta .mn { color: var(--arrow); } .msg .meta .sc { color: var(--good); }
 .msg.cmd .arrow .line { background: var(--warn); } .msg.cmd.c2s .arrow .line::after { border-left-color: var(--warn); } .msg.cmd.s2c .arrow .line::before { border-right-color: var(--warn); }
-.msg.dim { opacity: .28; }
-.msg .t { position: absolute; left: 6px; top: 8px; font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+.msg.dim { opacity: .25; }
+.msg .t { position: absolute; left: 4px; top: 8px; font: 400 9.5px var(--mono); color: var(--muted); }
+.loopc { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid var(--ink); }
+.loopc:empty { display: none; }
+.loopc > div { padding: 12px; display: grid; gap: 8px; align-content: start; background: rgba(255,255,255,.5); }
+.loopc > div + div { border-left: 1.5px solid var(--ink); }
+.ll { font: 400 11px/1.5 var(--mono); max-height: 230px; overflow: auto; display: grid; gap: 1px; }
+.ll div { animation: fadein .25s ease-out both; }
+.ll .S { color: var(--s2c); } .ll .C { color: var(--c2s); text-align: right; }
+.verdict { font: 600 11px/1 var(--mono); padding: 5px 8px 4px; width: fit-content; color: #fff; }
+.verdict.bad { background: var(--bad); } .verdict.good { background: var(--good); }
 
-/* sniffer */
-.alert { border-radius: 12px; padding: 10px 14px; font-size: 13.5px; display: none; margin-bottom: 10px; }
-.alert.bad { display: block; background: linear-gradient(135deg, rgba(255,79,163,.2), rgba(255,84,104,.12)); border: 1px solid var(--magenta); animation: pulse2 2s infinite; }
-@keyframes pulse2 { 50% { box-shadow: 0 0 24px rgba(255, 79, 163, .25); } }
-.alert.ok { display: block; background: rgba(51, 209, 122, .1); border: 1px solid rgba(51,209,122,.5); }
-.alert b { font-family: var(--mono); background: rgba(0,0,0,.35); padding: 1px 6px; border-radius: 5px; }
-.frames { height: 420px; overflow: auto; background: rgba(3, 6, 12, .75); border: 1px solid var(--rule); border-radius: 12px; font-family: var(--mono); font-size: 11.5px; }
-.fr { display: grid; grid-template-columns: 70px 54px 44px minmax(0, 1fr); gap: 6px; padding: 3px 9px; border-bottom: 1px solid rgba(255,255,255,.04); align-items: start; }
-.fr .tm, .fr .cn { color: var(--muted); }
-.dir { font-weight: 700; font-size: 10.5px; border-radius: 4px; text-align: center; padding: 0 4px; }
-.dir.c { color: var(--c2s); background: rgba(255, 84, 104, .14); } .dir.s { color: var(--s2c); background: rgba(70, 160, 255, .14); }
+/* §6 the intercept — a dark insert pasted onto the printout */
+.intercept { background: var(--crt); color: var(--phos-hi); padding: 22px 22px 18px; margin: 0 -14px; box-shadow: 0 18px 40px -20px rgba(0,0,0,.6); position: relative; }
+.intercept::before { content: "INTERCEPT · TAP :2324 / :9924"; position: absolute; top: -9px; left: 18px; background: var(--c2s); color: #fff; font: 600 10px/1 var(--mono); letter-spacing: .12em; padding: 4px 8px 3px; }
+.intercept .sub { color: var(--phos-dim); } .intercept .sub::after { border-color: var(--crt-rule); }
+.intercept .chk { color: var(--phos-dim); }
+.intercept .mini { border-color: var(--crt-rule); color: var(--phos-hi); } .intercept .mini:hover { background: var(--phos); color: var(--crt); }
+.alert { padding: 12px 14px; font-size: 14px; display: none; margin-bottom: 14px; }
+.alert.bad { display: block; background: var(--c2s); color: #fff; animation: pulse2 2s infinite; }
+@keyframes pulse2 { 50% { box-shadow: 0 0 0 4px rgba(181,54,31,.25); } }
+.alert.ok { display: block; background: #e3efe2; color: var(--good); border-left: 3px solid var(--good); }
+.alert b { font-family: var(--mono); background: rgba(0,0,0,.25); padding: 1px 6px; }
+.frames { height: 420px; overflow: auto; background: #0b0a07; border: 1px solid var(--crt-rule); font: 400 11.5px/1.45 var(--mono); }
+.fr { display: grid; grid-template-columns: 70px 56px 40px minmax(0, 1fr); gap: 6px; padding: 3px 9px; border-bottom: 1px solid #1a1812; align-items: start; }
+.fr .tm, .fr .cn { color: #6f5a35; }
+.dir { font-weight: 600; font-size: 10.5px; text-align: center; padding: 0 3px; }
+.dir.c { color: #ff8a75; background: rgba(255, 138, 117, .12); } .dir.s { color: #8ab8ff; background: rgba(138, 184, 255, .12); }
 .tks { display: flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
-.tk { border-radius: 4px; padding: 0 5px; white-space: pre-wrap; word-break: break-all; }
-.tk.data { background: rgba(255,255,255,.06); } .tk.iac { background: rgba(255, 216, 74, .14); color: var(--b-iac); }
-.tk.sb { background: rgba(246, 169, 208, .14); color: var(--b-sb); } .tk.tls { background: rgba(51, 209, 122, .14); color: var(--good); }
-.tk.secret { background: var(--magenta); color: #fff; font-weight: 700; }
-.tk .hx { display: block; color: var(--muted); font-size: 10px; }
-.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cmp > div { border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; background: var(--panel-2); }
-.cmp h4 { margin: 0 0 6px; font-size: 13px; }
-.cmp .smp { font-family: var(--mono); font-size: 11px; color: var(--ink-2); word-break: break-all; }
+.tk { padding: 0 5px; white-space: pre-wrap; word-break: break-all; color: var(--phos-hi); }
+.tk.data { background: rgba(255,215,154,.06); } .tk.iac { background: rgba(255, 216, 74, .15); color: var(--b-iac); }
+.tk.sb { background: rgba(246, 169, 208, .14); color: var(--b-sb); } .tk.tls { background: rgba(125, 255, 138, .12); color: #7dff8a; }
+.tk.secret { background: #ff5f45; color: #fff; font-weight: 600; }
+.tk .hx { display: block; color: #6f5a35; font-size: 10px; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--crt-rule); }
+.cmp > div { padding: 10px 12px; } .cmp > div + div { border-left: 1px solid var(--crt-rule); }
+.cmp h4 { margin: 0 0 6px; font: 700 15px/1 var(--display); font-stretch: 85%; }
+.cmp .smp { font: 400 11px/1.5 var(--mono); color: var(--phos-dim); word-break: break-all; }
+.guard { border: 1px solid var(--crt-rule); padding: 12px 14px; display: grid; gap: 12px; }
+.guard .seqbar b { font: 700 15px/1 var(--display); font-stretch: 85%; color: var(--phos); }
+.guard .note { color: var(--phos-dim); border-left-color: var(--phos); margin-top: 0; } .guard .note b { color: var(--phos-hi); }
+.guard .btn { background: transparent; color: var(--phos-hi); border-color: var(--crt-rule); } .guard .btn:hover { background: var(--phos); color: var(--crt); }
+.guard .btn.hot { background: #ff5f45; border-color: #ff5f45; color: #fff; }
 .ring { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
-.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.tile { background: var(--panel-2); border: 1px solid var(--rule-2); border-radius: 10px; padding: 7px 10px; }
-.tile .k { font-size: 11px; color: var(--muted); font-family: var(--mono); } .tile .v { font-size: 20px; font-weight: 700; font-family: var(--mono); }
-.log { background: rgba(3, 6, 12, .8); border: 1px solid var(--rule); border-radius: 10px; font-family: var(--mono); font-size: 11px; color: #9cc0ff; padding: 8px 10px; height: 170px; overflow: auto; white-space: pre-wrap; }
-.log .sec { color: #ffb3c2; } .log .tap { color: #ffd98a; } .log .bot { color: #ff8fd0; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--crt-rule); }
+.tile { padding: 8px 10px; } .tile + .tile { border-left: 1px solid var(--crt-rule); }
+.tile .k { font: 400 10px var(--mono); color: var(--phos-dim); letter-spacing: .1em; text-transform: uppercase; } .tile .v { font: 300 30px/1 var(--display); font-stretch: 75%; color: var(--phos-hi); }
+.log { background: #0b0a07; border: 1px solid var(--crt-rule); font: 400 11px/1.55 var(--mono); color: var(--phos-dim); padding: 8px 10px; height: 170px; overflow: auto; white-space: pre-wrap; }
+.log .sec { color: #ff8a75; } .log .tap { color: var(--phos-hi); } .log .bot { color: #f6a9d0; }
+
+/* §7 */
+.printout select { border: 1.5px solid var(--ink); background: var(--paper); padding: 6px 8px; font: 400 12px var(--mono); border-radius: 0; }
 table.vty td { white-space: nowrap; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
 .free { color: var(--muted); font-style: italic; }
-.loopc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.loopc > div { border: 1px solid var(--rule); border-radius: 12px; padding: 10px; background: var(--panel-2); display: grid; gap: 6px; align-content: start; }
-.ll { font-family: var(--mono); font-size: 11px; max-height: 230px; overflow: auto; display: grid; gap: 2px; }
-.ll div { animation: fadein .25s ease-out both; }
-.ll .S { color: var(--s2c); } .ll .C { color: var(--c2s); text-align: right; }
-.verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 7px; width: fit-content; }
-.verdict.bad { background: rgba(255, 84, 104, .16); color: var(--bad); } .verdict.good { background: rgba(51, 209, 122, .15); color: var(--good); }
-.spark { width: 100%; height: 60px; }
-input[type=range] { accent-color: var(--cyan); width: 100%; }
-.note { font-size: 12.5px; color: var(--ink-2); border-left: 2px solid var(--cyan); padding: 2px 0 2px 10px; margin-top: 10px; }
-.note b { color: var(--ink); }
+.spark { width: 100%; height: 70px; border-bottom: 1.5px solid var(--ink); }
+.replay .term-wrap { border-radius: 10px; padding: 12px 14px; }
+input[type=range] { accent-color: var(--c2s); width: 100%; }
+.lab-log { height: 210px; }
+
+/* --------------------------------------------------------------- responsive */
+@media (max-width: 1800px) { .grid2.wide { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1750px) { .runhead .rfc { display: none; } nav.chapters { justify-content: flex-start; } nav.chapters a:first-child { border-left: 0; } }
+@media (max-width: 1150px) {
+  .room { grid-template-columns: minmax(0, 1fr); }
+  .dock { position: relative; height: auto; }
+  .tstat { margin-top: 0; }
+  .grid2, .split { grid-template-columns: minmax(0, 1fr); }
+  .counter { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 720px) {
+  :root { --feed: 14px; }
+  .printout { padding: 0 calc(var(--feed) + 14px); }
+  .printout::before, .printout::after { background-size: var(--feed) 18px; }
+  .runhead { margin: 0 -14px; padding: 0 14px; }
+  .runhead .rfc { display: none; }
+  .dock { padding: 16px; }
+  .ident h1 { font-size: 44px; }
+  .ch-head { grid-template-columns: minmax(0, 1fr); }
+  .ch-num, .ch-head .src, .ch-head h2 { grid-column: 1; grid-row: auto; }
+  .ch-num { font-size: 64px; }
+  .ch-head h2 { font-size: 26px; }
+  .modes button small { display: none; }
+  .cmp, .loopc { grid-template-columns: minmax(0, 1fr); }
+  .loopc > div + div, .cmp > div + div { border-left: 0; border-top: 1px solid var(--crt-rule); }
+  .ring { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  .intercept { margin: 0; padding: 22px 12px 14px; }
+  .counter b { font-size: 40px; }
+  .table-scroll { overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="brand"><div class="logo">&gt;_</div><div><b>Telnet Lab</b><small id="hostTag">JU-MAIN-R · LINE VTY 0 4</small></div></div>
-  <nav class="chapters" id="nav">
-    <a href="#c1"><span>01</span>Remote log-in</a><a href="#c2"><span>02</span>NVT</a><a href="#c3"><span>03</span>Control chars</a>
-    <a href="#c4"><span>04</span>Options</a><a href="#c5"><span>05</span>Negotiation</a><a href="#c6"><span>06</span>Security</a><a href="#c7"><span>07</span>Lab</a>
-  </nav>
-  <div class="stat" id="stat"></div>
-</header>
-
-<main class="layout">
-  <!-- ================================================================ TERMINAL DOCK -->
-  <aside class="dock">
-    <div class="panel" style="display:grid;gap:11px">
-      <div class="dock-head"><h2><span class="led" id="led"></span>VTY terminal</h2><span class="mono" style="font-size:11px;color:var(--muted)" id="sessTag">not connected</span></div>
-      <div class="seg" id="modes">
-        <button data-mode="tap"><span>Wire-tapped</span><small>:2324 → :2323</small></button>
-        <button data-mode="direct"><span>Direct</span><small>:2323</small></button>
-        <button data-mode="tls"><span>🔒 TLS</span><small>:9924 → :9923</small></button>
-      </div>
-      <div class="term-wrap" id="termWrap">
-        <div class="term" id="term" tabindex="0" aria-label="Telnet terminal"></div>
-        <div class="term-off" id="termOff"><div>
-          <h3>Open a Telnet session</h3>
-          <p>Pick a connection above. Every key you type is sent the moment you press it.</p>
-          <p class="mono" style="font-size:12px;margin-top:10px">admin / cisco · student / ju2026 · enable: class</p>
-          <div class="row" style="justify-content:center;margin-top:12px"><button class="btn prime" data-go="tap">Connect via wire tap</button><button class="btn" data-go="tls">Connect over TLS</button></div>
-        </div></div>
-      </div>
-      <div class="row">
-        <button class="btn k" data-key="\t">Tab</button><button class="btn k" data-key="?">?</button><button class="btn k" data-key="\x1b[A">↑</button>
-        <button class="btn k" data-key="\x03">^C</button><button class="btn k" data-key="\x1a">^Z</button><button class="btn k" data-key="q">q</button>
-        <button class="btn k iac" data-cmd="AYT">IAC AYT</button><button class="btn k iac" data-cmd="IP">IAC IP</button><button class="btn k iac" data-cmd="EL">IAC EL</button>
-        <select id="size" title="Window size, reported with NAWS"><option value="80x24">80×24</option><option value="96x26" selected>96×26</option><option value="120x32">120×32</option><option value="64x20">64×20</option></select>
-        <button class="btn k" id="disc" disabled>⏏</button>
-      </div>
-      <div class="quick" id="quick"></div>
-      <div class="tstat"><span id="tstat">offline</span><span id="tbytes"></span></div>
+<div class="room">
+  <!-- ================================================================ THE MACHINE -->
+  <aside class="dock" aria-label="Live Telnet terminal">
+    <div class="ident">
+      <h1>TELNET</h1>
+      <div class="meta">RFC 854 · NVT<br><b id="hostTag">JU-MAIN-R · LINE VTY 0 4</b></div>
+      <div class="stat" id="stat"></div>
     </div>
+    <div class="modes" id="modes">
+      <button data-mode="tap"><span>Wire-tapped</span><small>:2324 → :2323</small></button>
+      <button data-mode="direct"><span>Direct</span><small>:2323</small></button>
+      <button data-mode="tls"><span>Over TLS</span><small>:9924 → :9923</small></button>
+    </div>
+    <div class="dock-h"><span><span class="led" id="led"></span>VTY terminal</span><span id="sessTag">not connected</span></div>
+    <div class="term-wrap" id="termWrap">
+      <div class="term" id="term" tabindex="0" aria-label="Telnet terminal"></div>
+      <div class="term-off" id="termOff"><div>
+        <h3>Open a Telnet session.</h3>
+        <p>Every key you type is sent the moment you press it,<br>one byte at a time, character mode.</p>
+        <div class="cred">admin / cisco · student / ju2026 · enable: class</div>
+        <div class="go"><button class="btn-p" data-go="tap">Connect through the wire tap</button><button class="btn-p alt" data-go="tls">Connect over TLS</button></div>
+      </div></div>
+    </div>
+    <div class="keys">
+      <button class="key" data-key="\t">TAB</button><button class="key" data-key="?">?</button><button class="key" data-key="\x1b[A">↑</button>
+      <button class="key" data-key="\x03">^C</button><button class="key" data-key="\x1a">^Z</button><button class="key" data-key="q">q</button>
+      <button class="key iac" data-cmd="AYT">IAC AYT</button><button class="key iac" data-cmd="IP">IAC IP</button><button class="key iac" data-cmd="EL">IAC EL</button>
+      <select id="size" title="Window size, reported with NAWS" aria-label="Window size"><option value="80x24">80×24</option><option value="96x26" selected>96×26</option><option value="120x32">120×32</option><option value="64x20">64×20</option></select>
+      <button class="key" id="disc" disabled title="Disconnect">EJECT</button>
+    </div>
+    <div class="quick" id="quick"></div>
+    <div class="tstat"><span id="tstat">offline</span><span id="tbytes"></span></div>
   </aside>
 
-  <!-- ================================================================ CHAPTERS -->
-  <div class="stack">
+  <!-- ================================================================ THE PRINTOUT -->
+  <main class="printout">
+    <div class="runhead">
+      <span class="rfc">RFC 854 · TELNET PROTOCOL SPECIFICATION</span>
+      <nav class="chapters" id="nav" aria-label="Chapters">
+        <a href="#c1"><span>01</span>Remote log-in</a><a href="#c2"><span>02</span>NVT</a><a href="#c3"><span>03</span>Control chars</a>
+        <a href="#c4"><span>04</span>Options</a><a href="#c5"><span>05</span>Negotiation</a><a href="#c6"><span>06</span>Security</a><a href="#c7"><span>07</span>Lab</a>
+      </nav>
+    </div>
 
     <!-- 01 -->
-    <section class="ch panel" id="c1">
-      <div class="ch-head"><span class="ch-num">01</span><h2>Local and remote log-in</h2><span class="src">slide: Local and remote log-in</span></div>
-      <p class="lead">Logged in <b>locally</b>, keystrokes go from the terminal driver straight to the operating system. Logged in <b>remotely</b>, the TELNET client takes them from the terminal driver and sends them through TCP/IP and the Internet. On the server they enter a <b>pseudoterminal driver</b>, so the programs there believe a real terminal is attached. Type in the terminal: <b>every key travels this path and the echo comes back</b>.</p>
-      <div class="tabs" id="loginTabs"><button data-v="remote" class="on">b. Remote log-in (live)</button><button data-v="local">a. Local log-in</button></div>
-      <svg class="diagram" id="loginSvg" viewBox="0 0 780 360"></svg>
-      <div class="counter"><div><b id="kCount">0</b>keystrokes sent</div><div><b id="eCount">0</b>echo / output chunks back</div><div><b id="segCount">0</b>TCP segments seen by the tap</div></div>
+    <section class="ch" id="c1">
+      <div class="ch-head"><span class="ch-num">01</span><span class="src">slide · Local and remote log-in</span><h2>Local and remote log-in</h2></div>
+      <p class="lead">Logged in <b>locally</b>, keystrokes go from the terminal driver straight to the operating system. Logged in <b>remotely</b>, the TELNET client takes them from the terminal driver and sends them through TCP/IP and the Internet. On the server they enter a <b>pseudoterminal driver</b>, so the programs there believe a real terminal is attached. Type in the terminal on the left: <b>each key travels this path and the echo comes back</b>.</p>
+      <div class="tabs" id="loginTabs"><button data-v="remote" class="on">b. Remote log-in · live</button><button data-v="local">a. Local log-in</button></div>
+      <div class="split">
+        <svg class="diagram" id="loginSvg" viewBox="0 0 780 360"></svg>
+        <div class="counter"><div><b id="kCount">0</b>keystrokes sent</div><div><b id="eCount">0</b>echo / output chunks back</div><div><b id="segCount">0</b>TCP segments seen by the tap</div></div>
+      </div>
     </section>
 
     <!-- 02 -->
-    <section class="ch panel" id="c2">
-      <div class="ch-head"><span class="ch-num">02</span><h2>Network Virtual Terminal (NVT)</h2><span class="src">slide: Concept of NVT</span></div>
+    <section class="ch" id="c2">
+      <div class="ch-head"><span class="ch-num">02</span><span class="src">slide · Concept of NVT</span><h2>Network Virtual Terminal</h2></div>
       <p class="lead">Client and server may use different character sets, so both translate to one common <b>NVT character set</b> on the wire. A byte whose highest bit is <b>0</b> is a <b>data character</b> (7-bit ASCII). A byte whose highest bit is <b>1</b> is a <b>control character</b>, and it only counts as a command after <code>IAC</code> (255).</p>
       <svg class="diagram" id="nvtSvg" viewBox="0 0 780 200"></svg>
-      <div class="sub" style="margin-top:6px">Live: the last bytes on the wire, bit by bit</div>
-      <div class="legend"><span><i style="background:#f2c7da"></i>MSB 0: data character</span><span><i style="background:var(--magenta)"></i>MSB 1: control character</span><span><i style="background:var(--c2s)"></i>client → server</span><span><i style="background:var(--s2c)"></i>server → client</span></div>
-      <div class="ribbon" id="ribbon"><span style="color:var(--muted);font-size:13px;padding:30px 4px">Connect through the wire tap and type: each byte appears here as 8 bits.</span></div>
+      <div class="sub" style="margin-top:22px">Live · the last bytes on the wire, punched as paper tape</div>
+      <div class="legend"><span><i style="background:var(--hole)"></i>hole = bit 1, top row = most significant bit</span><span><i style="background:var(--c2s)"></i>MSB punched: control character</span><span><i class="bar" style="background:var(--c2s)"></i>client → server</span><span><i class="bar" style="background:var(--s2c)"></i>server → client</span></div>
+      <div class="tape"><div class="ribbon" id="ribbon"><span class="tape-empty">Connect through the wire tap and type. Each byte is punched here as a column of 8 bits.</span></div></div>
       <div class="note">Line endings in the NVT: <code>CR LF</code> = newline, <code>CR NUL</code> = carriage return only. A data byte 255 is sent twice (<code>FF FF</code>) so it is not mistaken for IAC.</div>
     </section>
 
     <!-- 03 -->
-    <section class="ch panel" id="c3">
-      <div class="ch-head"><span class="ch-num">03</span><h2>Control characters &amp; embedding</h2><span class="src">slides: NVT control characters, An example of embedding</span></div>
-      <p class="lead">Every control character starts with the high bit set. Rows <b>light up</b> when that byte crosses the wire, and the count is live. Use <b>send</b> to push a command into your session.</p>
-      <div class="grid2">
-        <div><table class="t" id="ctlTable"></table></div>
+    <section class="ch" id="c3">
+      <div class="ch-head"><span class="ch-num">03</span><span class="src">slides · NVT control characters · An example of embedding</span><h2>Control characters &amp; embedding</h2></div>
+      <p class="lead">Every control character starts with the high bit set. A row <b>lights up</b> when that byte crosses the wire, and the count is live. Use <b>send</b> to push a command into your session.</p>
+      <div class="grid2 wide">
+        <div class="table-scroll"><table class="t" id="ctlTable"></table></div>
         <div>
           <div class="sub">An example of embedding</div>
-          <p class="lead" style="font-size:13px">The user types <code>cat filea</code>, notices the mistake, and presses <b>erase character</b>. The client <b>embeds</b> <code>IAC EC</code> in the data stream, then types <code>1</code>, all in <b>one TCP segment</b>. The server applies the erase before running the command.</p>
+          <p class="lead" style="font-size:13.5px">The user types <code>cat filea</code>, notices the mistake, and presses <b>erase character</b>. The client <b>embeds</b> <code>IAC EC</code> in the data stream, then types <code>1</code>, all in <b>one TCP segment</b>. The server applies the erase before running the command.</p>
           <div class="strip" id="strip"></div>
-          <div class="row"><button class="btn hot" id="embedBtn">▶ Send this exact segment</button><span class="mono" style="font-size:11.5px;color:var(--muted)">63 61 74 20 66 69 6C 65 61 <b style="color:var(--b-iac)">FF F7</b> 31 0D 0A</span></div>
-          <div style="height:10px"></div>
+          <div class="row"><button class="btn hot" id="embedBtn">Send this exact segment</button><span class="mono" style="font-size:11.5px;color:var(--muted)">63 61 74 20 66 69 6C 65 61 <b style="color:var(--iac-ink)">FF F7</b> 31 0D 0A</span></div>
+          <div style="height:12px"></div>
           <div class="result" id="embedRes"></div>
-          <div class="note">The server echoes <code>a</code>, then on <code>IAC EC</code> erases it on screen (<code>\b \b</code>) and in its line buffer, then echoes <code>1</code>. It executes <b>cat file1</b>.</div>
+          <div class="note">The server echoes <code>a</code>. On <code>IAC EC</code> it erases it on screen (<code>\b \b</code>) and in its line buffer, then echoes <code>1</code>. It executes <b>cat file1</b>.</div>
         </div>
       </div>
     </section>
 
     <!-- 04 -->
-    <section class="ch panel" id="c4">
-      <div class="ch-head"><span class="ch-num">04</span><h2>Options</h2><span class="src">slide: Options</span></div>
-      <p class="lead">Options change how the NVT behaves. Each has a code, and each side of the connection turns it on or off separately. The columns show the <b>live state</b> negotiated by your session (RFC 1143 states).</p>
-      <table class="t" id="optTable"></table>
-      <div class="row" style="margin-top:10px"><button class="btn" id="statusBtn">Ask the server: IAC SB STATUS SEND</button><span id="statusRes" class="mono" style="font-size:12px;color:var(--ink-2)"></span></div>
+    <section class="ch" id="c4">
+      <div class="ch-head"><span class="ch-num">04</span><span class="src">slide · Options</span><h2>Options</h2></div>
+      <p class="lead">Options change how the NVT behaves. Each has a code, and each side of the connection turns it on or off separately. The Server and Client columns show the <b>live state</b> negotiated by your session (RFC 1143 states).</p>
+      <div class="table-scroll"><table class="t" id="optTable"></table></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="statusBtn">Ask the server: IAC SB STATUS SEND</button><span id="statusRes" class="mono" style="font-size:12px;color:var(--ink-2)"></span></div>
     </section>
 
     <!-- 05 -->
-    <section class="ch panel" id="c5">
-      <div class="ch-head"><span class="ch-num">05</span><h2>Option negotiation</h2><span class="src">slides: character set for negotiation, Echo option, Suboption negotiation</span></div>
-      <p class="lead">The same byte means different things depending on the state of the conversation: <code>WILL</code> may be an <b>offer</b> or an <b>acceptance</b>. The server tracks each option with the RFC 1143 states and labels every message it sends or receives. Counts below are from your session.</p>
-      <div class="grid2">
+    <section class="ch" id="c5">
+      <div class="ch-head"><span class="ch-num">05</span><span class="src">slides · Character set for negotiation · Echo option · Suboption negotiation</span><h2>Option negotiation</h2></div>
+      <p class="lead">The same byte means different things depending on the state of the conversation: <code>WILL</code> may be an <b>offer</b> or an <b>acceptance</b>. The server tracks each option with the RFC 1143 states and labels every message it sends or receives. The counts come from your session.</p>
+      <div class="grid2 wide">
         <div class="mean" id="meanTable"></div>
         <div>
           <div class="seqbar">
-            <div class="tabs" id="seqTabs" style="margin:0"><button data-f="all" class="on">All messages</button><button data-f="echo">Echo option example</button><button data-f="sub">Suboption example</button></div>
-            <label class="mono" style="font-size:11px;color:var(--muted)"><input type="checkbox" id="hideTm" checked> hide RTT probes</label>
+            <div class="tabs" id="seqTabs" style="margin:0"><button data-f="all" class="on">All messages</button><button data-f="echo">Echo option</button><button data-f="sub">Suboption</button></div>
+            <label class="chk"><input type="checkbox" id="hideTm" checked> hide RTT probes</label>
           </div>
           <div class="seq" id="seq"></div>
         </div>
       </div>
-      <div class="sub" style="margin-top:18px">Why RFC 1143 matters: the negotiation loop</div>
-      <p class="lead" style="font-size:13px">Both ends turn ECHO on at the same moment, then the server changes its mind. <b>Naive</b> endpoints acknowledge everything and bounce messages forever. <b>Q-method</b> endpoints finish in 4 messages and agree.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn" id="loopBtn">▶ Run the experiment</button></div>
+      <div class="sub" style="margin-top:34px">Why RFC 1143 matters · the negotiation loop</div>
+      <p class="lead" style="font-size:13.5px">Both ends turn ECHO on at the same moment, then the server changes its mind. <b>Naive</b> endpoints acknowledge everything and bounce messages forever. <b>Q-method</b> endpoints finish in 4 messages and agree.</p>
+      <div class="row" style="margin-bottom:12px"><button class="btn" id="loopBtn">Run the experiment</button></div>
       <div class="loopc" id="loop"></div>
     </section>
 
     <!-- 06 -->
-    <section class="ch panel" id="c6">
-      <div class="ch-head"><span class="ch-num">06</span><h2>Security: what the wire reveals</h2><span class="src">why SSH replaced Telnet</span></div>
-      <div class="alert" id="alert"></div>
-      <div class="grid2">
-        <div>
-          <div class="seqbar"><span class="sub" style="margin:0">Sniffer on the path (wire tap)</span><span style="flex:1"></span>
-            <label class="mono" style="font-size:11px;color:var(--muted)"><input type="checkbox" id="hex"> hex</label>
-            <label class="mono" style="font-size:11px;color:var(--muted)"><input type="checkbox" id="onlyCmd"> commands only</label>
-            <button class="mini" id="wclear">clear</button></div>
-          <div class="frames" id="frames"><div style="padding:12px;color:var(--muted)">Traffic through TCP 2324 (plaintext) and 9924 (TLS) appears here, one row per TCP segment.</div></div>
-        </div>
-        <div style="display:grid;gap:12px;align-content:start">
-          <div class="cmp">
-            <div><h4 style="color:var(--magenta)">Telnet (plaintext)</h4><div class="smp" id="cmpPlain">Log in through the wire tap: the password appears one keystroke per segment.</div></div>
-            <div><h4 style="color:var(--good)">Telnet over TLS</h4><div class="smp" id="cmpTls">Log in over TLS: the tap only sees encrypted records.</div></div>
+    <section class="ch" id="c6">
+      <div class="ch-head"><span class="ch-num">06</span><span class="src">why SSH replaced Telnet</span><h2>Security: what the wire reveals</h2></div>
+      <p class="lead">Telnet sends everything, passwords included, as plain bytes. Our wire tap sits on the path like an attacker would. Log in through it and read what it captures.</p>
+      <div class="intercept">
+        <div class="alert" id="alert"></div>
+        <div class="grid2 wide">
+          <div>
+            <div class="seqbar"><span class="sub" style="margin:0;flex:1">Sniffer on the path</span>
+              <label class="chk"><input type="checkbox" id="hex"> hex</label>
+              <label class="chk"><input type="checkbox" id="onlyCmd"> commands only</label>
+              <button class="mini" id="wclear">clear</button></div>
+            <div class="frames" id="frames"><div style="padding:14px;color:#6f5a35">Traffic through TCP 2324 (plaintext) and 9924 (TLS) appears here, one row per TCP segment.</div></div>
           </div>
-          <div class="panel" style="padding:12px 14px;background:var(--panel-2)">
-            <div class="seqbar"><b>login block-for</b><span class="mono" style="font-size:11px;color:var(--muted)" id="blockCfg"></span><span style="flex:1"></span><button class="btn hot" id="bf">⚡ Dictionary attack</button><button class="btn" id="unb">clear login</button></div>
-            <div class="ring"><svg viewBox="0 0 100 100" width="96" height="96"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--rule)" stroke-width="9"/><circle id="ringArc" cx="50" cy="50" r="40" fill="none" stroke="var(--good)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 50 50)" stroke-dasharray="251.3" stroke-dashoffset="0"/><text id="ringTxt" x="50" y="48" text-anchor="middle" fill="var(--ink)" font-size="17" font-weight="700" font-family="JetBrains Mono, monospace">OPEN</text><text id="ringSub" x="50" y="64" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="JetBrains Mono, monospace">logins</text></svg>
-              <div class="tiles" id="secTiles"></div></div>
-            <div class="note">After 3 failed logins within 60 s the router enters <b>quiet mode</b> and refuses all logins for 30 s. The bot's 7th guess is the right password, but it never gets there. Passwords are stored as <b>PBKDF2-SHA256</b> hashes.</div>
+          <div style="display:grid;gap:14px;align-content:start">
+            <div class="cmp">
+              <div><h4 style="color:#ff8a75">Telnet · plaintext</h4><div class="smp" id="cmpPlain">Log in through the wire tap: the password appears one keystroke per segment.</div></div>
+              <div><h4 style="color:#7dff8a">Telnet over TLS</h4><div class="smp" id="cmpTls">Log in over TLS: the tap sees only encrypted records.</div></div>
+            </div>
+            <div class="guard">
+              <div class="seqbar"><b>login block-for</b><span class="mono" style="font-size:11px;color:var(--phos-dim)" id="blockCfg"></span><span style="flex:1"></span><button class="btn hot" id="bf">Run dictionary attack</button><button class="btn" id="unb">clear login</button></div>
+              <div class="ring"><svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#343024" stroke-width="9"/><circle id="ringArc" cx="50" cy="50" r="40" fill="none" stroke="var(--good)" stroke-width="9" transform="rotate(-90 50 50)" stroke-dasharray="251.3" stroke-dashoffset="0"/><text id="ringTxt" x="50" y="50" text-anchor="middle" fill="#ffd79a" font-size="17" font-weight="600" font-family="IBM Plex Mono, monospace">OPEN</text><text id="ringSub" x="50" y="65" text-anchor="middle" fill="#9c7436" font-size="8.5" font-family="IBM Plex Mono, monospace">logins</text></svg>
+                <div class="tiles" id="secTiles"></div></div>
+              <div class="note">After 3 failed logins within 60 s, the router enters <b>quiet mode</b> and refuses all logins for 30 s. The bot's 7th guess is the right password, but it never gets that far. Passwords are stored as <b>PBKDF2-SHA256</b> hashes.</div>
+            </div>
+            <div class="log" id="secLog"></div>
           </div>
-          <div class="log" id="secLog"></div>
         </div>
       </div>
     </section>
 
     <!-- 07 -->
-    <section class="ch panel" id="c7">
-      <div class="ch-head"><span class="ch-num">07</span><h2>The lab: lines, timing, replay</h2></div>
-      <div class="grid2">
+    <section class="ch" id="c7">
+      <div class="ch-head"><span class="ch-num">07</span><span class="src">line vty 0 4 · RFC 860 · session recording</span><h2>The lab: lines, timing, replay</h2></div>
+      <div class="grid2 wide">
         <div>
           <div class="sub">VTY lines (line vty 0 4)</div>
-          <div style="overflow-x:auto"><table class="t vty" id="lines"></table></div>
-          <div class="note">Open more sessions (another tab, <code>telnet localhost 2323</code>, PuTTY). Try <code>send * hello</code>, <code>monitor line 0</code>, <code>clear line 1</code>, <code>debug telnet</code>, <code>top</code>. The sixth connection is refused.</div>
-          <div class="sub" style="margin-top:16px">RTT via TIMING-MARK (RFC 860)</div>
-          <svg class="spark" id="spark" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
-          <div class="mono" style="font-size:11.5px;color:var(--ink-2)" id="sparkTxt">measured every 5 s · run tmping</div>
+          <div class="table-scroll"><table class="t vty" id="lines"></table></div>
+          <div class="note">Open more sessions (another tab, <code>telnet localhost 2323</code>, PuTTY). Try <code>send * hello</code>, <code>monitor line 0</code>, <code>clear line 1</code>, <code>debug telnet</code> or <code>top</code>. A sixth connection is refused.</div>
+          <div class="sub" style="margin-top:26px">RTT via TIMING-MARK (RFC 860)</div>
+          <svg class="spark" id="spark" viewBox="0 0 300 60" preserveAspectRatio="none" aria-label="Round-trip time"></svg>
+          <div class="mono" style="font-size:11.5px;color:var(--ink-2);margin-top:6px" id="sparkTxt">measured every 5 s · run tmping</div>
         </div>
-        <div>
-          <div class="seqbar"><span class="sub" style="margin:0">Session recording &amp; replay</span><span style="flex:1"></span><select id="recSel"></select><select id="recSpeed"><option value="1">1×</option><option value="4" selected>4×</option><option value="12">12×</option></select><button class="btn" id="recPlay">▶</button></div>
+        <div class="replay">
+          <div class="seqbar"><span class="sub" style="margin:0;flex:1">Session recording &amp; replay</span><select id="recSel" aria-label="Recording"></select><select id="recSpeed" aria-label="Speed"><option value="1">1×</option><option value="4" selected>4×</option><option value="12">12×</option></select><button class="btn" id="recPlay">Play</button></div>
           <div class="term-wrap"><div class="term" id="rterm"></div></div>
-          <input type="range" id="recPos" min="0" max="1000" value="0">
-          <div class="sub" style="margin-top:12px">Server log</div>
-          <div class="log" id="logs"></div>
+          <input type="range" id="recPos" min="0" max="1000" value="0" aria-label="Replay position">
+          <div class="sub" style="margin-top:16px">Server log</div>
+          <div class="log lab-log" id="logs"></div>
         </div>
       </div>
     </section>
-  </div>
-</main>
+  </main>
+</div>
 
 <script>
 'use strict';
@@ -422,7 +513,7 @@ class Term {
   constructor(el, cols, rows) { this.el = el; this.cursorOn = true; this.resize(cols, rows); }
   resize(cols, rows) { this.cols = cols; this.rows = rows; this.grid = Array.from({ length: rows }, () => this.blank()); this.x = this.y = 0; this.attr = 0; this.st = 0; this.p = ''; this.dirty = true; this.fit(); }
   blank() { return Array.from({ length: this.cols }, () => [' ', 0]); }
-  fit() { const w = (this.el.parentElement.clientWidth || 600) - 30; this.el.style.fontSize = Math.max(9, Math.min(14, w / (this.cols * 0.602))) + 'px'; }
+  fit() { const w = (this.el.parentElement.clientWidth || 600) - 40; this.el.style.fontSize = Math.max(9, Math.min(14, w / (this.cols * 0.602))) + 'px'; }
   lf() { if (this.y === this.rows - 1) { this.grid.shift(); this.grid.push(this.blank()); } else this.y++; }
   write(s) {
     for (const ch of s) {
@@ -562,11 +653,11 @@ function drawLogin(view) {
   const s = $('loginSvg'); s.innerHTML = '';
   const g = sv('g', {}, s);
   if (view === 'local') {
-    sv('rect', { x: 260, y: 30, width: 360, height: 270, rx: 10, fill: 'rgba(255,255,255,.03)', stroke: '#2b3a5c' }, g);
+    sv('rect', { x: 260, y: 30, width: 360, height: 270, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
     txt(g, 440, 52, 'Application programs', { 'font-size': 13, 'font-weight': 600 });
     [0, 1, 2].forEach(i => doc(g, 330 + i * 60, 66, '#9be36b'));
     txt(g, 520, 92, '…', { 'font-size': 18 });
-    sv('rect', { x: 290, y: 150, width: 310, height: 140, rx: 6, fill: 'rgba(255,255,255,.04)', stroke: '#2b3a5c' }, g);
+    sv('rect', { x: 290, y: 150, width: 310, height: 140, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
     txt(g, 545, 270, 'Operating system', { 'font-size': 11.5, fill: 'var(--ink-2)' });
     yellow(g, 340, 200, 110, 'Terminal', 'driver');
     [345, 395, 445].forEach(x => sv('line', { x1: 395, y1: 200, x2: x + 15, y2: 110, stroke: 'var(--ink-2)', 'stroke-dasharray': '4 4' }, g));
@@ -574,12 +665,12 @@ function drawLogin(view) {
     txt(g, 390, 335, 'a. Local log-in: the terminal driver hands keystrokes to the OS and the applications.', { fill: 'var(--ink-2)', 'font-size': 12 });
     LOGIN.path = null; return;
   }
-  sv('rect', { x: 120, y: 40, width: 220, height: 290, rx: 10, fill: 'rgba(255,255,255,.025)', stroke: '#2b3a5c' }, g);
-  sv('rect', { x: 440, y: 40, width: 320, height: 290, rx: 10, fill: 'rgba(255,255,255,.025)', stroke: '#2b3a5c' }, g);
+  sv('rect', { x: 120, y: 40, width: 220, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  sv('rect', { x: 440, y: 40, width: 320, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
   txt(g, 230, 32, 'Local computer (browser / PuTTY)', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
   txt(g, 600, 32, 'Remote computer: JU-Main-R', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
-  sv('rect', { x: 140, y: 140, width: 190, height: 180, rx: 6, fill: 'rgba(255,255,255,.035)', stroke: '#2b3a5c' }, g);
-  sv('rect', { x: 450, y: 140, width: 300, height: 180, rx: 6, fill: 'rgba(255,255,255,.035)', stroke: '#2b3a5c' }, g);
+  sv('rect', { x: 140, y: 140, width: 190, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  sv('rect', { x: 450, y: 140, width: 300, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
   txt(g, 183, 158, 'Operating', { 'font-size': 10.5, fill: 'var(--ink-2)' }); txt(g, 183, 171, 'system', { 'font-size': 10.5, fill: 'var(--ink-2)' });
   txt(g, 493, 158, 'Operating', { 'font-size': 10.5, fill: 'var(--ink-2)' }); txt(g, 493, 171, 'system', { 'font-size': 10.5, fill: 'var(--ink-2)' });
   doc(g, 190, 64, '#2bb6e0', 'TELNET client', 'TelnetClient');
@@ -595,7 +686,7 @@ function drawLogin(view) {
   const cl = sv('g', { transform: 'translate(392 346)' }, g);
   sv('path', { d: 'M-50 0c-16 0-18-20-2-22c0-16 22-20 30-8c8-14 32-12 34 4c18-2 24 22 6 26z', fill: '#d6dceb', stroke: '#0b0f19' }, cl);
   txt(cl, -8, -6, 'Internet', { fill: '#10141f', 'font-size': 11, 'font-weight': 600 });
-  const line = (d, dash) => sv('path', { d, fill: 'none', stroke: '#5c6a88', 'stroke-width': 1.6, 'stroke-dasharray': dash ? '4 4' : '' }, g);
+  const line = (d, dash) => sv('path', { d, fill: 'none', stroke: '#6e685a', 'stroke-width': 1.6, 'stroke-dasharray': dash ? '4 4' : '' }, g);
   line('M72 290H140V300H193V290'); line('M193 250V200'); line('M205 104L193 250', 1); line('M215 104L282 180');
   line('M282 260V300H344'); line('M440 300H497V260'); line('M497 180L515 104'); line('M525 104L630 230'); line('M660 230L645 108'); line('M680 230L685 108');
   // keystroke path
@@ -619,7 +710,7 @@ function animate() {
   for (let i = dots.length - 1; i >= 0; i--) {
     const d = dots[i], t = (now - d.t0) / d.dur;
     if (t >= 1) { dots.splice(i, 1); continue; }
-    const p = along(d.pts, t), col = d.out ? '#46d3f5' : '#ff4fa3';
+    const p = along(d.pts, t), col = d.out ? '#b5361f' : '#1f5ea8';
     h += `<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="${col}" opacity=".18"/><circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="${col}"/>`;
   }
   LOGIN.layer.innerHTML = h;
@@ -639,7 +730,7 @@ function along(pts, t) {
   const cl = sv('g', { transform: 'translate(392 92)' }, s);
   sv('path', { d: 'M-60 0c-18 0-20-22-2-24c0-18 24-22 34-9c9-15 36-13 38 4c20-2 27 24 7 29z', fill: '#d6dceb', stroke: '#0b0f19' }, cl);
   txt(cl, -12, -8, 'Internet', { fill: '#10141f', 'font-size': 11, 'font-weight': 600 });
-  sv('path', { d: 'M63 92V110H195V72 M195 110H330 M455 110H575V72 M575 110H705V76', fill: 'none', stroke: '#5c6a88', 'stroke-width': 1.6 }, s);
+  sv('path', { d: 'M63 92V110H195V72 M195 110H330 M455 110H575V72 M575 110H705V76', fill: 'none', stroke: '#6e685a', 'stroke-width': 1.6 }, s);
   const dim = (x1, x2, y, label, col) => {
     sv('line', { x1, y1: y, x2, y2: y, stroke: col, 'stroke-dasharray': '5 4', 'stroke-width': 1.4 }, s);
     sv('line', { x1, y1: y - 7, x2: x1, y2: y + 7, stroke: col }, s); sv('line', { x1: x2, y1: y - 7, x2, y2: y + 7, stroke: col }, s);
@@ -682,7 +773,7 @@ function renderRibbon() {
     el.appendChild(d);
   }
   while (el.children.length > 60) el.removeChild(el.firstChild);
-  el.scrollLeft = el.scrollWidth;
+  el.parentElement.scrollLeft = el.scrollWidth;
 }
 setInterval(renderRibbon, 200);
 
@@ -693,7 +784,7 @@ const CTL = [[236, 'EOF', 'End of file'], [239, 'EOR', 'End of record'], [240, '
 const SENDABLE = new Set(['EOF', 'EOR', 'NOP', 'DM', 'BRK', 'IP', 'AO', 'AYT', 'EC', 'EL', 'GA']);
 const minibits = n => { let s = '<span class="minibits">'; for (let i = 7; i >= 0; i--) s += `<i class="${(n >> i) & 1 ? 'one' : ''}${i === 7 ? ' msb' : ''}"></i>`; return s + '</span>'; };
 $('ctlTable').innerHTML = '<tr><th>Character</th><th>Decimal</th><th>Binary</th><th>Meaning</th><th>Seen</th><th></th></tr>' + CTL.map(([d, n, m]) =>
-  `<tr id="ctl-${n}"><td class="m" style="font-weight:700;color:${n === 'IAC' ? 'var(--b-iac)' : n === 'SB' || n === 'SE' ? 'var(--b-sb)' : /WILL|WONT|DO/.test(n) ? 'var(--b-verb)' : 'var(--ink)'}">${n}</td><td class="m">${d}</td><td>${minibits(d)} <span class="m" style="font-size:11px;color:var(--muted)">${d.toString(2)}</span></td><td>${m}</td><td><span class="cnt" id="cnt-${n}">0</span></td><td>${SENDABLE.has(n) ? `<button class="mini" data-send="${n}">send</button>` : ''}</td></tr>`).join('');
+  `<tr id="ctl-${n}"><td><span class="blk ${n === 'IAC' ? 'iac' : n === 'SB' || n === 'SE' ? 'sb' : /WILL|WONT|DO/.test(n) ? 'verb' : ''}">${n}</span></td><td class="m">${d}</td><td>${minibits(d)} <span class="m" style="font-size:11px;color:var(--muted)">${d.toString(2)}</span></td><td>${m}</td><td><span class="cnt" id="cnt-${n}">0</span></td><td>${SENDABLE.has(n) ? `<button class="mini" data-send="${n}">send</button>` : ''}</td></tr>`).join('');
 $('ctlTable').onclick = e => { const b = e.target.closest('[data-send]'); if (!b) return; if (!A.tid) { flashMsg('Connect a terminal first'); return; } cmd(b.dataset.send); $('term').focus(); };
 function bumpCtl(name, by = 1) {
   A.ctl[name] = (A.ctl[name] || 0) + by;
@@ -717,7 +808,7 @@ $('embedBtn').onclick = async () => {
   await W(700);
   const r = await api(`/api/term/read?id=-1&since=0`).catch(() => null);
   $('embedRes').style.display = 'block';
-  $('embedRes').innerHTML = `received <span style="color:var(--ink-2)">c a t _ f i l e a <b style="color:var(--b-iac)">IAC EC</b> 1</span> &nbsp;→&nbsp; executed <b style="color:var(--good)">cat file1</b>`;
+  $('embedRes').innerHTML = `received <span style="color:var(--ink-2)">c a t _ f i l e a <b style="color:var(--iac-ink)">IAC EC</b> 1</span> &nbsp;→&nbsp; executed <b style="color:var(--good)">cat file1</b>`;
 };
 
 // ===================================================================== 04 options
@@ -856,14 +947,14 @@ async function pollWire() {
         if (t.hex && !f.tls) pushBytes(t.hex, c2s);
         if (t.k === 'iac') { const p = t.txt.split(' '); bumpCtl('IAC'); bumpCtl(p[1]); }
         if (t.k === 'sb') { bumpCtl('IAC', 2); bumpCtl('SB'); bumpCtl('SE'); }
-        if (f.tls && t.k === 'tls') $('cmpTls').innerHTML = `<b style="color:var(--good)">${esc(t.txt)}</b><br>${esc(t.hex)}`;
-        if (t.k === 'secret' && t.txt.trim()) $('cmpPlain').innerHTML = `password keystroke on the wire: <b style="color:var(--magenta)">${esc(vis(t.txt))}</b> &nbsp;(${esc(t.hex)})`;
+        if (f.tls && t.k === 'tls') $('cmpTls').innerHTML = `<b style="color:#7dff8a">${esc(t.txt)}</b><br>${esc(t.hex)}`;
+        if (t.k === 'secret' && t.txt.trim()) $('cmpPlain').innerHTML = `password keystroke on the wire: <b style="color:#ff8a75">${esc(vis(t.txt))}</b> &nbsp;(${esc(t.hex)})`;
       }
       const toks = f.tokens.filter(t => t.txt !== '' || t.hex);
       if ($('onlyCmd').checked && !toks.some(t => t.k !== 'data' && t.k !== 'secret')) continue;
       const d = document.createElement('div'); d.className = 'fr';
       const tm = new Date(f.t); const ts = tm.toTimeString().slice(3, 8) + '.' + String(f.t % 1000).padStart(3, '0');
-      d.innerHTML = `<span class="tm">${ts}</span><span class="cn">#${f.conn} ${f.len}B</span><span class="dir ${c2s ? 'c' : 's'}">${c2s ? 'C→S' : 'S→C'}</span><span class="tks">${toks.map(t => `<span class="tk ${t.k}" title="${esc(t.hex)}">${esc(t.k === 'secret' ? '🔓 ' + vis(t.txt) : t.k === 'data' ? vis(t.txt) : t.txt)}${$('hex').checked && t.hex ? `<span class="hx">${esc(t.hex)}</span>` : ''}</span>`).join('')}</span>`;
+      d.innerHTML = `<span class="tm">${ts}</span><span class="cn">#${f.conn} ${f.len}B</span><span class="dir ${c2s ? 'c' : 's'}">${c2s ? 'C→S' : 'S→C'}</span><span class="tks">${toks.map(t => `<span class="tk ${t.k}" title="${esc(t.hex)}">${esc(t.k === 'secret' ? vis(t.txt) : t.k === 'data' ? vis(t.txt) : t.txt)}${$('hex').checked && t.hex ? `<span class="hx">${esc(t.hex)}</span>` : ''}</span>`).join('')}</span>`;
       box.appendChild(d);
     }
     while (box.children.length > 1200) box.removeChild(box.firstChild);
@@ -876,7 +967,7 @@ $('bf').onclick = () => fetch('/api/action?name=bruteforce', { method: 'POST' })
 $('unb').onclick = () => fetch('/api/action?name=unblock', { method: 'POST' });
 
 let toastT;
-function flashMsg(m) { $('tstat').textContent = '⚠ ' + m; clearTimeout(toastT); toastT = setTimeout(() => $('tstat').textContent = A.tid ? 'connected' : 'offline', 2500); }
+function flashMsg(m) { $('tstat').textContent = '! ' + m; clearTimeout(toastT); toastT = setTimeout(() => $('tstat').textContent = A.tid ? 'connected' : 'offline', 2500); }
 
 // ===================================================================== state poll
 const fmt = t => (t >= 3600 ? Math.floor(t / 3600) + 'h ' : '') + Math.floor(t / 60) % 60 + 'm ' + String(t % 60).padStart(2, '0') + 's';
@@ -895,17 +986,17 @@ async function pollState() {
 function renderSecurity(s) {
   const g = s.security, q = g.quietLeft, arc = $('ringArc');
   $('blockCfg').textContent = `${g.blockFor} attempts ${g.attempts} within ${g.within}`;
-  if (q > 0) { arc.setAttribute('stroke', 'var(--bad)'); arc.setAttribute('stroke-dashoffset', 251.3 * (1 - q / g.blockFor)); $('ringTxt').textContent = q + 's'; $('ringSub').textContent = 'QUIET MODE'; }
-  else { arc.setAttribute('stroke', g.window ? 'var(--warn)' : 'var(--good)'); arc.setAttribute('stroke-dashoffset', 251.3 * (g.window / g.attempts)); $('ringTxt').textContent = 'OPEN'; $('ringSub').textContent = `${g.window}/${g.attempts} failures`; }
+  if (q > 0) { arc.setAttribute('stroke', '#ff5f45'); arc.setAttribute('stroke-dashoffset', 251.3 * (1 - q / g.blockFor)); $('ringTxt').textContent = q + 's'; $('ringSub').textContent = 'QUIET MODE'; }
+  else { arc.setAttribute('stroke', g.window ? '#ffb340' : '#7dff8a'); arc.setAttribute('stroke-dashoffset', 251.3 * (g.window / g.attempts)); $('ringTxt').textContent = 'OPEN'; $('ringSub').textContent = `${g.window}/${g.attempts} failures`; }
   $('secTiles').innerHTML = [['success', g.success], ['failed', g.failures], ['refused', g.refused]].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
   $('secLog').innerHTML = g.history.slice(-10).map(x => `<div class="sec">${esc(x)}</div>`).concat(s.bot.log.slice(-10).map(x => `<div class="bot">[BOT] ${esc(x)}</div>`)).join('') || '<span style="color:var(--muted)">no login events yet</span>';
   $('secLog').scrollTop = 1e6;
-  $('bf').disabled = s.bot.running; $('bf').textContent = s.bot.running ? 'attacking…' : '⚡ Dictionary attack';
+  $('bf').disabled = s.bot.running; $('bf').textContent = s.bot.running ? 'attacking…' : 'Run dictionary attack';
 }
 function renderAlert(s) {
   const a = $('alert');
-  if (s.captures.length) { const c = s.captures[s.captures.length - 1]; a.className = 'alert bad'; a.innerHTML = `⚠ <b style="background:none;padding:0">Sniffed off the wire</b> on connection #${c.conn}: user <b>${esc(c.user)}</b> password <b>${esc(c.pass)}</b>. Anyone on the path can read this.`; }
-  else if (A.mode === 'tls' && A.tid) { a.className = 'alert ok'; a.textContent = '🔒 TLS session: the tap sees only encrypted records. Nothing to recover.'; }
+  if (s.captures.length) { const c = s.captures[s.captures.length - 1]; a.className = 'alert bad'; a.innerHTML = `<b style="background:none;padding:0">Sniffed off the wire</b> on connection #${c.conn}: user <b>${esc(c.user)}</b> password <b>${esc(c.pass)}</b>. Anyone on the path can read this.`; }
+  else if (A.mode === 'tls' && A.tid) { a.className = 'alert ok'; a.textContent = 'TLS session: the tap sees only encrypted records. Nothing to recover.'; }
   else a.className = 'alert';
 }
 function renderLines(s) {
@@ -915,7 +1006,7 @@ function renderLines(s) {
     const x = by[i];
     if (!x) { h += `<tr><td class="m">vty ${i}</td><td colspan="6" class="free">free</td></tr>`; continue; }
     const col = x.mode === 'EXEC' || x.mode === 'CONFIG' ? 'var(--good)' : x.mode.startsWith('LOGIN') ? 'var(--warn)' : 'var(--cyan)';
-    h += `<tr${x.id === A.mySession ? ' style="background:rgba(70,211,245,.07)"' : ''}><td class="m"><span class="dot" style="background:${col};box-shadow:0 0 8px ${col}"></span>vty ${i}</td><td>${esc(x.user || '—')}${x.priv >= 15 ? ' <span class="st YES">15</span>' : ''}${x.transport === 'telnets' ? ' 🔒' : ''}</td><td class="m">${esc(x.from)}</td><td class="m">${esc(x.ttype)}</td><td class="m">${x.cols}×${x.rows}</td><td class="m">${esc(x.mode)}${x.debug ? ' ·dbg' : ''}${x.shadowedBy ? ' ·👁' : ''}</td><td class="m">${x.rtt < 0 ? '—' : x.rtt.toFixed(2) + 'ms'}</td></tr>`;
+    h += `<tr${x.id === A.mySession ? ' style="background:rgba(255,216,74,.28)"' : ''}><td class="m"><span class="dot" style="background:${col};box-shadow:0 0 8px ${col}"></span>vty ${i}</td><td>${esc(x.user || '—')}${x.priv >= 15 ? ' <span class="st YES">15</span>' : ''}${x.transport === 'telnets' ? ' <span class="st TLS">TLS</span>' : ''}</td><td class="m">${esc(x.from)}</td><td class="m">${esc(x.ttype)}</td><td class="m">${x.cols}×${x.rows}</td><td class="m">${esc(x.mode)}${x.debug ? ' ·dbg' : ''}${x.shadowedBy ? ' ·shadowed' : ''}</td><td class="m">${x.rtt < 0 ? '—' : x.rtt.toFixed(2) + 'ms'}</td></tr>`;
   }
   $('lines').innerHTML = h + `<tr><td colspan="7" class="mono" style="font-size:11px;color:var(--muted)">refused (all lines busy): ${s.refusedBusy}</td></tr>`;
 }
@@ -928,8 +1019,8 @@ function renderSpark(info) {
   const r = info.rtts, svg = $('spark');
   if (r.length < 2) { $('sparkTxt').textContent = r.length ? r[0].toFixed(3) + ' ms' : 'measured every 5 s · run tmping'; return; }
   const mx = Math.max(...r) * 1.2 || 1, pts = r.map((v, i) => [(i / (r.length - 1)) * 296 + 2, 56 - (v / mx) * 50]);
-  svg.innerHTML = `<defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#46d3f5" stop-opacity=".35"/><stop offset="1" stop-color="#46d3f5" stop-opacity="0"/></linearGradient></defs>
-    <path d="M${pts.map(p => p.join(' ')).join('L')}L298 60L2 60z" fill="url(#sg)"/><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#46d3f5" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+  svg.innerHTML = `<defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1f5ea8" stop-opacity=".35"/><stop offset="1" stop-color="#1f5ea8" stop-opacity="0"/></linearGradient></defs>
+    <path d="M${pts.map(p => p.join(' ')).join('L')}L298 60L2 60z" fill="url(#sg)"/><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#1f5ea8" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
   const avg = r.reduce((a, b) => a + b, 0) / r.length;
   $('sparkTxt').textContent = `session ${info.id} · last ${r[r.length - 1].toFixed(3)} ms · avg ${avg.toFixed(3)} ms · ${r.length} TIMING-MARK probes`;
 }
@@ -958,6 +1049,12 @@ const spy = new IntersectionObserver(es => es.forEach(e => {
 document.querySelectorAll('section.ch').forEach(s => spy.observe(s));
 
 (function frame() { term.render(); rterm.render(); animate(); requestAnimationFrame(frame); })();
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('section.ch > :not(.ch-head)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+}
+document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a) return; const t = document.querySelector(a.getAttribute('href')); if (t) t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); });
+setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { const r = x.getBoundingClientRect(); if (r.top < innerHeight * 1.2) x.classList.add('in'); }), 400);
 pollState(); pollWire(); pollNeg();
 </script>
 </body>
