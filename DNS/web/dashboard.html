@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JU DNS Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,300..900;1,62..125,400&family=Martian+Mono:wdth,wght@75..112.5,300..600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&display=swap">
+<style>
+/* ==========================================================================
+   JU DNS LAB — art direction: "the telephone directory"
+   DNS is the Internet's phone book, so the page is one: yellow pages and
+   white pages, thumb-index tabs cut into the right edge, guide words in the
+   running head ("PAGE 53"), dense listings with dot leaders, and a
+   switchboard log. Levels of the naming tree get their own ink:
+   root = black, top-level domain = red, domain = blue, host = green.
+   ========================================================================== */
+:root {
+  --yellow: #f4cc2f; --yellow-2: #e9bf1c; --white: #f8f5ec; --card: #fffdf6; --ink: #141414; --ink-2: #3d3a33; --muted: #6b665a;
+  --rule: #c9c2ad; --rule-y: #c9a41a;
+  --root: #141414; --tld: #c8261b; --dom: #1a4fb4; --host: #157a3a; --warn: #a15c00;
+  --display: "Archivo", "Arial Narrow", sans-serif; --text: "Source Serif 4", Georgia, serif; --mono: "Martian Mono", Consolas, monospace;
+  --t-xs: 10.5px; --t-s: 13px; --t-m: 16px; --t-l: 21px; --t-xl: 34px; --t-2xl: clamp(56px, 8.4vw, 132px);
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  --tabs: 54px; --max: 1400px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--white); color: var(--ink); font: 400 var(--t-m)/1.5 var(--text); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 800; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: .82em; }
+code { background: rgba(20,20,20,.07); padding: 1px 4px; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--dom); outline-offset: 2px; }
+
+/* ------------------------------------------------------------ thumb index (right edge) */
+.thumbs { position: fixed; top: 0; right: 0; bottom: 0; width: var(--tabs); z-index: 40; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 0; pointer-events: none; }
+.thumbs a { pointer-events: auto; display: block; background: var(--ink); color: var(--yellow); text-decoration: none; writing-mode: vertical-rl; padding: 14px 0; width: 38px; margin-left: auto; text-align: center;
+  font: 800 12px/38px var(--display); font-stretch: 70%; letter-spacing: .12em; text-transform: uppercase; border-radius: 6px 0 0 6px; transition: width .2s, background .2s, color .2s; }
+.thumbs a b { font-stretch: 100%; color: #fff; margin-bottom: 6px; display: inline-block; }
+.thumbs a:hover { width: 46px; }
+.thumbs a.on { width: var(--tabs); background: var(--yellow); color: var(--ink); box-shadow: -2px 0 0 var(--ink) inset; } .thumbs a.on b { color: var(--tld); }
+.page { margin-right: var(--tabs); }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--s7); }
+
+/* ------------------------------------------------------------ running head */
+.runhead { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s4); padding: 12px 0; border-bottom: 3px double var(--ink); font: 700 12px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
+.runhead .pg { font: 900 22px/1 var(--display); font-stretch: 75%; letter-spacing: 0; }
+.runhead .gw { font-family: var(--mono); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--ink-2); }
+
+/* ------------------------------------------------------------ masthead (yellow pages) */
+.yellow { background: var(--yellow); }
+.yellow .muted, .yellow .lab { color: #5d4c00; }
+.mast { padding-bottom: var(--s7); }
+.mast-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--s7); align-items: end; padding-top: var(--s6); }
+.mast h1 { font-size: var(--t-2xl); line-height: .8; font-stretch: 62%; font-weight: 900; text-transform: uppercase; letter-spacing: -.01em; }
+.mast h1 span { display: block; }
+.mast h1 .o { -webkit-text-stroke: 2px var(--ink); color: transparent; }
+.mast .dek { font-size: 19px; max-width: 46ch; margin-top: var(--s5); }
+.mast .dek i { font-style: italic; }
+.callbox { background: var(--ink); color: var(--white); padding: var(--s5); position: relative; }
+.callbox::before { content: "DIRECTORY ASSISTANCE"; position: absolute; top: -11px; left: 18px; background: var(--tld); color: #fff; font: 800 11px/1 var(--display); letter-spacing: .16em; padding: 6px 9px 5px; }
+.callbox label { font: 700 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--yellow); display: block; margin-bottom: 8px; }
+.callrow { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 0; border: 2px solid var(--yellow); }
+.callrow input, .callrow select { background: transparent; border: 0; color: var(--white); padding: 12px 12px; font: 400 15px var(--mono); min-width: 0; }
+.callrow select { border-left: 2px solid var(--yellow); }
+.callrow select option { color: var(--ink); }
+.callrow button { background: var(--yellow); color: var(--ink); border: 0; padding: 0 18px; font: 900 15px/1 var(--display); font-stretch: 75%; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.callrow button:hover { background: #fff; }
+.callout { margin-top: var(--s4); min-height: 92px; }
+.listing { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 0 8px; font-size: 15px; }
+.listing .n { font: 700 15px/1.6 var(--display); font-stretch: 85%; }
+.listing .dots { border-bottom: 2px dotted currentColor; opacity: .45; transform: translateY(-4px); }
+.listing .v { font: 500 14px/1.6 var(--mono); }
+.listing .t { grid-column: 1 / -1; font: 400 11px/1.4 var(--mono); color: var(--muted); margin-bottom: 6px; }
+.callbox .listing .t { color: #a8a291; }
+.callbox .meta { font: 400 11px/1.5 var(--mono); color: #a8a291; margin-top: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--s4); }
+.chips button { border: 1px solid currentColor; background: transparent; padding: 5px 9px 4px; font: 400 11px/1 var(--mono); cursor: pointer; }
+.chips button:hover { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
+.callbox .chips button { color: #cfc9b6; } .callbox .chips button:hover { background: var(--yellow); color: var(--ink); }
+
+/* ------------------------------------------------------------ sections */
+section { position: relative; }
+.sec { padding: var(--s8) 0 var(--s7); border-top: 3px solid var(--ink); }
+.sec-h { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; gap: var(--s5); align-items: end; margin-bottom: var(--s5); }
+.sec-h .no { font: 900 92px/.78 var(--display); font-stretch: 62%; }
+.sec-h h2 { font-size: var(--t-xl); line-height: 1; font-stretch: 75%; text-transform: uppercase; letter-spacing: .01em; }
+.sec-h .gw { font: 400 11px/1.4 var(--mono); color: var(--muted); text-align: right; }
+.lede { font-size: 17px; max-width: 72ch; color: var(--ink-2); margin: 0 0 var(--s5) 165px; }
+.lede b { color: var(--ink); }
+.lab { font: 700 11px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.btn { border: 2px solid var(--ink); background: var(--ink); color: var(--yellow); padding: 9px 14px 8px; font: 800 13px/1 var(--display); font-stretch: 80%; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
+.btn:hover { background: var(--yellow); color: var(--ink); }
+.btn.ghost { background: transparent; color: var(--ink); } .btn.ghost:hover { background: var(--ink); color: var(--yellow); }
+.btn.red { background: var(--tld); border-color: var(--tld); color: #fff; } .btn.red:hover { background: #fff; color: var(--tld); }
+.btn:disabled { opacity: .45; cursor: progress; }
+.row { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.inp { border: 0; border-bottom: 2px solid var(--ink); background: transparent; padding: 7px 4px; font: 400 14px var(--mono); min-width: 0; }
+.inp:focus { outline: none; border-color: var(--dom); }
+.seg { display: inline-flex; border: 2px solid var(--ink); }
+.seg button { border: 0; background: transparent; padding: 6px 11px 5px; font: 800 11px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button.on { background: var(--ink); color: var(--yellow); }
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+.lv-root { color: var(--root); } .lv-tld { color: var(--tld); } .lv-dom { color: var(--dom); } .lv-host { color: var(--host); }
+
+/* ------------------------------------------------------------ 01 the tree */
+.tree-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: var(--s6); align-items: start; }
+.tree { width: 100%; height: auto; display: block; }
+.tree .edge { stroke: var(--rule); stroke-width: 2; fill: none; transition: stroke .3s, stroke-width .3s; }
+.tree .edge.lit { stroke: var(--tld); stroke-width: 4; }
+.tree .node rect { fill: var(--card); stroke: var(--ink); stroke-width: 2; transition: fill .3s; }
+.tree .node text { font: 700 14px var(--display); font-stretch: 85%; fill: var(--ink); }
+.tree .node .ip { font: 400 9.5px var(--mono); fill: var(--muted); font-stretch: 100%; }
+.tree .node.ghost rect { stroke-dasharray: 4 4; stroke: var(--rule); } .tree .node.ghost text { fill: var(--muted); }
+.tree .node.lit rect { fill: var(--yellow); }
+.tree .node.ans rect { fill: var(--host); } .tree .node.ans text { fill: #fff; } .tree .node.ans .ip { fill: #d9f2e1; }
+.tree .badge { font: 600 10px var(--mono); fill: var(--tld); }
+.tree .node text.ip { font-weight: 400; }
+.tree-ctl { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: end; margin-bottom: var(--s4); }
+.tree-ctl .inp { width: 280px; }
+.steps { counter-reset: st; display: grid; gap: 0; border-top: 2px solid var(--ink); max-height: 560px; overflow: auto; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 2px; border-bottom: 1px solid var(--rule); align-items: baseline; animation: slip .4s ease-out both; }
+@keyframes slip { from { opacity: 0; transform: translateX(-8px); } }
+.step::before { counter-increment: st; content: counter(st); font: 900 26px/1 var(--display); font-stretch: 62%; }
+.step .srv { font: 800 15px/1.2 var(--display); font-stretch: 85%; }
+.step .srv small { font: 400 10.5px var(--mono); color: var(--muted); margin-left: 6px; }
+.step .ms { font: 500 12px var(--mono); }
+.step .k { grid-column: 2 / -1; font: 800 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+.step .d { grid-column: 2 / -1; font-size: 14px; color: var(--ink-2); }
+.step .rr { grid-column: 2 / -1; font: 400 10.5px/1.5 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+.step.k-REFERRAL .k { color: var(--dom); } .step.k-ANSWER .k, .step[class*="k-ANSWER"] .k { color: var(--host); } .step.k-NXDOMAIN .k, .step.k-TIMEOUT .k, .step.k-SERVFAIL .k { color: var(--tld); }
+.step.cached { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(244,204,47,.25) 8px 16px); }
+.step.cached .k { color: var(--warn); }
+.step.sus { background: #fbe3df; } .step.sus .d { color: var(--tld); font-weight: 600; }
+.step.d1 { margin-left: 22px; } .step.d2 { margin-left: 44px; } .step.d3 { margin-left: 66px; }
+.step.k-RELAYED .k, .step.k-ASKED .k { color: var(--tld); }
+.verdict { margin-top: var(--s4); font: 800 var(--t-l)/1.2 var(--display); font-stretch: 80%; }
+.verdict small { display: block; font: 400 12px/1.5 var(--mono); color: var(--muted); margin-top: 4px; }
+.empty { border: 2px dashed var(--rule); padding: var(--s6) var(--s4); text-align: center; color: var(--muted); font-style: italic; }
+
+/* ------------------------------------------------------------ 02 recursive vs iterative */
+.rvi { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: var(--s6); align-items: start; }
+.seq { width: 100%; height: auto; display: block; background: var(--card); border: 2px solid var(--ink); }
+.seq .lane { stroke: var(--rule); stroke-dasharray: 3 5; }
+.seq .lh { font: 800 13px var(--display); font-stretch: 80%; text-transform: uppercase; letter-spacing: .06em; fill: var(--ink); }
+.seq .lip { font: 400 9.5px var(--mono); fill: var(--muted); }
+.seq .msg { font: 400 11px var(--text); fill: var(--ink-2); }
+.seq .msgm { font: 500 10px var(--mono); }
+.compare { border-collapse: collapse; width: 100%; font-size: 14px; }
+.compare th { font: 800 12px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; text-align: left; padding: 8px 6px; border-bottom: 2px solid var(--ink); }
+.compare td { padding: 9px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.compare td:first-child { font: 700 11px/1.4 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); width: 32%; }
+.count { display: flex; gap: var(--s5); margin-top: var(--s5); }
+.count div { border-top: 3px solid var(--ink); padding-top: 6px; font: 700 11px/1.3 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.count b { display: block; font: 900 54px/.9 var(--display); font-stretch: 62%; color: var(--ink); }
+.count div.it b { color: var(--tld); }
+
+.m-ctl { display: flex; flex-wrap: wrap; gap: var(--s4); align-items: end; margin-bottom: var(--s5); }
+.m-ctl .inp { width: 260px; }
+.player { display: flex; align-items: center; border: 2px solid var(--ink); background: var(--card); }
+.pbtn { border: 0; background: transparent; padding: 8px 12px; font: 800 13px/1 var(--display); cursor: pointer; }
+.pbtn + .pbtn { border-left: 2px solid var(--ink); }
+.pbtn.wide { min-width: 70px; letter-spacing: .1em; text-transform: uppercase; font-size: 12px; }
+.pbtn:hover { background: var(--ink); color: var(--yellow); }
+.stepno { padding: 0 12px; font: 500 12px var(--mono); border-left: 2px solid var(--ink); align-self: stretch; display: flex; align-items: center; }
+.methods { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
+.method { background: var(--card); border: 2px solid var(--ink); display: flex; flex-direction: column; }
+.mh { display: flex; align-items: baseline; gap: var(--s3); padding: 10px 14px; border-bottom: 2px solid var(--ink); flex-wrap: wrap; }
+.mh h3 { font-size: 30px; font-stretch: 65%; text-transform: uppercase; line-height: 1; }
+.mh .mono { color: var(--muted); }
+#pRec .mh h3 { color: var(--tld); } #pIt .mh h3 { color: var(--dom); }
+.fig { width: 100%; height: auto; display: block; }
+.fig .nd rect { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.fig .nd text { font: 700 13px var(--display); font-stretch: 85%; fill: var(--ink); }
+.fig .nd .sub { font: 400 8.5px var(--mono); fill: var(--muted); font-stretch: 100%; }
+.fig .nd.wait rect { fill: var(--yellow); }
+.fig .nd .halo { fill: none; stroke: var(--yellow-2); stroke-width: 6; opacity: 0; }
+.fig .nd.wait .halo { opacity: .9; animation: halo 1.1s ease-in-out infinite; }
+@keyframes halo { 50% { opacity: .25; } }
+.fig .nd .wt { font: 700 9px var(--mono); fill: var(--warn); letter-spacing: .08em; opacity: 0; }
+.fig .nd.wait .wt { opacity: 1; }
+.fig .ar { stroke-width: 2.4; fill: none; }
+.fig .ar.cur { stroke-width: 4; stroke-dasharray: 7 5; animation: dash .7s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -24; } }
+.fig .ar.old { opacity: .5; }
+.fig .num circle { stroke: #fff; stroke-width: 2; }
+.fig .num text { font: 800 11px var(--display); fill: #fff; }
+.fig .num.old { opacity: .55; }
+.cap { background: var(--ink); color: var(--yellow); padding: 10px 14px; font: 400 13px/1.5 var(--mono); min-height: 64px; }
+.cap b { font: 900 18px/1 var(--display); font-stretch: 70%; margin-right: 8px; color: #fff; }
+.busy { padding: 10px 14px 12px; display: grid; gap: 3px; }
+.brow { display: grid; grid-template-columns: 110px 1fr 74px; gap: 8px; align-items: center; font: 400 10.5px var(--mono); }
+.brow .cells { display: grid; gap: 2px; }
+.brow .cells i { height: 12px; background: rgba(20,20,20,.08); }
+.brow .cells i.on { background: rgba(20,20,20,.22); }
+.brow .cells i.on.cur { background: var(--ink); }
+#pRec .brow .cells i.on.cur { background: var(--tld); } #pIt .brow .cells i.on.cur { background: var(--dom); }
+.brow .cells i.now { outline: 2px solid var(--tld); outline-offset: -1px; }
+.brow .n { text-align: right; color: var(--muted); }
+.busy .bh { font: 800 10px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+#mStats td:not(:first-child) { font: 800 22px/1 var(--display); font-stretch: 75%; }
+@media (max-width: 1200px) { .methods { grid-template-columns: minmax(0, 1fr); } }
+
+/* ------------------------------------------------------------ 03 dissection */
+.dig-form { display: grid; grid-template-columns: minmax(0, 2fr) 90px minmax(0, 1.4fr) auto auto auto; gap: var(--s3); align-items: end; margin-bottom: var(--s4); }
+.dig-form label { display: grid; gap: 4px; }
+.dig-form select { border: 2px solid var(--ink); background: var(--card); padding: 6px; font: 400 13px var(--mono); }
+.chk { font: 400 11px/1 var(--mono); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; padding-bottom: 9px; }
+.dis { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s6); align-items: start; margin-top: var(--s5); }
+.hex { font: 400 12px/1 var(--mono); background: var(--card); border: 2px solid var(--ink); padding: 10px 12px; overflow-x: auto; }
+.hx-row { display: grid; grid-template-columns: 44px repeat(16, 24px) 10px 150px; align-items: center; height: 22px; }
+.hx-row .o { color: var(--muted); font-size: 10.5px; }
+.b { text-align: center; height: 20px; line-height: 20px; cursor: default; border-radius: 2px; transition: background .15s, outline-color .15s; }
+.b.header { background: #e7e3d7; } .b.question { background: #fbe9a6; } .b.answer { background: #cfe8d6; } .b.authority { background: #d5e0f5; } .b.additional { background: #f3d4cf; }
+.b.ptr { outline: 2px solid var(--tld); outline-offset: -2px; font-weight: 600; }
+.b.hl { background: var(--ink) !important; color: var(--yellow); }
+.hx-row .asc { padding-left: 4px; color: var(--muted); white-space: pre; letter-spacing: 1px; }
+.legend-s { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 0; font: 400 11px var(--mono); }
+.legend-s i { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 5px; }
+.flags { display: grid; grid-template-columns: repeat(16, 1fr); border: 2px solid var(--ink); margin: var(--s4) 0; }
+.flags div { text-align: center; padding: 5px 0 4px; border-left: 1px solid var(--rule); font: 500 12px var(--mono); }
+.flags div:first-child { border-left: 0; }
+.flags div.one { background: var(--ink); color: var(--yellow); }
+.flags-l { display: grid; grid-template-columns: 1fr 4fr 1fr 1fr 1fr 1fr 3fr 4fr; font: 800 10px/1 var(--display); letter-spacing: .08em; text-align: center; margin-top: -10px; color: var(--ink-2); }
+.flags-l div { border-top: 2px solid var(--ink); padding-top: 4px; margin: 0 1px; }
+.ftable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ftable td { padding: 4px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; cursor: default; }
+.ftable td:first-child { font: 400 10.5px var(--mono); color: var(--muted); white-space: nowrap; width: 54px; }
+.ftable td:nth-child(2) { font: 800 12px var(--display); font-stretch: 85%; white-space: nowrap; }
+.ftable td:nth-child(3) { font: 400 11.5px/1.4 var(--mono); word-break: break-word; }
+.ftable tr.hl td { background: var(--yellow); }
+.ftable tr.sec td { background: var(--ink); color: var(--yellow); font: 800 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; padding: 6px; }
+.fbox { max-height: 520px; overflow: auto; border-top: 2px solid var(--ink); }
+.tip { min-height: 46px; font: 400 12px/1.5 var(--mono); background: var(--ink); color: var(--yellow); padding: 8px 12px; margin-top: 8px; }
+.res-h { display: flex; gap: var(--s4); align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.res-h .rc { font: 900 28px/1 var(--display); font-stretch: 70%; }
+.res-h .rc.bad { color: var(--tld); }
+.res-sec { margin-top: 10px; }
+.res-sec .lab { margin-bottom: 4px; display: block; }
+
+/* ------------------------------------------------------------ 04 cache */
+.cache-top { display: flex; gap: var(--s6); align-items: end; flex-wrap: wrap; margin-bottom: var(--s4); }
+.stat b { display: block; font: 900 44px/.9 var(--display); font-stretch: 62%; color: var(--ink); }
+.stat { font: 700 11px/1.3 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-top: 3px solid var(--ink); padding-top: 6px; min-width: 90px; }
+.ctab { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ctab th { font: 800 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; text-align: left; padding: 8px 6px; border-bottom: 2px solid var(--ink); }
+.ctab td { padding: 7px 6px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.ctab .nm { font: 700 15px var(--display); font-stretch: 85%; }
+.ctab .dt { font: 400 12px var(--mono); word-break: break-all; }
+.ctab .ty { font: 600 11px var(--mono); }
+.ctab .src { font: 400 10.5px var(--mono); color: var(--muted); }
+.ctab tr.neg td { color: var(--muted); font-style: italic; }
+.ctab tr.poison td { background: #f8d3cd; } .ctab tr.poison .dt { color: var(--tld); font-weight: 600; }
+.ttl { display: grid; grid-template-columns: 90px auto; gap: 8px; align-items: center; font: 500 11.5px var(--mono); }
+.ttl .bar { height: 8px; background: rgba(20,20,20,.1); position: relative; overflow: hidden; }
+.ttl .bar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); transition: width 1s linear; }
+.ttl.low .bar i { background: var(--tld); }
+.view { font: 700 10px var(--display); letter-spacing: .1em; text-transform: uppercase; padding: 2px 5px; border: 1px solid currentColor; }
+.view.lab { color: var(--dom); } .view.internet { color: var(--warn); }
+
+/* ------------------------------------------------------------ 05 zone files */
+.zone-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s6); align-items: start; }
+.zfile { background: var(--card); border: 2px solid var(--ink); padding: 14px 16px; font: 400 12px/1.6 var(--mono); white-space: pre; overflow: auto; max-height: 560px; }
+.zfile .c { color: var(--muted); } .zfile .ty { color: var(--tld); font-weight: 600; } .zfile .or { color: var(--dom); font-weight: 600; }
+.addform { display: grid; grid-template-columns: 1fr 90px; gap: var(--s3); border: 2px solid var(--ink); padding: var(--s4); background: var(--card); }
+.addform label { display: grid; gap: 4px; }
+.addform select { border: 2px solid var(--ink); background: var(--card); padding: 5px; font: 400 13px var(--mono); }
+.addform .full { grid-column: 1 / -1; }
+.howto { margin-top: var(--s5); }
+.howto pre { margin: 6px 0 0; background: var(--ink); color: var(--yellow); padding: 12px 14px; font: 400 12px/1.7 var(--mono); white-space: pre-wrap; }
+
+/* ------------------------------------------------------------ 06 forgery */
+.forgery { background: var(--ink); color: var(--white); }
+.forgery .sec { border-top-color: var(--tld); }
+.forgery .sec-h .gw, .forgery .lab { color: #a8a291; }
+.forgery .lede { color: #cfc9b6; } .forgery .lede b { color: #fff; }
+.atk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s6); }
+.atk-card { border: 2px solid #4a463c; padding: var(--s5); display: grid; gap: var(--s3); align-content: start; position: relative; }
+.atk-card h3 { font-size: 26px; font-stretch: 75%; text-transform: uppercase; }
+.atk-card ul { margin: 0; padding: 0; list-style: none; font: 400 12px/1.8 var(--mono); }
+.atk-card li::before { content: "✕ "; color: var(--tld); font-weight: 600; } .atk-card.sec2 li::before { content: "✓ "; color: #6fd08c; }
+.atk-card .btn { justify-self: start; }
+.timeline { position: relative; height: 64px; border-bottom: 2px solid #a8a291; margin: var(--s3) 0 var(--s2); }
+.timeline .spray { position: absolute; left: 0; bottom: 0; height: 40px; background: repeating-linear-gradient(90deg, var(--tld) 0 2px, transparent 2px 4px); width: 0; transition: width .8s ease-out; }
+.timeline .real { position: absolute; bottom: 0; width: 3px; height: 56px; background: #6fd08c; }
+.timeline .real::after { content: "real answer"; position: absolute; top: -2px; left: 6px; font: 400 10px var(--mono); color: #6fd08c; white-space: nowrap; }
+.timeline .tick { white-space: nowrap; position: absolute; bottom: -18px; font: 400 10px var(--mono); color: #a8a291; transform: translateX(-50%); }
+.outcome { font: 900 34px/1 var(--display); font-stretch: 62%; text-transform: uppercase; min-height: 34px; }
+.outcome.bad { color: var(--tld); } .outcome.good { color: #6fd08c; }
+.outd { font: 400 12px/1.6 var(--mono); color: #cfc9b6; min-height: 60px; }
+.stampx { position: absolute; top: 16px; right: 16px; border: 3px solid var(--tld); color: var(--tld); font: 900 18px/1 var(--display); letter-spacing: .1em; padding: 6px 10px 4px; transform: rotate(-8deg) scale(1.6); opacity: 0; transition: transform .35s cubic-bezier(.2,1.6,.4,1), opacity .2s; }
+.stampx.on { opacity: 1; transform: rotate(-8deg) scale(1); }
+.stampx.ok { border-color: #6fd08c; color: #6fd08c; }
+
+/* ------------------------------------------------------------ 07 switchboard */
+.board-h { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; margin-bottom: var(--s3); }
+.board { height: 460px; overflow: auto; border: 2px solid var(--ink); background: var(--card); font: 400 11.5px/1.45 var(--mono); }
+.ln { display: grid; grid-template-columns: 78px 22px minmax(0, 1fr); gap: 8px; padding: 4px 12px; border-bottom: 1px solid var(--rule); }
+.ln .sid { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ln .w { text-align: center; font-weight: 600; font-size: 10px; border: 1px solid var(--ink); height: 17px; line-height: 15px; }
+.ln .w.C { background: var(--ink); color: var(--yellow); }
+.ln .t { white-space: pre-wrap; word-break: break-word; }
+.ln .n { display: block; font: italic 400 12px var(--text); color: var(--muted); }
+.ln.g-root .sid { color: var(--root); font-weight: 600; } .ln.g-edu .sid { color: var(--tld); font-weight: 600; } .ln.g-myuniv .sid { color: var(--dom); font-weight: 600; } .ln.g-cse .sid { color: var(--host); font-weight: 600; }
+.ln.g-stub .sid { color: var(--warn); }
+.ln.fresh { animation: inkin 1.2s ease-out; }
+@keyframes inkin { from { background: var(--yellow); } }
+
+/* ------------------------------------------------------------ footer */
+.foot { padding: var(--s6) 0 var(--s8); border-top: 3px double var(--ink); }
+.foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: var(--s6); }
+.srvs { display: grid; gap: 0; border-top: 2px solid var(--ink); }
+.srvs div { display: grid; grid-template-columns: 1fr auto; padding: 7px 0; border-bottom: 1px solid var(--rule); font: 400 12px var(--mono); }
+.srvs b { font: 700 14px var(--display); font-stretch: 85%; }
+.log { font: 400 11px/1.6 var(--mono); color: var(--ink-2); height: 200px; overflow: auto; white-space: pre-wrap; border-top: 2px solid var(--ink); padding-top: 8px; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 1200px) {
+  .mast-grid, .tree-grid, .rvi, .dis, .zone-grid, .atk, .foot-grid { grid-template-columns: minmax(0, 1fr); }
+  .lede { margin-left: 0; }
+  .dig-form { grid-template-columns: minmax(0, 1fr) 90px; }
+  .dig-form > :nth-child(3) { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  :root { --tabs: 0px; }
+  .thumbs { top: auto; left: 0; height: auto; width: 100%; flex-direction: row; overflow-x: auto; padding: 0; gap: 2px; background: var(--ink); }
+  .thumbs a { writing-mode: horizontal-tb; width: auto !important; padding: 0 12px; border-radius: 0; line-height: 40px; margin: 0; white-space: nowrap; }
+  .thumbs a b { margin: 0 6px 0 0; }
+  .page { margin-right: 0; padding-bottom: 44px; }
+  .wrap { padding: 0 var(--s4); }
+  .runhead .gw { display: none; }
+  .sec-h { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+  .sec-h .no { font-size: 64px; } .sec-h .gw { text-align: left; }
+  .callrow { grid-template-columns: minmax(0, 1fr) 70px; } .callrow button { grid-column: 1 / -1; padding: 12px; }
+  .hx-row { grid-template-columns: 36px repeat(16, 19px); } .hx-row .asc, .hx-row .gap { display: none; }
+  .hex { font-size: 10.5px; }
+  .tree-ctl .inp { width: 100%; }
+  .count b { font-size: 40px; }
+  .ctab-wrap { overflow-x: auto; } .ctab { min-width: 640px; }
+  .addform { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<nav class="thumbs" aria-label="Sections">
+  <a href="#tree"><b>01</b>Who knows</a><a href="#rvi"><b>02</b>Rec · Iter</a><a href="#dig"><b>03</b>Packet</a><a href="#cache"><b>04</b>Memory</a><a href="#zones"><b>05</b>Listings</a><a href="#forgery"><b>06</b>Forgery</a><a href="#board"><b>07</b>Log</a>
+</nav>
+
+<div class="page">
+  <!-- ================================================================ MASTHEAD -->
+  <header class="yellow mast">
+    <div class="wrap">
+      <div class="runhead"><span>JU · CSE · Computer Networks</span><span class="gw" id="guide">a.root-servers.lab — www.cse.myuniv.edu</span><span class="pg">PAGE 53</span></div>
+      <div class="mast-grid">
+        <div>
+          <h1><span>The Internet's</span><span class="o">phone</span><span>book.</span></h1>
+          <p class="dek">Our own <b>DNS</b> from the RFCs: four authoritative servers forming a naming tree (<i>root, .edu, myuniv.edu, cse.myuniv.edu</i>), a <b>recursive resolver</b> that walks it and remembers, a dig-style client, and the forgery that DNS had to learn to survive.</p>
+        </div>
+        <div class="callbox">
+          <label for="qName">Look up a name</label>
+          <div class="callrow">
+            <input id="qName" value="www.cse.myuniv.edu" spellcheck="false" autocomplete="off" aria-label="Name">
+            <select id="qType" aria-label="Record type"><option>A</option><option>MX</option><option>CNAME</option><option>NS</option><option>TXT</option><option>PTR</option><option>SOA</option><option>AAAA</option></select>
+            <button id="qGo">Ask</button>
+          </div>
+          <div class="callout" id="qOut"><div class="listing"><span class="t">Ask our recursive resolver (127.0.0.1:5300) anything: the lab names below, or any real domain.</span></div></div>
+          <div class="chips" id="qChips"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================================================================ 01 THE TREE -->
+  <section id="tree">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">01</div><h2>Nobody knows every name.<br>Everybody knows who to ask.</h2><div class="gw">RFC 1034 §4.3.2<br>delegation · referral · glue</div></div>
+      <p class="lede">The naming tree is cut into <b>zones</b>. Each zone's server knows only its own names and <b>who is in charge of each child</b>. Ask the root about <code>www.cse.myuniv.edu</code> and it replies "ask .edu", together with that server's address (the <b>glue</b>). Every box below is a real DNS server on its own address.</p>
+      <div class="tree-ctl">
+        <label class="lab" style="display:grid;gap:4px">Name<input class="inp" id="tName" value="www.cse.myuniv.edu" spellcheck="false"></label>
+        <label class="lab" style="display:grid;gap:4px">Type<select class="inp" id="tType"><option>A</option><option>MX</option><option>PTR</option><option>TXT</option><option>NS</option></select></label>
+        <div class="lab" style="display:grid;gap:4px">Method<div class="seg" id="tMode"><button data-m="iterative" class="on">Iterative</button><button data-m="recursive">Recursive</button></div></div>
+        <button class="btn" id="tFresh">Walk the tree (empty cache)</button>
+        <button class="btn ghost" id="tAgain">Ask again (with cache)</button>
+        <div class="chips" style="margin:0" id="tChips"></div>
+      </div>
+      <div class="tree-grid">
+        <svg class="tree" id="treeSvg" viewBox="0 0 980 470" role="img" aria-label="The lab naming tree"></svg>
+        <div><div class="steps" id="steps"><div class="empty">Press <b>Walk the tree</b>: each server the resolver asks appears here, numbered, with what it said.</div></div><div class="verdict" id="verdict"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 02 RECURSIVE vs ITERATIVE -->
+  <section id="rvi" class="yellow">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">02</div><h2>Two ways to find a name:<br>recursive and iterative.</h2><div class="gw">RD = recursion desired<br>RA = recursion available</div></div>
+      <p class="lede"><b>Recursive resolution:</b> every server that does not know the answer asks the next one <i>for</i> you and waits, so the question goes down the chain and the answer comes back up it. <b>Iterative resolution:</b> every server that does not know replies with a <b>referral</b> ("ask them"), and the resolver itself asks the next one. Both figures below come from real lookups on our servers. Step through them message by message.</p>
+      <div class="m-ctl">
+        <label class="lab" style="display:grid;gap:4px">Name<input class="inp" id="mName" value="www.cse.myuniv.edu" spellcheck="false"></label>
+        <button class="btn" id="mRun">Run both lookups</button>
+        <div class="player"><button class="pbtn" id="mPrev" aria-label="Previous step">◀</button><button class="pbtn wide" id="mPlay">Play</button><button class="pbtn" id="mNext" aria-label="Next step">▶</button><span class="stepno" id="mStep">step 0 / 0</span></div>
+        <label class="chk" title="Lab servers answer RD=1 queries by recursing (RA=1). Real root servers have this off."><input type="checkbox" id="mRA" checked> lab servers offer recursion (RA=1)</label>
+      </div>
+      <div class="methods">
+        <div class="method" id="pRec">
+          <div class="mh"><h3>Recursive</h3><span class="mono">each server asks the next one for you</span></div>
+          <svg class="fig" viewBox="0 0 640 350" role="img" aria-label="Recursive resolution"></svg>
+          <div class="cap"><b>Step 0</b> Press Run both lookups.</div>
+          <div class="busy"></div>
+        </div>
+        <div class="method" id="pIt">
+          <div class="mh"><h3>Iterative</h3><span class="mono">each server says "ask them"; the resolver goes on</span></div>
+          <svg class="fig" viewBox="0 0 640 350" role="img" aria-label="Iterative resolution"></svg>
+          <div class="cap"><b>Step 0</b> Press Run both lookups.</div>
+          <div class="busy"></div>
+        </div>
+      </div>
+      <div class="rvi" style="margin-top:var(--s6)">
+        <table class="compare">
+          <tr><th></th><th>Recursive</th><th>Iterative</th></tr>
+          <tr><td>Who asks the next server</td><td>the server that was asked</td><td>the resolver, every time</td></tr>
+          <tr><td>RD bit on each query</td><td>1 all the way down</td><td>0 to the root, TLD and authoritative servers</td></tr>
+          <tr><td>A server replies with</td><td>the final answer, relayed back up</td><td>an answer <i>or</i> a referral</td></tr>
+          <tr><td>Who is busy</td><td>every server in the chain waits until the end</td><td>each server answers at once and is free</td></tr>
+          <tr><td>Used where</td><td>your PC → its resolver (always)</td><td>resolver → root / TLD / authoritative (real Internet)</td></tr>
+          <tr><td>Why</td><td>simple for the client</td><td>root and TLD servers cannot hold millions of open queries, so they set RA=0</td></tr>
+        </table>
+        <div>
+          <table class="compare" id="mStats"><tr><th>Measured now</th><th>Recursive</th><th>Iterative</th></tr></table>
+          <p class="mono" style="margin-top:10px;color:var(--muted)">On the real Internet both happen together: your PC sends a recursive query to its resolver, and the resolver resolves iteratively. Section 01 shows that walk.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 03 THE PACKET -->
+  <section id="dig">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">03</div><h2>One packet,<br>every byte explained.</h2><div class="gw">RFC 1035 §4.1<br>header · question · answer · authority · additional</div></div>
+      <p class="lede">Our <code>dig</code> client sends one query to any server: ours, Google's 8.8.8.8, or a root server. It prints the reply byte by byte. Point at a byte to see what it means. Red-outlined bytes are <b>compression pointers</b>: a repeated name is replaced by two bytes pointing back to its first appearance.</p>
+      <div class="dig-form">
+        <label class="lab">Name<input class="inp" id="dName" value="www.cse.myuniv.edu" spellcheck="false"></label>
+        <label class="lab">Type<select id="dType"><option>A</option><option>MX</option><option>CNAME</option><option>NS</option><option>TXT</option><option>PTR</option><option>SOA</option><option>AAAA</option></select></label>
+        <label class="lab">Server<select id="dSrv">
+          <option value="resolver">our recursive resolver · 127.0.0.1:5300</option>
+          <option value="root">lab root · 127.0.0.10</option><option value="edu">lab .edu · 127.0.0.11</option><option value="myuniv">lab myuniv.edu · 127.0.0.12</option><option value="cse">lab cse.myuniv.edu · 127.0.0.13</option>
+          <option value="google">Google · 8.8.8.8:53</option><option value="cloudflare">Cloudflare · 1.1.1.1:53</option><option value="aroot">a.root-servers.net · 198.41.0.4</option></select></label>
+        <label class="chk"><input type="checkbox" id="dRd" checked> RD=1</label>
+        <label class="chk"><input type="checkbox" id="dTcp"> TCP</label>
+        <button class="btn" id="dGo">Send query</button>
+      </div>
+      <div class="chips" id="dChips"></div>
+      <div id="dOut"></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 04 CACHE -->
+  <section id="cache" class="yellow">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">04</div><h2>The resolver's memory.</h2><div class="gw">TTL · negative caching (RFC 2308)</div></div>
+      <p class="lede">Every record has a <b>TTL</b> set by its zone's owner: how many seconds others may remember it. The bars count down live. <b>Negative answers</b> (no such name) are remembered too, for the SOA's minimum. Without the cache, every lookup would start at the root.</p>
+      <div class="cache-top">
+        <div class="stat"><b id="sHits">0</b>cache hits</div><div class="stat"><b id="sMiss">0</b>misses</div><div class="stat"><b id="sUp">0</b>upstream queries</div><div class="stat"><b id="sSize">0</b>RRsets held</div>
+        <span style="flex:1"></span><button class="btn ghost" id="cFlush">Flush the cache</button>
+      </div>
+      <div class="ctab-wrap"><table class="ctab" id="cTab"></table></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 05 ZONES -->
+  <section id="zones">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">05</div><h2>The listings: zone files.</h2><div class="gw">SOA · NS · A · CNAME · MX · TXT · PTR</div></div>
+      <p class="lede">These are what the authoritative servers serve, in BIND zone-file syntax. <code>cse.myuniv.edu</code> holds your Assignment 6 records. Add a record and it is live straight away; the resolver's cached copy of that name is dropped.</p>
+      <div class="zone-grid">
+        <div><div class="seg" id="zTabs" style="margin-bottom:10px"></div><div class="zfile" id="zFile"></div></div>
+        <div>
+          <div class="addform">
+            <label class="lab full">Zone<select id="zZone"><option value="cse">cse.myuniv.edu</option><option value="rev">151.168.192.in-addr.arpa</option><option value="myuniv">myuniv.edu</option></select></label>
+            <label class="lab">Name<input class="inp" id="zName" value="lab" spellcheck="false"></label>
+            <label class="lab">Type<select id="zType"><option>A</option><option>CNAME</option><option>MX</option><option>TXT</option><option>NS</option><option>PTR</option><option>AAAA</option></select></label>
+            <label class="lab">Value<input class="inp" id="zVal" value="192.168.151.6" spellcheck="false"></label>
+            <label class="lab">TTL<input class="inp" id="zTtl" value="60"></label>
+            <div class="row full"><button class="btn" id="zAdd">Add record</button><button class="btn ghost" id="zDel">Remove</button><span class="mono" id="zMsg" style="color:var(--muted)"></span></div>
+          </div>
+          <div class="howto"><span class="lab">Try it from Windows (Command Prompt)</span>
+<pre id="howto">nslookup www.cse.myuniv.edu 127.0.0.1
+nslookup -type=MX cse.myuniv.edu 127.0.0.1
+nslookup 192.168.151.4 127.0.0.1
+nslookup -norecurse www.cse.myuniv.edu 127.0.0.10   ← iterative: root only refers
+nslookup www.cse.myuniv.edu 127.0.0.10              ← recursive: root asks down the chain</pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 06 FORGERY -->
+  <section id="forgery" class="forgery">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no" style="color:var(--tld)">06</div><h2>Forgery: poisoning the cache.</h2><div class="gw">Kaminsky 2008 · RFC 5452 · draft 0x20</div></div>
+      <p class="lede">The resolver asks <code>dns.cse.myuniv.edu</code> for <code>bank.cse.myuniv.edu</code>, and that server takes 1.5 s to reply. During that window an attacker floods the resolver with forged replies saying <b>bank = 6.6.6.6</b>, one for each of the 65,536 possible query IDs. Whichever reply matches first is believed and cached <b>for everyone</b>.</p>
+      <div class="atk">
+        <div class="atk-card" id="atkV">
+          <span class="stampx" id="stV">POISONED</span>
+          <span class="lab">The 2008 resolver</span>
+          <h3>Fixed port, trusting</h3>
+          <ul><li>source port always 5399</li><li>16-bit query ID is the only secret</li><li>no check of who answered</li><li>question matched without case</li></ul>
+          <button class="btn red" data-atk="vulnerable">Launch the attack</button>
+          <div class="timeline" id="tlV"><div class="spray"></div><div class="real" style="left:100%"></div><span class="tick" style="left:0">0</span><span class="tick" style="left:100%">1.5 s</span></div>
+          <div class="outcome" id="oV"></div><div class="outd" id="dV"></div>
+        </div>
+        <div class="atk-card sec2" id="atkS">
+          <span class="stampx ok" id="stS">DEFENDED</span>
+          <span class="lab">A modern resolver</span>
+          <h3>Random everything</h3>
+          <ul><li>a new random source port for every query</li><li>random 16-bit ID</li><li>reply must come from the server asked</li><li>0x20: random letter case, echoed exactly</li></ul>
+          <button class="btn" data-atk="secure" style="background:#6fd08c;border-color:#6fd08c;color:var(--ink)">Launch the attack</button>
+          <div class="timeline" id="tlS"><div class="spray"></div><div class="real" style="left:100%"></div><span class="tick" style="left:0">0</span><span class="tick" style="left:100%">1.5 s</span></div>
+          <div class="outcome" id="oS"></div><div class="outd" id="dS"></div>
+        </div>
+      </div>
+      <p class="lede" style="margin-top:var(--s5);color:#a8a291">On loopback, packets cannot be given a fake source address. So the "2008" resolver skips the source check, which is what IP spoofing achieves on a real network. The lasting fix is <b style="color:#fff">DNSSEC</b>: answers are signed, so a forgery cannot be verified.</p>
+    </div>
+  </section>
+
+  <!-- ================================================================ 07 SWITCHBOARD -->
+  <section id="board">
+    <div class="wrap sec">
+      <div class="sec-h"><div class="no">07</div><h2>The switchboard log.</h2><div class="gw">every message, every server</div></div>
+      <div class="board-h">
+        <div class="seg" id="bTabs"><button data-g="all" class="on">All</button><button data-g="stub">Stub ↔ resolver</button><button data-g="iter">Resolver → servers</button><button data-g="auth">Authoritative</button><button data-g="dig">Our dig</button></div>
+        <span class="mono" style="color:var(--muted)">C = sent by the client side · S = sent by the server side</span>
+      </div>
+      <div class="board" id="bLog"><div class="empty" style="margin:20px">Quiet line. Look something up.</div></div>
+    </div>
+  </section>
+
+  <footer class="foot yellow">
+    <div class="wrap foot-grid">
+      <div><span class="lab">The exchange</span><div class="srvs" id="srvs"></div></div>
+      <div><span class="lab">Server log</span><div class="log" id="logs"></div></div>
+    </div>
+  </footer>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async (p) => (await fetch(p, { cache: 'no-store' })).json();
+const W = ms => new Promise(r => setTimeout(r, ms));
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const lv = n => { if (!n || n === '.') return 'root'; const c = n.replace(/\.$/, '').split('.').length; return c === 1 ? 'tld' : c === 2 ? 'dom' : 'host'; };
+
+// ================================================================ hero lookup (through our resolver)
+const HERO = [['www.cse.myuniv.edu', 'A'], ['web.cse.myuniv.edu', 'A'], ['cse.myuniv.edu', 'MX'], ['192.168.151.4', 'PTR'], ['nosuch.cse.myuniv.edu', 'A'], ['www.wikipedia.org', 'A']];
+$('qChips').innerHTML = HERO.map(([n, t]) => `<button data-n="${n}" data-t="${t}">${n} ${t}</button>`).join('');
+$('qChips').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('qName').value = b.dataset.n; $('qType').value = b.dataset.t; hero(); };
+const ptrName = n => /^\d+\.\d+\.\d+\.\d+$/.test(n) ? n.split('.').reverse().join('.') + '.in-addr.arpa' : n;
+function listing(rrs) {
+  return rrs.map(r => `<span class="n lv-${lv(r.name)}">${esc(r.name)}</span><span class="dots"></span><span class="v">${esc(r.type)} ${esc(r.data)}</span><span class="t">TTL ${r.ttl} s</span>`).join('');
+}
+async function hero() {
+  const n = ptrName($('qName').value.trim()), t = $('qType').value;
+  if (n !== $('qName').value.trim()) $('qType').value = 'PTR';
+  $('qOut').innerHTML = '<div class="listing"><span class="t">Ringing the resolver…</span></div>';
+  const r = await api(`/api/dig?server=resolver&rd=1&name=${encodeURIComponent(n)}&type=${$('qType').value}`);
+  if (r.error) { $('qOut').innerHTML = `<div class="listing"><span class="t" style="color:#ff8a75">${esc(r.error)}</span></div>`; return; }
+  $('qOut').innerHTML = (r.answer.length ? `<div class="listing">${listing(r.answer)}</div>` : `<div class="listing"><span class="n" style="color:#ff8a75">${esc(r.rcode === 'NOERROR' ? 'no ' + $('qType').value + ' record' : r.rcode)}</span><span class="dots"></span><span class="v">${esc(n)}</span></div>`)
+    + `<div class="meta">${esc(r.rcode)} · ${r.ms} ms · ${r.size} bytes${r.tcp ? ' · TCP' : ''} · see the walk in 01, the bytes in 03</div>`;
+  $('tName').value = n; $('dName').value = n; $('tType').value = $('qType').value; $('dType').value = $('qType').value;
+  trace(false, true);
+}
+$('qGo').onclick = hero; $('qName').addEventListener('keydown', e => { if (e.key === 'Enter') hero(); });
+
+// ================================================================ 01 the tree
+const T = {};   // key -> node
+const NODES = [
+  ['', '.', 'a.root-servers.lab', '127.0.0.10', 40, 215],
+  ['com', 'com.', 'real Internet', '', 230, 50, 1], ['org', 'org.', 'real Internet', '', 230, 115, 1],
+  ['edu', 'edu.', 'ns.edu-servers.lab', '127.0.0.11', 230, 215], ['in-addr.arpa', 'in-addr.arpa.', 'via the root', '', 230, 395, 1],
+  ['myuniv.edu', 'myuniv.edu.', 'ns1.myuniv.edu', '127.0.0.12', 430, 215],
+  ['151.168.192.in-addr.arpa', '151.168.192.in-addr.arpa.', 'dns.cse.myuniv.edu', '127.0.0.13', 430, 395],
+  ['cse.myuniv.edu', 'cse.myuniv.edu.', 'dns.cse.myuniv.edu', '127.0.0.13', 630, 215],
+  ['www.myuniv.edu', 'www', '192.168.150.10', '', 630, 120],
+];
+const HOSTS = [['www', '.4'], ['web', 'CNAME'], ['ftp', '.5'], ['dhcp', '.2'], ['mail', '127.0.0.1'], ['dns', '127.0.0.13'], ['bank', '.20']];
+(function drawTree() {
+  const s = $('treeSvg');
+  const E = sv('g', {}, s), N = sv('g', {}, s);
+  const node = (key, label, sub, ip, x, y, ghost, w = 150) => {
+    const g = sv('g', { class: 'node' + (ghost ? ' ghost' : '') }, N);
+    sv('rect', { x, y: y - 26, width: w, height: ip ? 54 : 44 }, g);
+    const t = sv('text', { x: x + 10, y: y - 8 }, g); t.textContent = label;
+    const u = sv('text', { x: x + 10, y: y + 7, class: 'ip' }, g); u.textContent = sub;
+    if (ip) { const v = sv('text', { x: x + 10, y: y + 20, class: 'ip' }, g); v.textContent = ip; }
+    T[key] = { g, x, y, w };
+  };
+  const edge = (a, b) => { const A = T[a], B = T[b]; const p = sv('path', { class: 'edge', d: `M${A.x + A.w} ${A.y}C${A.x + A.w + 30} ${A.y},${B.x - 30} ${B.y},${B.x} ${B.y}` }, E); (T[b].edges = T[b].edges || []).push(p); };
+  NODES.forEach(n => node(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[0].length > 20 ? 172 : 150));
+  HOSTS.forEach(([h, ip], i) => node(h + '.cse.myuniv.edu', h, ip, '', 830, 40 + i * 64, 0, 130));
+  T['www.myuniv.edu'].w = 150;
+  [['', 'com'], ['', 'org'], ['', 'edu'], ['', 'in-addr.arpa'], ['edu', 'myuniv.edu'], ['in-addr.arpa', '151.168.192.in-addr.arpa'], ['myuniv.edu', 'cse.myuniv.edu'], ['myuniv.edu', 'www.myuniv.edu']].forEach(([a, b]) => edge(a, b));
+  HOSTS.forEach(([h]) => edge('cse.myuniv.edu', h + '.cse.myuniv.edu'));
+  T.badges = sv('g', {}, s);
+})();
+const TCH = [['www.cse.myuniv.edu', 'A'], ['web.cse.myuniv.edu', 'A'], ['cse.myuniv.edu', 'MX'], ['4.151.168.192.in-addr.arpa', 'PTR'], ['www.wikipedia.org', 'A']];
+$('tChips').innerHTML = TCH.map(([n, t]) => `<button data-n="${n}" data-t="${t}">${n.replace('.cse.myuniv.edu', '')} ${t}</button>`).join('');
+$('tChips').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('tName').value = b.dataset.n; $('tType').value = b.dataset.t; trace(true); };
+$('tFresh').onclick = () => trace(true); $('tAgain').onclick = () => trace(false);
+let lastTrace = null, traceTok = 0, tMode = 'iterative';
+$('tMode').onclick = e => { const b = e.target.closest('button'); if (!b) return; tMode = b.dataset.m; $('tMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); trace(true); };
+function zoneKey(z) { return z === '.' ? '' : z.replace(/\.$/, ''); }
+async function trace(fresh, quiet) {
+  const tok = ++traceTok;
+  const n = $('tName').value.trim().replace(/\.$/, ''), t = $('tType').value;
+  if (!quiet) $('steps').innerHTML = '<div class="empty">Walking…</div>';
+  const r = await api(`/api/trace?name=${encodeURIComponent(n)}&type=${t}&fresh=${fresh ? 1 : 0}&mode=${tMode}`);
+  if (tok !== traceTok) return;
+  if (r.error) { $('steps').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+  lastTrace = r;
+  // reset tree
+  Object.values(T).forEach(x => { if (x && x.g) { x.g.classList.remove('lit', 'ans'); (x.edges || []).forEach(e => e.classList.remove('lit')); } });
+  T.badges.innerHTML = '';
+  $('steps').innerHTML = ''; $('verdict').innerHTML = '';
+  let i = 0;
+  for (const s of r.steps) {
+    i++;
+    const d = document.createElement('div');
+    d.className = `step k-${s.kind.split(' ')[0]}${s.cached ? ' cached' : ''}${s.suspicious ? ' sus' : ''}${s.depth ? ' d' + Math.min(3, s.depth) : ''}`;
+    d.innerHTML = `<span class="srv">${esc(s.cached ? 'the resolver\'s cache' : s.server)}<small>${esc(s.ip)}${s.zone && !s.cached ? ' · zone ' + esc(s.zone) : ''}</small></span><span class="ms">${s.cached ? '0 ms' : s.ms + ' ms'}${s.tcp ? ' · TCP' : ''}</span>
+      <span class="k">${esc(s.kind)}</span><span class="d">${esc(s.detail)}</span>${s.records.length ? `<span class="rr">${esc(s.records.slice(0, 6).join('\n'))}${s.records.length > 6 ? '\n…' : ''}</span>` : ''}`;
+    $('steps').appendChild(d);
+    const k = T[zoneKey(s.zone)];
+    if (k && !s.cached) {
+      k.g.classList.add('lit'); (k.edges || []).forEach(e => e.classList.add('lit'));
+      const b = sv('text', { x: k.x + k.w - 6, y: k.y - 32, class: 'badge', 'text-anchor': 'end' }, T.badges); b.textContent = `#${i} · ${s.ms} ms`;
+    }
+    if (!REDUCED) await W(r.fromCache ? 60 : 380);
+    if (tok !== traceTok) return;
+  }
+  const ans = T[r.name] || (r.answers.length && T[r.answers[r.answers.length - 1].name]);
+  if (ans && r.rcode === 'NOERROR' && r.answers.length) { ans.g.classList.add('ans'); (ans.edges || []).forEach(e => e.classList.add('lit')); }
+  if (r.name.endsWith('in-addr.arpa') && r.answers.length) { const h = T[r.answers[0].data]; if (h) h.g.classList.add('ans'); }
+  const asked = r.steps.filter(s => !s.cached && s.server !== '-').length;
+  $('verdict').innerHTML = (r.answers.length ? r.answers.map(a => `${esc(a.name)} → ${esc(a.type)} ${esc(a.data)}`).join('<br>') : esc(r.rcode)) +
+    `<small>${r.mode === 'recursive' ? 'recursive: one query to the root, a chain of ' + r.steps.length + ' servers' : r.fromCache ? 'answered entirely from the cache' : 'iterative: ' + asked + ' server(s) asked by the resolver'} · ${r.ms} ms · ${r.view === 'lab' ? 'lab hierarchy (127.0.0.10–13)' : 'real Internet root servers'}</small>`;
+}
+
+// ================================================================ 02 recursive vs iterative, step by step
+const POS = { client: [80, 300], resolver: [300, 300], root: [95, 80], tld: [280, 40], dom: [455, 80], auth: [545, 210] };
+const SLOT_NAME = { root: 'root', tld: 'TLD', dom: 'domain', auth: 'authoritative' };
+const slotOf = z => { const n = (z || '.').replace(/\.$/, ''); if (!n) return 'root'; const c = n.split('.').length; return c === 1 ? 'tld' : c === 2 ? 'dom' : 'auth'; };
+const short = s => s.replace('.root-servers.lab', '·root').replace('.edu-servers.lab', '·edu');
+const M = { rec: null, it: null, k: 0, n: 0, timer: null };
+
+function baseNodes() {
+  return { client: { label: 'Your PC', sub: 'stub resolver' }, resolver: { label: 'Local resolver', sub: '127.0.0.1:5300' } };
+}
+function finalAns(r) { return r.answers.length ? r.answers[r.answers.length - 1].type + ' ' + r.answers[r.answers.length - 1].data : r.rcode; }
+
+function modelIterative(r) {
+  const nodes = baseNodes(), msgs = [];
+  msgs.push({ f: 'client', t: 'resolver', k: 'q', txt: `Your PC → resolver: "${r.name} ${r.type}?" with RD=1. Please find it for me.` });
+  r.steps.filter(s => !s.cached && !s.depth && s.server !== '-').forEach(s => {
+    const sl = slotOf(s.zone); nodes[sl] = nodes[sl] || { label: short(s.server), sub: s.ip + ' · zone ' + s.zone };
+    msgs.push({ f: 'resolver', t: sl, k: 'q', txt: `Resolver → ${s.server}: "${r.name}?" with RD=0. Just tell me what you know.` });
+    const ref = s.kind === 'REFERRAL', ans = s.kind.startsWith('ANSWER');
+    const nx = (s.detail.match(/servers for ([^"]+)"/) || [, ''])[1];
+    msgs.push({ f: sl, t: 'resolver', k: ref ? 'ref' : ans ? 'ans' : 'err', ms: s.ms,
+      txt: ref ? `${s.server} → resolver: a referral. "I don't know it; ask the ${nx} servers" (+ their address as glue). ${s.ms} ms` : ans ? `${s.server} → resolver: the authoritative answer, ${finalAns(r)}. ${s.ms} ms` : `${s.server} → resolver: ${s.kind}. ${s.ms} ms` });
+  });
+  msgs.push({ f: 'resolver', t: 'client', k: 'ans', txt: `Resolver → your PC: ${finalAns(r)} (RA=1). The resolver did all the walking itself and cached every referral.` });
+  return { nodes, msgs, r };
+}
+function modelRecursive(r) {
+  const nodes = baseNodes(), msgs = [];
+  const chain = r.steps.slice().sort((a, b) => a.depth - b.depth);
+  chain.forEach(s => { const sl = slotOf(s.zone); nodes[sl] = nodes[sl] || { label: short(s.server), sub: s.ip + ' · zone ' + s.zone }; s.slot = sl; });
+  msgs.push({ f: 'client', t: 'resolver', k: 'q', txt: `Your PC → resolver: "${r.name} ${r.type}?" with RD=1. Please find it for me.` });
+  if (!chain.length) return { nodes, msgs, r };
+  msgs.push({ f: 'resolver', t: chain[0].slot, k: 'q', txt: `Resolver → ${chain[0].server}: "${r.name}?" with RD=1. You find it for me.` });
+  if (chain[0].kind.startsWith('REFERRAL')) {
+    msgs.push({ f: chain[0].slot, t: 'resolver', k: 'ref', txt: `${chain[0].server} → resolver: RA=0, "I don't do recursion". It sends only a referral. (Turn "lab servers offer recursion" back on.)` });
+    return { nodes, msgs, r };
+  }
+  for (let i = 1; i < chain.length; i++)
+    msgs.push({ f: chain[i - 1].slot, t: chain[i].slot, k: 'q', txt: `${chain[i - 1].server} does not know, so it asks ${chain[i].server} itself: "${r.name}?" with RD=1, and waits.` });
+  for (let i = chain.length - 1; i >= 1; i--)
+    msgs.push({ f: chain[i].slot, t: chain[i - 1].slot, k: 'ans', ms: chain[i].ms,
+      txt: i === chain.length - 1 ? `${chain[i].server} is authoritative: it answers ${finalAns(r)} back to ${chain[i - 1].server}. ${chain[i].ms} ms` : `${chain[i].server} relays the answer up to ${chain[i - 1].server} (it waited ${chain[i].ms} ms for the servers below it).` });
+  msgs.push({ f: chain[0].slot, t: 'resolver', k: 'ans', ms: chain[0].ms, txt: `${chain[0].server} relays the answer to the resolver. The root was busy for ${chain[0].ms} ms, the whole time.` });
+  msgs.push({ f: 'resolver', t: 'client', k: 'ans', txt: `Resolver → your PC: ${finalAns(r)} (RA=1).` });
+  return { nodes, msgs, r };
+}
+
+const COL = { q: '#141414', ref: '#1a4fb4', ans: '#157a3a', err: '#c8261b' };
+function drawFig(panel, m, k) {
+  const svg = panel.querySelector('.fig'); svg.innerHTML = '';
+  const defs = sv('defs', {}, svg);
+  Object.entries(COL).forEach(([id, c]) => { const mk = sv('marker', { id: panel.id + id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 11, markerHeight: 11, markerUnits: 'userSpaceOnUse', orient: 'auto' }, defs); sv('path', { d: 'M0 0L10 5L0 10z', fill: c }, mk); });
+  // who is waiting at step k: received a query and has not replied yet
+  const open = {};
+  m.msgs.slice(0, k).forEach(x => { if (x.k === 'q') open[x.t] = (open[x.t] || 0) + 1; else open[x.f] = Math.max(0, (open[x.f] || 0) - 1); });
+  const G = sv('g', {}, svg), A = sv('g', {}, svg);
+  Object.entries(m.nodes).forEach(([key, n]) => {
+    const [x, y] = POS[key], g = sv('g', { class: 'nd' + (open[key] && key !== 'client' ? ' wait' : '') }, G);
+    sv('rect', { class: 'halo', x: x - 79, y: y - 28, width: 158, height: 56, rx: 4 }, g);
+    sv('rect', { x: x - 75, y: y - 24, width: 150, height: 48 }, g);
+    const t = sv('text', { x, y: y - 4, 'text-anchor': 'middle' }, g); t.textContent = n.label;
+    const u = sv('text', { x, y: y + 11, 'text-anchor': 'middle', class: 'sub' }, g); u.textContent = n.sub.length > 26 ? n.sub.slice(0, 25) + '…' : n.sub;
+    const w = sv('text', { x, y: y - 31, 'text-anchor': 'middle', class: 'wt' }, g); w.textContent = key === 'resolver' || !SLOT_NAME[key] ? 'WAITING' : 'WAITING · ' + SLOT_NAME[key];
+  });
+  m.msgs.slice(0, k).forEach((x, i) => {
+    const [x1, y1] = POS[x.f], [x2, y2] = POS[x.t];
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, nx = -uy * 9, ny = ux * 9;
+    const cut = (ax, ay) => { const tx = 75 / Math.max(Math.abs(ax), .01), ty = 24 / Math.max(Math.abs(ay), .01); return Math.min(tx, ty) + 6; };
+    const c = cut(ux, uy);
+    const sx = x1 + ux * c + nx, sy = y1 + uy * c + ny, ex = x2 - ux * c + nx, ey = y2 - uy * c + ny;
+    const cur = i === k - 1;
+    sv('line', { class: 'ar' + (cur ? ' cur' : ' old'), x1: sx, y1: sy, x2: ex, y2: ey, stroke: COL[x.k], 'marker-end': `url(#${panel.id + x.k})` }, A);
+    const g = sv('g', { class: 'num' + (cur ? '' : ' old') }, A), mx = sx + (ex - sx) * .42 + nx * .9, my = sy + (ey - sy) * .42 + ny * .9;
+    sv('circle', { cx: mx, cy: my, r: 11, fill: COL[x.k] }, g);
+    const t = sv('text', { x: mx, y: my + 4, 'text-anchor': 'middle' }, g); t.textContent = i + 1;
+  });
+  panel.querySelector('.cap').innerHTML = k === 0 ? `<b>Step 0</b>${m.msgs.length} messages in this lookup. Press Play or ▶.` : `<b>Step ${k}</b>${esc(m.msgs[k - 1].txt)}`;
+  // busy strip: one row per server, one cell per message
+  const keys = ['resolver', 'root', 'tld', 'dom', 'auth'].filter(x => m.nodes[x]);
+  const n = m.msgs.length, busy = {}, o = {};
+  m.msgs.forEach((x, i) => {
+    if (x.k === 'q') o[x.t] = (o[x.t] || 0) + 1;
+    keys.forEach(kk => { (busy[kk] = busy[kk] || [])[i] = (o[kk] || 0) > 0 || (x.k !== 'q' && x.f === kk); });
+    if (x.k !== 'q') o[x.f] = Math.max(0, (o[x.f] || 0) - 1);
+  });
+  panel.querySelector('.busy').innerHTML = `<div class="bh">Who is busy holding an open query · solid = so far, faint = still to come</div>` + keys.map(kk => {
+    const cnt = busy[kk].filter(Boolean).length;
+    return `<div class="brow"><span>${esc(kk === 'resolver' ? 'resolver' : m.nodes[kk].label)}</span><span class="cells" style="grid-template-columns:repeat(${n},1fr)">${busy[kk].map((b, i) => `<i class="${b ? 'on' : ''}${b && i < k ? ' cur' : ''}${i === k - 1 ? ' now' : ''}"></i>`).join('')}</span><span class="n">${cnt} of ${n}</span></div>`;
+  }).join('');
+}
+function renderMethods() {
+  if (M.rec) drawFig($('pRec'), M.rec, Math.min(M.k, M.rec.msgs.length));
+  if (M.it) drawFig($('pIt'), M.it, Math.min(M.k, M.it.msgs.length));
+  $('mStep').textContent = `step ${M.k} / ${M.n}`;
+}
+function stopPlay() { clearInterval(M.timer); M.timer = null; $('mPlay').textContent = 'Play'; }
+$('mPrev').onclick = () => { stopPlay(); M.k = Math.max(0, M.k - 1); renderMethods(); };
+$('mNext').onclick = () => { stopPlay(); M.k = Math.min(M.n, M.k + 1); renderMethods(); };
+$('mPlay').onclick = () => {
+  if (M.timer) { stopPlay(); return; }
+  if (M.k >= M.n) M.k = 0;
+  $('mPlay').textContent = 'Pause';
+  M.timer = setInterval(() => { M.k++; renderMethods(); if (M.k >= M.n) stopPlay(); }, REDUCED ? 400 : 1500);
+};
+$('mRA').onchange = () => api('/api/recursion?servers=' + ($('mRA').checked ? 1 : 0));
+async function runBoth(autoplay) {
+  const n = $('mName').value.trim().replace(/\.$/, '');
+  $('mRun').disabled = true; stopPlay();
+  const rec = await api(`/api/trace?mode=recursive&fresh=1&type=A&name=${encodeURIComponent(n)}`);
+  const it = await api(`/api/trace?mode=iterative&fresh=1&type=A&name=${encodeURIComponent(n)}`);
+  $('mRun').disabled = false;
+  if (rec.error || it.error) { $('pRec').querySelector('.cap').textContent = rec.error || it.error; return; }
+  M.rec = modelRecursive(rec); M.it = modelIterative(it);
+  M.n = Math.max(M.rec.msgs.length, M.it.msgs.length); M.k = autoplay ? 0 : M.n;
+  const root = x => (x.r.steps.find(s => !s.depth) || { ms: 0 }).ms;
+  const sent = m => m.msgs.filter(x => x.f === 'resolver' && x.t !== 'client').length;
+  $('mStats').innerHTML = `<tr><th>Measured now</th><th>Recursive</th><th>Iterative</th></tr>
+    <tr><td>Messages in total</td><td>${M.rec.msgs.length}</td><td>${M.it.msgs.length}</td></tr>
+    <tr><td>Queries the resolver sent</td><td>${sent(M.rec)}</td><td>${sent(M.it)}</td></tr>
+    <tr><td>Time the root was busy</td><td>${root(M.rec)} ms</td><td>${root(M.it)} ms</td></tr>
+    <tr><td>Total lookup time</td><td>${Math.round(rec.ms * 10) / 10} ms</td><td>${Math.round(it.ms * 10) / 10} ms</td></tr>`;
+  renderMethods();
+  if (autoplay) $('mPlay').click();
+}
+$('mRun').onclick = () => runBoth(true);
+$('mName').addEventListener('keydown', e => { if (e.key === 'Enter') runBoth(true); });
+
+// ================================================================ 03 dig + dissection
+const DCH = [['www.cse.myuniv.edu', 'A', 'resolver'], ['web.cse.myuniv.edu', 'A', 'cse'], ['cse.myuniv.edu', 'MX', 'cse'], ['big.cse.myuniv.edu', 'TXT', 'cse', 'TC → TCP'], ['nosuch.cse.myuniv.edu', 'A', 'cse', 'NXDOMAIN'], ['www.cse.myuniv.edu', 'A', 'root', 'ask the root'], ['www.google.com', 'A', 'google', '8.8.8.8']];
+$('dChips').innerHTML = DCH.map(([n, t, s, l]) => `<button data-n="${n}" data-t="${t}" data-s="${s}">${l || n.replace('.cse.myuniv.edu', '') + ' ' + t + (s === 'cse' ? ' @cse' : '')}</button>`).join('');
+$('dChips').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('dName').value = b.dataset.n; $('dType').value = b.dataset.t; $('dSrv').value = b.dataset.s; $('dRd').checked = b.dataset.s === 'resolver' || b.dataset.s === 'google'; dig(); };
+$('dGo').onclick = dig; $('dName').addEventListener('keydown', e => { if (e.key === 'Enter') dig(); });
+let digRes = null, digView = 'r';
+async function dig() {
+  $('dGo').disabled = true; $('dOut').innerHTML = '<div class="empty">Dialling…</div>';
+  const r = await api(`/api/dig?name=${encodeURIComponent($('dName').value.trim())}&type=${$('dType').value}&server=${$('dSrv').value}&rd=${$('dRd').checked ? 1 : 0}&tcp=${$('dTcp').checked ? 1 : 0}`);
+  $('dGo').disabled = false;
+  if (r.error) { $('dOut').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+  digRes = r; renderDig();
+}
+function renderDig() {
+  const r = digRes, q = digView === 'q';
+  const hex = q ? r.qhex : r.hex, fields = q ? r.qfields : r.fields;
+  const bytes = []; for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substr(i, 2), 16));
+  const owner = new Array(bytes.length).fill(-1);
+  fields.forEach((f, i) => { for (let k = f.off; k < f.off + f.len && k < bytes.length; k++) owner[k] = i; });
+  let h = '';
+  for (let row = 0; row < bytes.length; row += 16) {
+    h += `<div class="hx-row"><span class="o">${row.toString(16).padStart(4, '0')}</span>`;
+    let asc = '';
+    for (let c = 0; c < 16; c++) {
+      const i = row + c;
+      if (i >= bytes.length) { h += '<span></span>'; continue; }
+      const f = fields[owner[i]];
+      h += `<span class="b ${f ? f.section + (f.kind === 'ptr' ? ' ptr' : '') : ''}" data-f="${owner[i]}">${bytes[i].toString(16).padStart(2, '0')}</span>`;
+      asc += bytes[i] >= 33 && bytes[i] < 127 ? String.fromCharCode(bytes[i]) : '·';
+    }
+    h += `<span class="gap"></span><span class="asc">${esc(asc)}</span></div>`;
+  }
+  const flags = q ? null : r.flags;
+  const fl = flags ? ((flags.qr ? 1 : 0) << 15 | flags.opcode << 11 | (flags.aa ? 1 : 0) << 10 | (flags.tc ? 1 : 0) << 9 | (flags.rd ? 1 : 0) << 8 | (flags.ra ? 1 : 0) << 7 | flags.rcode) : 0;
+  let ft = '', sec = '';
+  fields.forEach((f, i) => { if (f.section !== sec) { sec = f.section; ft += `<tr class="sec"><td colspan="3">${esc(sec)}</td></tr>`; } ft += `<tr data-f="${i}"><td>${f.off}+${f.len}</td><td>${esc(f.label)}</td><td>${esc(f.value)}</td></tr>`; });
+  const rrBlock = (lab, l) => l.length ? `<div class="res-sec"><span class="lab">${lab}</span><div class="listing">${listing(l)}</div></div>` : '';
+  $('dOut').innerHTML = `<div class="dis"><div>
+      <div class="res-h"><span class="rc ${r.rcode === 'NOERROR' ? '' : 'bad'}">${esc(r.rcode)}</span><span class="mono">${esc(r.server)} · ${r.ms} ms · ${r.tcp ? 'TCP' : 'UDP'}${r.truncatedFirst ? ' (UDP reply was truncated: TC=1)' : ''} · id 0x${r.id.toString(16).padStart(4, '0')}</span>
+        <span style="flex:1"></span><div class="seg" id="dView"><button data-v="q" class="${q ? 'on' : ''}">Query · ${r.qsize} B</button><button data-v="r" class="${q ? '' : 'on'}">Response · ${r.size} B</button></div></div>
+      <div class="hex" id="hexBox">${h}</div>
+      <div class="legend-s"><span><i style="background:#e7e3d7"></i>header</span><span><i style="background:#fbe9a6"></i>question</span><span><i style="background:#cfe8d6"></i>answer</span><span><i style="background:#d5e0f5"></i>authority</span><span><i style="background:#f3d4cf"></i>additional</span><span><i style="outline:2px solid var(--tld);outline-offset:-2px"></i>compression pointer</span></div>
+      <div class="tip" id="tip">Point at a byte.</div>
+      ${flags ? `<div class="flags">${[...Array(16)].map((_, i) => `<div class="${fl >> (15 - i) & 1 ? 'one' : ''}">${fl >> (15 - i) & 1}</div>`).join('')}</div>
+      <div class="flags-l"><div>QR</div><div>OPCODE</div><div>AA</div><div>TC</div><div>RD</div><div>RA</div><div>Z</div><div>RCODE</div></div>` : ''}
+    </div><div>
+      ${q ? '' : rrBlock('Answer', r.answer) + rrBlock('Authority', r.authority) + rrBlock('Additional', r.additional)}
+      <div class="fbox" style="margin-top:14px"><table class="ftable" id="ftab">${ft}</table></div>
+    </div></div>`;
+  $('dView').onclick = e => { const b = e.target.closest('button'); if (b) { digView = b.dataset.v; renderDig(); } };
+  const hl = i => {
+    document.querySelectorAll('#hexBox .b.hl, #ftab tr.hl').forEach(x => x.classList.remove('hl'));
+    if (i < 0 || !fields[i]) return;
+    document.querySelectorAll(`#hexBox .b[data-f="${i}"]`).forEach(x => x.classList.add('hl'));
+    const tr = document.querySelector(`#ftab tr[data-f="${i}"]`); if (tr) tr.classList.add('hl');
+    const f = fields[i]; $('tip').textContent = `${f.section} · ${f.label} · bytes ${f.off}–${f.off + f.len - 1}: ${f.value}`;
+  };
+  $('hexBox').onmouseover = e => { const b = e.target.closest('.b'); if (b) hl(+b.dataset.f); };
+  $('ftab').onmouseover = e => { const t = e.target.closest('tr[data-f]'); if (t) hl(+t.dataset.f); };
+}
+
+// ================================================================ 04 cache table (live countdown)
+let cacheRows = [];
+function renderCache() {
+  $('cTab').innerHTML = '<tr><th>Name</th><th>Type</th><th>Data</th><th>TTL left</th><th>View</th><th>Learned from</th></tr>' + (cacheRows.length ? cacheRows.map(c => {
+    const pct = Math.max(0, Math.min(100, c.left / c.ttl * 100)), poison = c.data.includes('6.6.6.6');
+    return `<tr class="${c.negative ? 'neg' : ''}${poison ? ' poison' : ''}"><td class="nm lv-${lv(c.name)}">${esc(c.name || '.')}</td><td class="ty">${esc(c.type)}</td>
+      <td class="dt">${c.negative ? esc(c.rcode === 'NOERROR' ? 'NODATA (negative)' : c.rcode + ' (negative)') : esc(c.data.join(', '))}${poison ? ' · FORGED' : ''}</td>
+      <td><div class="ttl${pct < 20 ? ' low' : ''}"><div class="bar"><i style="width:${pct}%"></i></div><span>${c.left} / ${c.ttl} s</span></div></td>
+      <td><span class="view ${c.view}">${esc(c.view)}</span></td><td class="src">${esc(c.source)}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="src" style="padding:24px 6px">The cache is empty: the next lookup starts at the root.</td></tr>');
+}
+setInterval(() => { if (!cacheRows.length) return; cacheRows.forEach(c => c.left = Math.max(0, c.left - 1)); cacheRows = cacheRows.filter(c => c.left > 0); renderCache(); }, 1000);
+$('cFlush').onclick = async () => { await api('/api/flush'); cacheRows = []; renderCache(); };
+
+// ================================================================ 05 zones
+let zones = null, zKey = 'cse';
+async function loadZones(r) {
+  zones = (r || await api('/api/zone')).zones;
+  $('zTabs').innerHTML = zones.map(z => `<button data-k="${z.key}" class="${z.key === zKey ? 'on' : ''}">${esc(z.origin === '.' ? 'root' : z.origin.replace('151.168.192.in-addr.arpa.', 'reverse'))}</button>`).join('');
+  $('zTabs').querySelectorAll('button').forEach(b => b.onclick = () => { zKey = b.dataset.k; loadZones({ zones }); });
+  const z = zones.find(x => x.key === zKey);
+  $('zFile').innerHTML = `<span class="c">; zone ${esc(z.origin)} · served by ${esc(z.server)} (${esc(z.ip)}:5300)</span>\n` +
+    esc(z.file).replace(/\b(SOA|NS|A|AAAA|CNAME|MX|TXT|PTR)\b(?=\t)/g, '<span class="ty">$1</span>').replace(/^(\$ORIGIN .*)$/m, '<span class="or">$1</span>').replace(/(; [a-z -]+)$/gm, '<span class="c">$1</span>');
+}
+async function zoneEdit(add) {
+  const p = new URLSearchParams({ zone: $('zZone').value, name: $('zName').value, type: $('zType').value, value: $('zVal').value, ttl: $('zTtl').value });
+  const r = await api(`/api/zone/${add ? 'add' : 'del'}?` + p);
+  if (r.error) { $('zMsg').textContent = r.error; return; }
+  $('zMsg').textContent = add ? 'added · live now' : 'removed';
+  zKey = $('zZone').value; loadZones(r);
+}
+$('zAdd').onclick = () => zoneEdit(true); $('zDel').onclick = () => zoneEdit(false);
+
+// ================================================================ 06 forgery
+document.querySelectorAll('[data-atk]').forEach(b => b.onclick = async () => {
+  const m = b.dataset.atk, k = m === 'secure' ? 'S' : 'V';
+  document.querySelectorAll('[data-atk]').forEach(x => x.disabled = true);
+  $('o' + k).className = 'outcome'; $('o' + k).textContent = 'Racing…'; $('d' + k).textContent = 'Spraying 65,536 forged answers while the real one is delayed 1.5 s…';
+  $('st' + k).classList.remove('on');
+  const sp = document.querySelector(`#tl${k} .spray`); sp.style.width = '0';
+  const r = await api('/api/attack?mode=' + m);
+  document.querySelectorAll('[data-atk]').forEach(x => x.disabled = false);
+  if (r.error) { $('o' + k).textContent = 'error'; $('d' + k).textContent = r.error; return; }
+  sp.style.width = Math.min(100, r.sprayMs / r.delay * 100) + '%';
+  const o = $('o' + k);
+  if (r.poisoned) {
+    o.className = 'outcome bad'; o.textContent = `bank → ${r.evil}`;
+    $('d' + k).innerHTML = `${r.sent.toLocaleString()} forgeries in ${r.sprayMs} ms. One matched (${esc(r.accepted)}) before the real answer arrived.<br>Cached for ${r.ttl} s: everyone using this resolver now gets the attacker's address.`;
+    $('stV').classList.add('on');
+  } else {
+    o.className = 'outcome good'; o.textContent = `bank → ${r.cached}`;
+    $('d' + k).innerHTML = `${r.sent.toLocaleString()} forgeries sent; ${r.rejected.toLocaleString()} reached the resolver's random port ${r.upstreamPort} and were rejected (wrong source / wrong case).<br>The real answer won: ${esc(r.cached)}.`;
+    $('stS').classList.add('on');
+  }
+  pollState();
+});
+
+// ================================================================ 07 switchboard
+let lseq = 0, bGroup = 'all', bHas = false;
+const grp = s => s.startsWith('stub') ? 'stub' : s.startsWith('iter') ? 'iter' : s.startsWith('client:dig') ? 'dig' : 'auth';
+const gcls = s => ['root', 'edu', 'myuniv', 'cse'].includes(s) ? 'g-' + s : s.startsWith('stub') ? 'g-stub' : '';
+async function pollLines() {
+  try {
+    const r = await api('/api/lines?since=' + lseq);
+    const box = $('bLog'), atB = box.scrollTop + box.clientHeight >= box.scrollHeight - 40, frag = document.createDocumentFragment();
+    for (const l of r.lines) {
+      lseq = l.seq;
+      const d = document.createElement('div'), g = grp(l.session);
+      d.className = `ln ${gcls(l.session)}${bHas ? ' fresh' : ''}`; d.dataset.g = g;
+      d.style.display = bGroup === 'all' || bGroup === g ? '' : 'none';
+      d.innerHTML = `<span class="sid">${esc(l.session.replace('client:', ''))}</span><span class="w ${l.dir}">${l.dir}</span><span class="t">${esc(l.text)}${l.note ? `<span class="n">${esc(l.note)}</span>` : ''}</span>`;
+      frag.appendChild(d);
+    }
+    if (frag.childNodes.length) { if (!bHas) { box.innerHTML = ''; bHas = true; } box.appendChild(frag); }
+    while (box.children.length > 1200) box.removeChild(box.firstChild);
+    if (atB) box.scrollTop = box.scrollHeight;
+  } catch (e) { }
+  setTimeout(pollLines, 600);
+}
+$('bTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; bGroup = b.dataset.g; $('bTabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('#bLog .ln').forEach(l => l.style.display = bGroup === 'all' || l.dataset.g === bGroup ? '' : 'none'); };
+
+// ================================================================ state
+async function pollState() {
+  try {
+    const s = await api('/api/state');
+    const R = s.resolver;
+    if (s.recursion) $('mRA').checked = s.recursion.servers;
+    $('sHits').textContent = R.hits; $('sMiss').textContent = R.misses; $('sUp').textContent = R.upstream; $('sSize').textContent = R.size;
+    cacheRows = s.cache; renderCache();
+    $('srvs').innerHTML = `<div><span><b>recursive resolver</b> · ${esc(R.listening.join(', '))}</span><span>${R.queries} queries</span></div>` +
+      s.servers.map(x => `<div><span><b class="lv-${lv(x.zones.split(',')[0])}">${esc(x.host)}</b> · ${esc(x.ip)}:${x.port} · ${esc(x.zones)}</span><span>${x.queries} queries</span></div>`).join('');
+    if (!R.listening.some(l => l.endsWith(':53'))) $('howto').textContent = $('howto').textContent.replace(/nslookup (?!-port)/g, 'nslookup -port=5300 ');
+    const lb = $('logs'), atB = lb.scrollTop + lb.clientHeight >= lb.scrollHeight - 30;
+    lb.textContent = s.logs.join('\n'); if (atB) lb.scrollTop = 1e9;
+  } catch (e) { $('srvs').innerHTML = '<div><b style="color:var(--tld)">server offline</b></div>'; }
+}
+setInterval(pollState, 2000);
+
+// ================================================================ nav, reveal, start
+const links = [...document.querySelectorAll('.thumbs a')];
+const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-40% 0px -55% 0px' });
+document.querySelectorAll('.page > section[id]').forEach(s => spy.observe(s));
+if (!REDUCED && 'IntersectionObserver' in window) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('.sec > :not(.sec-h)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+  document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a) return; const t = document.querySelector(a.getAttribute('href')); if (t) t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); });
+  setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { if (x.getBoundingClientRect().top < innerHeight * 1.2) x.classList.add('in'); }), 400);
+}
+pollState(); pollLines(); loadZones(); renderCache();
+trace(true, true).then(() => dig()).then(() => runBoth(false));
+</script>
+</body>
+</html>
