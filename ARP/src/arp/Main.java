@@ -1,6 +1,7 @@
 package arp;
 
 import arp.core.Hub;
+import arp.core.PcapExporter;
 import arp.dashboard.DashboardServer;
 import arp.model.IpAddress;
 import arp.model.MacAddress;
@@ -11,29 +12,31 @@ import arp.network.NetworkInterface;
 import arp.network.RouterNode;
 import arp.security.DhcpSnoopingTable;
 import arp.security.DynamicArpInspection;
+import arp.security.PortSecurity;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * Main Entry Point for the RFC 826 ARP Protocol Simulation & Security Lab.
+ * Main Entry Point for the RFC 826 ARP Protocol & L2 Security Enterprise Lab.
  *
- * Topology:
- * - Center:  8-Port L2 Switch (CAM Learning + Dynamic ARP Inspection)
- * - Port 1:  Host-A (192.168.1.10, AA:AA:AA:11:11:11)
- * - Port 2:  Host-B (192.168.1.20, BB:BB:BB:22:22:22)
- * - Port 3:  Host-C (192.168.1.30, CC:CC:CC:33:33:33)
- * - Port 4:  Gateway / Router (192.168.1.1, 00:1A:2B:00:01:01 - Cisco 2911)
- * - Port 5:  Attacker Node (192.168.1.66, 66:66:66:66:66:66 - Kali Linux)
- * - Port 8082: Real-time Web Dashboard & Sniffer (http://localhost:8082)
+ * Architecture:
+ * - Center:  8-Port L2 Switch (CAM Learning + 802.1Q VLANs + Cisco Port-Security + DAI)
+ * - Port 1:  Host-A (192.168.1.10, AA:AA:AA:11:11:11, VLAN 1)
+ * - Port 2:  Host-B (192.168.1.20, BB:BB:BB:22:22:22, VLAN 1)
+ * - Port 3:  Host-C (192.168.1.30, CC:CC:CC:33:33:33, Diskless RARP Boot, VLAN 1)
+ * - Port 4:  Gateway / Router (192.168.1.1, 00:1A:2B:00:01:01, Proxy ARP & RARP Server, Trusted)
+ * - Port 5:  Attacker Node (192.168.1.66, 66:66:66:66:66:66 - Kali Linux, Untrusted)
+ * - Port 8082: Real-time Web Dashboard & Wire Sniffer (http://localhost:8082)
  *
  * Usage:
  *   run.bat              compile + start lab + dashboard + interactive console
- *   run.bat --verify     run automated RFC 826 verification test suite
+ *   run.bat --verify     run automated verification test suite (50+ checks)
  */
 public final class Main {
 
@@ -48,7 +51,7 @@ public final class Main {
 
         System.out.println("==============================================================================");
         System.out.println("   RFC 826 ADDRESS RESOLUTION PROTOCOL (ARP) & L2 SECURITY LAB               ");
-        System.out.println("   RFC 826 (ARP) | RFC 5227 (ACD & GARP) | RFC 1027 (Proxy ARP) | IEEE 802.1D ");
+        System.out.println("   RFC 826 (ARP) | RFC 5227 (ACD) | RFC 903 (RARP) | RFC 1027 | IEEE 802.1Q  ");
         System.out.println("==============================================================================");
 
         // 1. Initialize DHCP Snooping Database & Dynamic ARP Inspection (DAI)
@@ -93,6 +96,9 @@ public final class Main {
         AttackerNode attacker = new AttackerNode("Kali-Attacker", nicAttacker);
         attacker.setMitmTargets(nicA.getIp(), nicA.getMac(), nicR.getIp(), nicR.getMac());
 
+        // Configure RARP Server mapping for Host-C (diskless boot demonstration)
+        router.addRarpMapping(nicC.getMac(), nicC.getIp());
+
         List<HostNode> hosts = Arrays.asList(hostA, hostB, hostC);
 
         // 3. Start Web Dashboard on port 8082
@@ -101,12 +107,13 @@ public final class Main {
         dashboard.start();
 
         System.out.println("  Web Dashboard ..... http://localhost:" + HTTP_PORT);
-        System.out.println("  DHCP Link ......... http://localhost:8080 (if running)");
-        System.out.println("  Telnet Link ....... http://localhost:8081 (if running)");
+        System.out.println("  PCAP Capture ...... http://localhost:" + HTTP_PORT + "/api/export/pcap");
+        System.out.println("  DHCP Sibling ...... http://localhost:8080 (if running)");
+        System.out.println("  Telnet Sibling .... http://localhost:8081 (if running)");
         System.out.println();
 
         // 4. Run Initial Live Demonstration Scenarios
-        runInitialDemonstration(hostA, hostB, router, attacker, ethSwitch, dai);
+        runInitialDemonstration(hostA, hostB, hostC, router, attacker, ethSwitch, dai);
 
         // 5. Interactive CLI Menu Loop
         printCliMenu();
@@ -127,6 +134,7 @@ public final class Main {
     private static void runInitialDemonstration(
             HostNode hostA,
             HostNode hostB,
+            HostNode hostC,
             RouterNode router,
             AttackerNode attacker,
             EthernetSwitch ethSwitch,
@@ -134,31 +142,33 @@ public final class Main {
 
         System.out.println("--- [SCENARIO 1] Standard RFC 826 Address Resolution (Host-A -> Host-B) ---");
         hostA.ping(hostB.getNic().getIp(), "Hello-Bob");
-        Thread.sleep(400);
+        Thread.sleep(300);
 
         System.out.println("\n--- [SCENARIO 2] RFC 5227 Gratuitous ARP Announcement (Host-B) ---");
         hostB.sendGratuitousArp();
-        Thread.sleep(400);
+        Thread.sleep(300);
 
-        System.out.println("\n--- [SCENARIO 3] RFC 1027 Proxy ARP across Subnets (Host-A -> Remote 10.0.0.5) ---");
+        System.out.println("\n--- [SCENARIO 3] RFC 903 Reverse ARP (RARP) Diskless Workstation Boot (Host-C) ---");
+        hostC.bootViaRarp();
+        Thread.sleep(300);
+
+        System.out.println("\n--- [SCENARIO 4] RFC 1027 Proxy ARP across Subnets (Host-A -> Remote 10.0.0.5) ---");
         dai.setEnabled(false); // disable temporarily for proxy demo
         hostA.ping(IpAddress.parse("10.0.0.5"), "Packet-to-Remote-Subnet");
-        Thread.sleep(400);
+        Thread.sleep(300);
 
-        System.out.println("\n--- [SCENARIO 4] Security: MITM ARP Cache Poisoning Attack ---");
+        System.out.println("\n--- [SCENARIO 5] Security: MITM ARP Cache Poisoning Attack (DAI OFF) ---");
         attacker.launchArpPoisoning();
-        Thread.sleep(400);
+        Thread.sleep(300);
         System.out.println("  Host-A ARP Table after Poisoning:");
         System.out.println("  " + hostA.getArpTable().lookup(router.getNic().getIp()));
 
-        System.out.println("\n--- [SCENARIO 5] Dynamic ARP Inspection (DAI) Protection Activated ---");
+        System.out.println("\n--- [SCENARIO 6] Dynamic ARP Inspection (DAI) Protection Activated ---");
         dai.setEnabled(true);
-        // Flush poisoned caches
         hostA.getArpTable().clearDynamic();
         router.getArpTable().clearDynamic();
-        // Attacker attempts to poison again
         attacker.launchArpPoisoning();
-        Thread.sleep(400);
+        Thread.sleep(300);
         System.out.printf("  DAI Status: Passed=%d, Dropped Spoofed Packets=%d%n",
                 dai.getPassedCount(), dai.getDroppedCount());
         System.out.println();
@@ -167,16 +177,23 @@ public final class Main {
     private static void printCliMenu() {
         System.out.println("==============================================================================");
         System.out.println("  LIVE DASHBOARD: http://localhost:" + HTTP_PORT);
-        System.out.println("  COMMANDS:");
-        System.out.println("   [1] Ping: Host-A -> Host-B (192.168.1.20)");
+        System.out.println("  CORE PROTOCOLS:");
+        System.out.println("   [1] Ping: Host-A -> Host-B (192.168.1.20) [Cold Cache Miss -> ARP]");
         System.out.println("   [2] Ping: Host-A -> Gateway Router (192.168.1.1)");
         System.out.println("   [3] Send Gratuitous ARP (Host-B announcement)");
-        System.out.println("   [4] Send RFC 5227 ARP Probe (ACD Duplicate IP check)");
+        System.out.println("   [4] RFC 5227 Address Conflict Detection (ACD Probing & Announcement)");
         System.out.println("   [5] Ping Remote Subnet (RFC 1027 Proxy ARP demo: 10.0.0.5)");
-        System.out.println("   [6] Launch MITM ARP Poisoning Attack");
-        System.out.println("   [7] Stop MITM Attack");
+        System.out.println("   [6] RFC 903 Reverse ARP (RARP) Diskless Boot (Host-C bootstrapping)");
+        System.out.println("  L2 SECURITY & VLANs:");
+        System.out.println("   [7] Launch MITM ARP Poisoning Attack");
         System.out.println("   [8] Toggle Dynamic ARP Inspection (DAI)");
-        System.out.println("   [9] Display All ARP Tables & Switch CAM");
+        System.out.println("   [9] IEEE 802.1Q VLAN Demo: Isolate Host-C in VLAN 20");
+        System.out.println("   [a] Cisco Switchport Port-Security: Defend vs macof CAM Overflow");
+        System.out.println("   [b] DAI Rate Limiting: Trigger ARP Storm DoS -> Port Err-Disable");
+        System.out.println("   [c] Reset All Err-Disabled Ports");
+        System.out.println("   [d] Export Wireshark PCAP Trace (arp_capture.pcap)");
+        System.out.println("   [e] Cisco IOS Diagnostic Console (show mac-address-table, show vlan, etc.)");
+        System.out.println("   [t] Display All ARP Tables & Switch CAM");
         System.out.println("   [0] Flush All Caches & CAM Table");
         System.out.println("   [q] Quit");
         System.out.print("  Enter choice > ");
@@ -203,16 +220,16 @@ public final class Main {
                 hostB.sendGratuitousArp();
                 break;
             case "4":
-                hostA.sendArpProbe(hostB.getNic().getIp());
+                hostA.performAcd(IpAddress.parse("192.168.1.20"));
                 break;
             case "5":
                 hostA.ping(IpAddress.parse("10.0.0.5"), "Proxy-ARP-Payload");
                 break;
             case "6":
-                attacker.launchArpPoisoning();
+                hostC.bootViaRarp();
                 break;
             case "7":
-                attacker.stopMitm();
+                attacker.launchArpPoisoning();
                 break;
             case "8":
                 boolean newState = !dai.isEnabled();
@@ -220,6 +237,47 @@ public final class Main {
                 System.out.println("  Dynamic ARP Inspection (DAI) is now: " + (newState ? "ENABLED" : "DISABLED"));
                 break;
             case "9":
+                ethSwitch.setPortVlan(1, 10);
+                ethSwitch.setPortVlan(2, 10);
+                ethSwitch.setPortVlan(3, 20); // Host-C in VLAN 20
+                System.out.println("  Configured 802.1Q VLANs: Port 1 & 2 -> VLAN 10 (Sales), Port 3 -> VLAN 20 (Engineering)");
+                System.out.println("  Host-A pinging Host-C (should fail due to VLAN isolation):");
+                hostA.ping(hostC.getNic().getIp(), "Cross-VLAN-Test");
+                break;
+            case "a":
+                // Enable port security on Port 5 (Attacker port)
+                ethSwitch.getPortSecurity().enablePortSecurity(5, 1, PortSecurity.ViolationAction.SHUTDOWN);
+                System.out.println("  Cisco Port-Security ENABLED on Port 5 (Max MAC=1, Action=SHUTDOWN).");
+                attacker.floodRandomMacs(10);
+                System.out.println("  Port 5 Status: " + (ethSwitch.getPortSecurity().isPortErrDisabled(5) ? "ERR_DISABLE (SHUTDOWN)" : "Active"));
+                break;
+            case "b":
+                System.out.println("  Launching ARP Storm from Attacker (testing DAI Rate Limiter 15 pps limit)...");
+                attacker.launchArpStorm(35);
+                System.out.println("  Port 5 DAI Rate Err-Disable: " + dai.getRateLimiter().isPortErrDisabled(5));
+                break;
+            case "c":
+                ethSwitch.resetAllErrDisabled();
+                break;
+            case "d":
+                try {
+                    byte[] pcap = PcapExporter.exportToPcap(Hub.I.allFrames());
+                    File pcapFile = new File("arp_capture.pcap");
+                    try (FileOutputStream fos = new FileOutputStream(pcapFile)) {
+                        fos.write(pcap);
+                    }
+                    System.out.println("  Wireshark PCAP exported successfully: " + pcapFile.getAbsolutePath() + " (" + pcap.length + " bytes)");
+                } catch (Exception e) {
+                    System.out.println("  PCAP export failed: " + e.getMessage());
+                }
+                break;
+            case "e":
+                System.out.println("\n" + ethSwitch.executeCiscoCommand("show mac address-table"));
+                System.out.println(ethSwitch.executeCiscoCommand("show vlan"));
+                System.out.println(ethSwitch.executeCiscoCommand("show ip arp inspection"));
+                System.out.println(ethSwitch.executeCiscoCommand("show port-security"));
+                break;
+            case "t":
                 printAllTables(hostA, hostB, hostC, router, attacker, ethSwitch);
                 break;
             case "0":

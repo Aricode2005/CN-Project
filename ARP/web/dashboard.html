@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RFC 826 ARP Protocol & Security Lab</title>
+    <title>RFC 826 ARP Protocol & L2 Security Enterprise Lab</title>
     <style>
         :root {
             --bg: #0d1117;
@@ -17,6 +17,7 @@
             --accent-yellow: #d29922;
             --accent-red: #f85149;
             --accent-purple: #bc8cff;
+            --accent-cyan: #39c5bb;
             --font-mono: "SF Mono", "Segoe UI Mono", "Courier New", monospace;
         }
 
@@ -54,11 +55,14 @@
             padding: 2px 8px;
             border-radius: 12px;
             text-transform: uppercase;
+            display: inline-block;
         }
         .badge-blue { background: rgba(88, 166, 255, 0.15); color: var(--accent); border: 1px solid var(--accent); }
         .badge-green { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
         .badge-yellow { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
         .badge-red { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .badge-purple { background: rgba(188, 140, 255, 0.15); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+        .badge-cyan { background: rgba(57, 197, 187, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
 
         .grid {
             display: grid;
@@ -113,10 +117,11 @@
             border: 2px solid var(--border);
             border-radius: 8px;
             padding: 10px;
-            width: 140px;
+            width: 155px;
             text-align: center;
             transition: all 0.2s;
             cursor: pointer;
+            position: relative;
         }
         .node-box:hover {
             border-color: var(--accent);
@@ -124,12 +129,14 @@
         }
         .node-box.router { border-color: var(--accent-purple); }
         .node-box.attacker { border-color: var(--accent-red); }
-        .node-box.poisoned { border-color: var(--accent-red); box-shadow: 0 0 10px rgba(248,81,73,0.4); }
+        .node-box.poisoned { border-color: var(--accent-red); box-shadow: 0 0 12px rgba(248,81,73,0.5); }
+        .node-box.errdisabled { border-color: #555; opacity: 0.6; }
 
-        .node-name { font-weight: 700; color: var(--text-bright); margin-bottom: 4px; font-size: 13px; }
+        .node-name { font-weight: 700; color: var(--text-bright); margin-bottom: 3px; font-size: 13px; }
         .node-ip { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
         .node-mac { font-family: var(--font-mono); font-size: 10px; color: #8b949e; }
-        .node-port { font-size: 10px; margin-top: 4px; color: var(--accent-green); }
+        .node-port { font-size: 10px; margin-top: 4px; color: var(--accent-green); font-weight: 600; }
+        .node-vlan { font-size: 10px; margin-top: 2px; }
 
         .switch-hub {
             background: #1f242c;
@@ -137,7 +144,7 @@
             border-radius: 12px;
             padding: 16px;
             text-align: center;
-            width: 180px;
+            width: 200px;
             box-shadow: 0 0 15px rgba(88, 166, 255, 0.15);
         }
         .switch-title { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 4px; }
@@ -171,6 +178,12 @@
             color: #fff;
         }
         button.btn-primary:hover { background: #388bfd; }
+        button.btn-success {
+            background: rgba(63, 185, 80, 0.15);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+        button.btn-success:hover { background: var(--accent-green); color: #fff; }
         button.btn-danger {
             background: rgba(248, 81, 73, 0.15);
             border-color: var(--accent-red);
@@ -180,6 +193,12 @@
             background: var(--accent-red);
             color: #fff;
         }
+        button.btn-purple {
+            background: rgba(188, 140, 255, 0.15);
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+        }
+        button.btn-purple:hover { background: var(--accent-purple); color: #fff; }
 
         /* Tables */
         table {
@@ -201,22 +220,6 @@
         }
         td.mono { font-family: var(--font-mono); }
 
-        .progress-bar-wrap {
-            background: #21262d;
-            border-radius: 4px;
-            height: 6px;
-            width: 60px;
-            overflow: hidden;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 6px;
-        }
-        .progress-bar {
-            background: var(--accent-green);
-            height: 100%;
-            transition: width 0.3s;
-        }
-
         /* Sniffer View */
         .sniffer-table-wrap {
             max-height: 240px;
@@ -231,7 +234,7 @@
             background: rgba(88, 166, 255, 0.08);
         }
         .sniffer-row.blocked {
-            background: rgba(248, 81, 73, 0.1);
+            background: rgba(248, 81, 73, 0.12);
         }
 
         /* Hex & Terminal */
@@ -242,7 +245,7 @@
             font-size: 11px;
             padding: 10px;
             border-radius: 4px;
-            height: 160px;
+            height: 150px;
             overflow-y: auto;
             white-space: pre-wrap;
         }
@@ -268,22 +271,62 @@
             background: #090d13;
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
         }
-        .stat-val { font-size: 18px; font-weight: 700; color: var(--text-bright); }
-        .stat-lbl { font-size: 11px; color: #8b949e; text-transform: uppercase; }
+        .stat-val { font-size: 17px; font-weight: 700; color: var(--text-bright); }
+        .stat-lbl { font-size: 10px; color: #8b949e; text-transform: uppercase; }
+
+        /* Cisco CLI Console Widget */
+        .cli-box {
+            background: #05070a;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: var(--font-mono);
+            color: #e6edf3;
+        }
+        .cli-output {
+            background: #090d13;
+            color: #58a6ff;
+            padding: 8px;
+            border-radius: 4px;
+            height: 120px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+        .cli-input-wrap {
+            display: flex;
+            gap: 8px;
+        }
+        .cli-input-wrap input {
+            flex: 1;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: #f0f6fc;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
 <header>
     <div class="header-title">
-        <h1>RFC 826 Address Resolution Protocol (ARP) & Security Lab</h1>
+        <h1>RFC 826 Address Resolution Protocol (ARP) & L2 Security Lab</h1>
         <span class="badge badge-blue">Pure Java (JDK 11+)</span>
-        <span class="badge badge-green">L2 Switch CAM & DAI</span>
+        <span class="badge badge-purple">802.1Q VLANs</span>
+        <span class="badge badge-cyan">Cisco Port-Security</span>
+        <span class="badge badge-green">DAI & ACD</span>
     </div>
     <div style="display: flex; gap: 8px; align-items: center;">
+        <a href="/api/export/pcap" download="arp_lab_capture.pcap" style="text-decoration:none;">
+            <button class="btn-success">&#11015; Export Wireshark PCAP (.pcap)</button>
+        </a>
         <span id="auto-refresh-badge" class="badge badge-green">LIVE AUTO-SYNC (1s)</span>
         <button onclick="refreshState()">Refresh</button>
     </div>
@@ -292,8 +335,8 @@
 <!-- TOPOLOGY OVERVIEW -->
 <div class="card full-grid" style="margin-bottom: 16px;">
     <div class="card-header">
-        <span>Interactive Network Topology (VLAN 1: 192.168.1.0/24)</span>
-        <span id="topo-summary" style="font-size: 11px; color: #8b949e;">5 Nodes Connected</span>
+        <span>Interactive Network Topology (8-Port Managed Switch + VLANs)</span>
+        <span id="topo-summary" style="font-size: 11px; color: #8b949e;">5 Nodes Connected | VLAN Segmentation Active</span>
     </div>
     <div class="card-body">
         <div class="topology-container" id="topology-nodes">
@@ -305,8 +348,8 @@
 <!-- ACTIONS PANEL -->
 <div class="card full-grid" style="margin-bottom: 16px;">
     <div class="card-header">
-        <span>Interactive Lab Scenarios & Packet Injection</span>
-        <span style="font-size: 11px; color: #8b949e;">Click any action to watch protocol traversal live</span>
+        <span>Interactive Lab Scenarios & Protocol Demonstrations</span>
+        <span style="font-size: 11px; color: #8b949e;">Trigger RFC handshakes, attacks, and defense engines live</span>
     </div>
     <div class="card-body">
         <div class="btn-group">
@@ -319,20 +362,35 @@
             <button onclick="triggerAction('garp', {host: 'Host-B'})">
                 3. Send Gratuitous ARP (Host-B Announcement)
             </button>
-            <button onclick="triggerAction('probe', {host: 'Host-A', candidate: '192.168.1.20'})">
-                4. RFC 5227 ARP Probe (Address Conflict Detection)
+            <button class="btn-purple" onclick="triggerAction('rarp_boot', {host: 'Host-C'})">
+                4. RFC 903 Diskless RARP Boot (Host-C Bootstrap)
+            </button>
+            <button onclick="triggerAction('acd_workflow', {host: 'Host-A', candidate: '192.168.1.25'})">
+                5. RFC 5227 ACD Full Workflow (Probe &rarr; Announce &rarr; Configured)
             </button>
             <button onclick="triggerAction('ping', {from: 'Host-A', to: '10.0.0.5', msg: 'Remote-Packet'})">
-                5. RFC 1027 Proxy ARP (Ping Remote Subnet 10.0.0.5)
+                6. RFC 1027 Proxy ARP (Ping Remote Subnet 10.0.0.5)
+            </button>
+            <button class="btn-purple" onclick="isolateVlanDemo()">
+                7. 802.1Q VLAN Demo: Isolate Host-C in VLAN 20
             </button>
             <button class="btn-danger" onclick="triggerAction('mitm_poison', {})">
-                6. Launch MITM ARP Poisoning Attack
+                8. Launch MITM ARP Poisoning Attack
             </button>
             <button class="btn-danger" onclick="triggerAction('mitm_stop', {})">
                 Stop MITM Attack
             </button>
+            <button class="btn-cyan" onclick="testPortSecurityDemo()">
+                9. Cisco Port-Security vs macof CAM Flood
+            </button>
+            <button class="btn-danger" onclick="triggerAction('arp_storm', {count: 35})">
+                10. DAI Rate Limiter DoS Test (Burst Storm &rarr; Err-Disable)
+            </button>
             <button onclick="toggleDai()">
-                Toggle Dynamic ARP Inspection (<span id="dai-btn-state">ON</span>)
+                Toggle DAI (<span id="dai-btn-state">ON</span>)
+            </button>
+            <button class="btn-success" onclick="triggerAction('reset_errdisable', {})">
+                Reset Err-Disabled Ports
             </button>
             <button onclick="triggerAction('clear_caches', {})">
                 Flush All Host Caches & Switch CAM
@@ -346,15 +404,15 @@
     <!-- Host ARP Tables -->
     <div class="card">
         <div class="card-header">
-            <span>Host ARP Caches</span>
-            <span style="font-size: 11px; color: #8b949e;">RFC 826 Table State Machine</span>
+            <span>Host ARP Caches & Local Defense</span>
+            <span style="font-size: 11px; color: #8b949e;">RFC 826 Table State Machine & Arpwatch Heuristics</span>
         </div>
-        <div class="card-body" id="host-arp-tables" style="max-height: 380px; overflow-y: auto;">
+        <div class="card-body" id="host-arp-tables" style="max-height: 420px; overflow-y: auto;">
             <!-- Dynamically populated -->
         </div>
     </div>
 
-    <!-- Switch CAM & DAI -->
+    <!-- Switch CAM & Security -->
     <div class="card">
         <div class="card-header">
             <span>Ethernet Switch CAM Table & Security</span>
@@ -381,21 +439,33 @@
             </div>
 
             <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-bright);">Switch Port &harr; MAC Address Table (CAM)</div>
-            <div style="max-height: 140px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px;">
+            <div style="max-height: 130px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px;">
                 <table>
                     <thead>
-                        <tr><th>Port</th><th>MAC Address</th><th>Vendor</th><th>Age</th><th>Type</th></tr>
+                        <tr><th>VLAN</th><th>Port</th><th>MAC Address</th><th>Vendor</th><th>Age</th><th>Type</th></tr>
                     </thead>
                     <tbody id="switch-cam-tbody"></tbody>
                 </table>
             </div>
 
             <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-bright);">MITM Intercepted Traffic Log</div>
-            <div style="max-height: 80px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px;">
+            <div style="max-height: 75px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px;">
                 <table>
                     <thead><tr><th>Victim</th><th>Intended Target</th><th>Sniffed Payload</th></tr></thead>
                     <tbody id="intercepted-tbody"><tr><td colspan="3" style="color: #8b949e;">No intercepted packets yet</td></tr></tbody>
                 </table>
+            </div>
+
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-bright);">Cisco IOS Diagnostic Console (Switch-1#)</div>
+            <div class="cli-box">
+                <div class="cli-output" id="cisco-cli-output">Switch-1# Ready. Try 'show mac address-table', 'show vlan', 'show ip arp inspection', or 'show port-security'</div>
+                <div class="cli-input-wrap">
+                    <input type="text" id="cisco-cmd-input" placeholder="Enter Cisco IOS command (e.g. show vlan brief)..." onkeydown="if(event.key==='Enter') runCiscoCmd()">
+                    <button onclick="runCiscoCmd()">Execute</button>
+                    <button onclick="runQuickCmd('show vlan')">VLANs</button>
+                    <button onclick="runQuickCmd('show mac address-table')">CAM</button>
+                    <button onclick="runQuickCmd('show port-security')">Port-Sec</button>
+                </div>
             </div>
         </div>
     </div>
@@ -404,8 +474,8 @@
 <!-- SNIFFER & PACKET HEX INSPECTION -->
 <div class="card full-grid" style="margin-bottom: 16px;">
     <div class="card-header">
-        <span>Wireshark-Style Wire Sniffer (Captured Ethernet & ARP Frames)</span>
-        <span style="font-size: 11px; color: #8b949e;">Click any frame to inspect its binary hex dump</span>
+        <span>Wireshark-Style Wire Sniffer (Captured Ethernet, 802.1Q, ARP & RARP Frames)</span>
+        <span style="font-size: 11px; color: #8b949e;">Click any frame to inspect its binary hex dump & decoded header</span>
     </div>
     <div class="card-body">
         <div class="sniffer-table-wrap">
@@ -415,11 +485,12 @@
                         <th>#</th>
                         <th>Time</th>
                         <th>Port</th>
+                        <th>VLAN</th>
                         <th>Source MAC</th>
                         <th>Destination MAC</th>
                         <th>EtherType</th>
                         <th>Protocol Details</th>
-                        <th>DAI Verdict</th>
+                        <th>Security Verdict</th>
                     </tr>
                 </thead>
                 <tbody id="sniffer-tbody"></tbody>
@@ -445,7 +516,6 @@
 
 <script>
     let globalState = null;
-    let selectedFrameHex = "";
 
     async function refreshState() {
         try {
@@ -462,15 +532,31 @@
         }
     }
 
+    function getPortVlan(data, port) {
+        if (!data.switch || !data.switch.portVlans) return 1;
+        const entry = data.switch.portVlans.find(e => e.port === port);
+        return entry ? entry.vlan : 1;
+    }
+
+    function isPortErrDisabled(data, port) {
+        if (!data.switch) return false;
+        if (data.switch.portSecurity) {
+            const sec = data.switch.portSecurity.find(p => p.port === port);
+            if (sec && sec.errDisabled) return true;
+        }
+        if (data.switch.dai && data.switch.dai.rateLimiter) {
+            const rl = data.switch.dai.rateLimiter.find(p => p.port === port);
+            if (rl && rl.rateErrDisabled) return true;
+        }
+        return false;
+    }
+
     function renderTopology(data) {
         const c = document.getElementById('topology-nodes');
         c.innerHTML = '';
 
         const allNodes = [...data.hosts, data.router, data.attacker];
 
-        // Left column: Host-A, Host-B
-        // Middle: Switch
-        // Right: Host-C, Router, Attacker
         const leftWrap = document.createElement('div');
         leftWrap.style.display = 'flex';
         leftWrap.style.flexDirection = 'column';
@@ -486,14 +572,24 @@
             const isRouter = node.hostname.includes("Router") || node.hostname.includes("Gateway");
             const isAttacker = node.hostname.includes("Attacker");
             const isPoisoned = node.arpTable && node.arpTable.some(e => e.state === 'POISONED');
+            const vlan = getPortVlan(data, node.port);
+            const errDis = isPortErrDisabled(data, node.port);
 
-            div.className = `node-box ${isRouter ? 'router' : ''} ${isAttacker ? 'attacker' : ''} ${isPoisoned ? 'poisoned' : ''}`;
+            let vlanBadgeClass = 'badge-blue';
+            if (vlan === 10) vlanBadgeClass = 'badge-blue';
+            else if (vlan === 20) vlanBadgeClass = 'badge-purple';
+            else if (vlan > 20) vlanBadgeClass = 'badge-yellow';
+
+            div.className = `node-box ${isRouter ? 'router' : ''} ${isAttacker ? 'attacker' : ''} ${isPoisoned ? 'poisoned' : ''} ${errDis ? 'errdisabled' : ''}`;
             div.innerHTML = `
                 <div class="node-name">${node.hostname}</div>
                 <div class="node-ip">${node.ip}</div>
                 <div class="node-mac">${node.mac}</div>
-                <div class="node-port">Switch Port ${node.port}</div>
+                <div class="node-port">Port Fa0/${node.port}</div>
+                <div class="node-vlan"><span class="badge ${vlanBadgeClass}">VLAN ${vlan}</span></div>
+                ${errDis ? '<div style="color:var(--accent-red);font-weight:bold;font-size:10px;margin-top:2px;">[ERR_DISABLE]</div>' : ''}
                 ${node.conflict ? '<div style="color:var(--accent-red);font-weight:bold;font-size:10px;">IP CONFLICT!</div>' : ''}
+                ${node.acdState ? `<div style="font-size:10px;color:#8b949e;margin-top:2px;">ACD: ${node.acdStateLabel || node.acdState}</div>` : ''}
             `;
             if (idx < 2) leftWrap.appendChild(div);
             else rightWrap.appendChild(div);
@@ -501,11 +597,15 @@
 
         const switchDiv = document.createElement('div');
         switchDiv.className = 'switch-hub';
+        const daiOn = data.switch.dai && data.switch.dai.enabled;
         switchDiv.innerHTML = `
             <div class="switch-title">&#9646; 8-Port Switch &#9646;</div>
-            <div class="switch-ports-pill">MAC Learning CAM</div>
-            <div style="margin-top:8px;font-size:11px;color:${data.switch.dai && data.switch.dai.enabled ? 'var(--accent-green)' : 'var(--accent-red)'}">
-                DAI: ${data.switch.dai && data.switch.dai.enabled ? 'ENABLED' : 'DISABLED'}
+            <div class="switch-ports-pill">802.1Q CAM Learning</div>
+            <div style="margin-top:8px;font-size:11px;color:${daiOn ? 'var(--accent-green)' : 'var(--accent-red)'}">
+                DAI: ${daiOn ? 'ENABLED' : 'DISABLED'}
+            </div>
+            <div style="margin-top:4px;font-size:10px;color:var(--accent-cyan);">
+                Port-Security: ACTIVE
             </div>
         `;
 
@@ -551,10 +651,19 @@
                 });
             }
 
+            const flips = (node.defender && node.defender.flipFlops) || 0;
+            const strict = node.defender && node.defender.strictMode;
+
             wrap.innerHTML = `
-                <div style="font-weight:700;color:var(--text-bright);margin-bottom:6px;display:flex;justify-content:space-between;">
+                <div style="font-weight:700;color:var(--text-bright);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                     <span>${node.hostname} (${node.ip})</span>
-                    <span style="font-size:11px;color:#8b949e;">${node.mac}</span>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <span style="font-size:10px;color:#8b949e;">${node.mac}</span>
+                        ${flips > 0 ? `<span class="badge badge-yellow">${flips} Flips</span>` : ''}
+                        <button style="padding:2px 6px;font-size:10px;" onclick="toggleHostStrict('${node.hostname}', ${!strict})">
+                            Arpwatch: ${strict ? 'STRICT' : 'PERMISSIVE'}
+                        </button>
+                    </div>
                 </div>
                 <table>
                     <thead><tr><th>IP Address</th><th>MAC Address</th><th>State</th><th>TTL</th><th>NIC Vendor</th></tr></thead>
@@ -572,9 +681,11 @@
         document.getElementById('stat-cam-entries').textContent = cam.length;
 
         cam.forEach(e => {
+            const vlan = getPortVlan(data, e.port);
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-weight:bold;color:var(--accent-green);">Port ${e.port}</td>
+                <td style="color:var(--accent-purple);font-weight:600;">VLAN ${vlan}</td>
+                <td style="font-weight:bold;color:var(--accent-green);">Fa0/${e.port}</td>
                 <td class="mono">${e.mac}</td>
                 <td>${e.vendor}</td>
                 <td>${e.ageSec}s</td>
@@ -627,13 +738,14 @@
             };
 
             const verdict = f.blockedByDai
-                ? `<span class="badge badge-red">BLOCKED (DAI)</span>`
+                ? `<span class="badge badge-red">BLOCKED</span>`
                 : `<span class="badge badge-green">PASSED</span>`;
 
             tr.innerHTML = `
                 <td style="font-weight:bold;">${f.seq}</td>
                 <td style="color:#8b949e;">${new Date(f.t).toLocaleTimeString()}</td>
-                <td style="color:var(--accent-green);">Port ${f.port}</td>
+                <td style="color:var(--accent-green);">Fa0/${f.port}</td>
+                <td style="color:var(--accent-purple);font-weight:600;">${f.vlanId || 1}</td>
                 <td class="mono">${f.srcMac}</td>
                 <td class="mono">${f.dstMac}</td>
                 <td>${f.etherType}</td>
@@ -669,6 +781,52 @@
     function toggleDai() {
         const current = globalState && globalState.switch && globalState.switch.dai && globalState.switch.dai.enabled;
         triggerAction('dai_toggle', { enabled: (!current).toString() });
+    }
+
+    function toggleHostStrict(hostname, strict) {
+        triggerAction('host_defender_toggle', { host: hostname, strict: strict.toString() });
+    }
+
+    async function isolateVlanDemo() {
+        // Place Port 1 & 2 in VLAN 10 (Sales), Port 3 in VLAN 20 (Engineering)
+        await triggerAction('vlan_set', { port: '1', vlan: '10' });
+        await triggerAction('vlan_set', { port: '2', vlan: '10' });
+        await triggerAction('vlan_set', { port: '3', vlan: '20' });
+        // Attempt ping across VLAN boundary
+        setTimeout(() => {
+            triggerAction('ping', { from: 'Host-A', to: '192.168.1.30', msg: 'Cross-VLAN-Test' });
+        }, 300);
+    }
+
+    async function testPortSecurityDemo() {
+        // Enable port security on port 5 (Attacker) and launch CAM flood
+        await triggerAction('port_security_toggle', { port: '5', enabled: 'true', maxMacs: '1', violation: 'SHUTDOWN' });
+        setTimeout(() => {
+            triggerAction('cam_overflow', { count: '10' });
+        }, 200);
+    }
+
+    async function runCiscoCmd() {
+        const input = document.getElementById('cisco-cmd-input');
+        const cmd = input.value.trim();
+        if (!cmd) return;
+        runQuickCmd(cmd);
+        input.value = '';
+    }
+
+    async function runQuickCmd(cmd) {
+        try {
+            const res = await fetch('/api/cisco-cli', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'cmd=' + encodeURIComponent(cmd)
+            });
+            const data = await res.json();
+            const outEl = document.getElementById('cisco-cli-output');
+            outEl.textContent = `Switch-1# ${cmd}\n${data.output}`;
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     setInterval(refreshState, 1000);

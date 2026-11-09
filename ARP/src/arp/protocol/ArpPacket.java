@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * Full RFC 826 / RFC 5227 Address Resolution Protocol (ARP) Packet Parser & Serializer.
+ * Full RFC 826 / RFC 5227 / RFC 903 Address Resolution Protocol (ARP / RARP) Packet Parser & Serializer.
  *
  * Binary Layout (28 bytes for Ethernet + IPv4):
  * 0                   1                   2                   3
@@ -15,7 +15,7 @@ import java.util.Arrays;
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |        Hardware Type          |        Protocol Type          |  (HTYPE=1, PTYPE=0x0800)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |  HW Addr Len  | Proto Addr Len|          Operation            |  (HLEN=6, PLEN=4, OPER=1/2)
+ * |  HW Addr Len  | Proto Addr Len|          Operation            |  (HLEN=6, PLEN=4, OPER=1/2/3/4)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |                     Sender Hardware Address (bytes 0-3)       |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -104,6 +104,19 @@ public final class ArpPacket {
     }
 
     /**
+     * Defensive Gratuitous ARP (RFC 5227 §2.4):
+     * Broadcast when an ongoing IP conflict is detected to re-assert legitimate ownership.
+     */
+    public static ArpPacket createDefensiveGarp(MacAddress senderMac, IpAddress ip) {
+        return new ArpPacket(
+                HTYPE_ETHERNET, PTYPE_IPV4, HLEN_ETHERNET, PLEN_IPV4,
+                ArpOperation.REPLY,
+                senderMac, ip,
+                MacAddress.BROADCAST, ip
+        );
+    }
+
+    /**
      * ARP Probe (RFC 5227 Address Conflict Detection):
      * Tests whether candidateIp is already in use without polluting existing ARP caches.
      * senderProtocolAddress is set to 0.0.0.0.
@@ -117,7 +130,33 @@ public final class ArpPacket {
         );
     }
 
-    // ------------------------------------------------------------------ Getters
+    /**
+     * Reverse ARP (RARP) Request (RFC 903):
+     * Broadcast by a diskless client: "Who am I? I have MAC senderMac, what is my IP?"
+     */
+    public static ArpPacket createRarpRequest(MacAddress clientMac) {
+        return new ArpPacket(
+                HTYPE_ETHERNET, PTYPE_IPV4, HLEN_ETHERNET, PLEN_IPV4,
+                ArpOperation.RARP_REQUEST,
+                clientMac, IpAddress.ANY,
+                clientMac, IpAddress.ANY
+        );
+    }
+
+    /**
+     * Reverse ARP (RARP) Reply (RFC 903):
+     * Sent by RARP server: "Client MAC clientMac is assigned IP assignedIp".
+     */
+    public static ArpPacket createRarpReply(MacAddress serverMac, IpAddress serverIp, MacAddress clientMac, IpAddress assignedIp) {
+        return new ArpPacket(
+                HTYPE_ETHERNET, PTYPE_IPV4, HLEN_ETHERNET, PLEN_IPV4,
+                ArpOperation.RARP_REPLY,
+                serverMac, serverIp,
+                clientMac, assignedIp
+        );
+    }
+
+    // ------------------------------------------------------------------ Getters & Checks
 
     public int getHardwareType() { return hardwareType; }
     public int getProtocolType() { return protocolType; }
@@ -128,6 +167,18 @@ public final class ArpPacket {
     public IpAddress getSenderProtocolAddress() { return senderProtocolAddress; }
     public MacAddress getTargetHardwareAddress() { return targetHardwareAddress; }
     public IpAddress getTargetProtocolAddress() { return targetProtocolAddress; }
+
+    public boolean isRarp() {
+        return operation == ArpOperation.RARP_REQUEST || operation == ArpOperation.RARP_REPLY;
+    }
+
+    public boolean isRarpRequest() {
+        return operation == ArpOperation.RARP_REQUEST;
+    }
+
+    public boolean isRarpReply() {
+        return operation == ArpOperation.RARP_REPLY;
+    }
 
     /** True if this is an RFC 5227 Gratuitous ARP Announcement (SPA == TPA and SPA is not 0.0.0.0) */
     public boolean isGratuitous() {
@@ -191,16 +242,26 @@ public final class ArpPacket {
     }
 
     /**
-     * Encapsulates this ARP packet in an Ethernet II frame ready for physical transmission.
+     * Encapsulates this ARP/RARP packet in an Ethernet II frame ready for physical transmission.
      */
     public EthernetFrame toFrame() {
-        MacAddress dst = (operation == ArpOperation.REQUEST) ? MacAddress.BROADCAST : targetHardwareAddress;
-        return new EthernetFrame(dst, senderHardwareAddress, EthernetFrame.ETHERTYPE_ARP, toBytes());
+        int etherType = isRarp() ? EthernetFrame.ETHERTYPE_RARP : EthernetFrame.ETHERTYPE_ARP;
+        MacAddress dst = (operation == ArpOperation.REQUEST || operation == ArpOperation.RARP_REQUEST)
+                ? MacAddress.BROADCAST
+                : targetHardwareAddress;
+        return new EthernetFrame(dst, senderHardwareAddress, etherType, toBytes());
     }
 
     public String toDetailedString() {
+        if (isRarpRequest()) {
+            return String.format("[RFC 903 RARP REQUEST] Who am I? MAC: %s requesting IP assignment", senderHardwareAddress);
+        }
+        if (isRarpReply()) {
+            return String.format("[RFC 903 RARP REPLY] MAC %s is assigned IP %s (Server: %s)",
+                    targetHardwareAddress, targetProtocolAddress, senderHardwareAddress);
+        }
         if (isProbe()) {
-            return String.format("[ARP PROBE] ACD Check for %s by MAC %s", targetProtocolAddress, senderHardwareAddress);
+            return String.format("[ARP PROBE] ACD Check for %s by MAC %s (SPA=0.0.0.0)", targetProtocolAddress, senderHardwareAddress);
         }
         if (isGratuitous()) {
             return String.format("[GARP ANNOUNCE] %s is at %s (Broadcast update)", senderProtocolAddress, senderHardwareAddress);

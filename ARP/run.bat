@@ -24,7 +24,8 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo Compilation successful!
 echo.
-echo   run.bat              start ARP lab + dashboard (http://localhost:8082)
-echo   run.bat --verify     run automated RFC 826 verification test suite
+echo   run.bat                  start ARP lab + dashboard (http://localhost:8082)
+echo   run.bat --verify         run automated RFC 826 / 5227 / 903 verification test suite (50+ checks)
+echo   python interop_test.py   (with server running) automated HTTP, Cisco CLI and PCAP verification
 echo.
 java -cp out arp.Main %*

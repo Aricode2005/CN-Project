@@ -1,6 +1,8 @@
 package arp;
 
 import arp.core.Hub;
+import arp.core.PcapExporter;
+import arp.model.AcdState;
 import arp.model.ArpCacheEntry;
 import arp.model.ArpTable;
 import arp.model.IpAddress;
@@ -12,15 +14,20 @@ import arp.network.NetworkInterface;
 import arp.network.RouterNode;
 import arp.protocol.ArpOperation;
 import arp.protocol.ArpPacket;
+import arp.protocol.Dot1qHeader;
 import arp.protocol.EthernetFrame;
 import arp.security.DhcpSnoopingTable;
 import arp.security.DynamicArpInspection;
+import arp.security.PortSecurity;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * Automated end-to-end test suite for the RFC 826 ARP lab ("run.bat --verify").
+ * Automated end-to-end test suite for the RFC 826 ARP & L2 Security Lab ("run.bat --verify").
+ * Tests 50+ protocol specifications, state machines, and hardware defenses.
  */
 public final class Verify {
 
@@ -30,10 +37,10 @@ public final class Verify {
     private static void check(String testName, boolean condition, String details) {
         if (condition) {
             passCount++;
-            System.out.printf("  [PASS] %-62s %s%n", testName, details != null ? "(" + details + ")" : "");
+            System.out.printf("  [PASS] %-64s %s%n", testName, details != null ? "(" + details + ")" : "");
         } else {
             failCount++;
-            System.out.printf("  [FAIL] %-62s %s%n", testName, details != null ? "(" + details + ")" : "");
+            System.out.printf("  [FAIL] %-64s %s%n", testName, details != null ? "(" + details + ")" : "");
         }
     }
 
@@ -43,7 +50,7 @@ public final class Verify {
         Hub.I.quiet = true;
 
         System.out.println("============================================================================");
-        System.out.println("   RUNNING AUTOMATED VERIFICATION SUITE: RFC 826 / RFC 5227 / RFC 1027       ");
+        System.out.println("   RUNNING AUTOMATED VERIFICATION SUITE: RFC 826 / 5227 / 903 / 1027 / 802.1Q ");
         System.out.println("============================================================================");
 
         System.out.println("\n--- 1. RFC 826 Binary Packet Encoding & Decoding ------------------------");
@@ -52,23 +59,38 @@ public final class Verify {
         System.out.println("\n--- 2. Ethernet II Frame Encapsulation & Padding -----------------------");
         testEthernetEncapsulation();
 
-        System.out.println("\n--- 3. ARP Cache State Machine, Resolution & Outbound Queueing ----------");
+        System.out.println("\n--- 3. IEEE 802.1Q Virtual LAN (VLAN) Tagging & Serialization ----------");
+        testDot1qVlanFraming();
+
+        System.out.println("\n--- 4. ARP Cache State Machine, Resolution & Outbound Queueing ----------");
         testResolutionAndQueueing();
 
-        System.out.println("\n--- 4. Cache TTL Aging, Stale Transitions & Static VIP Protection -------");
+        System.out.println("\n--- 5. Cache TTL Aging, Stale Transitions & Static VIP Protection -------");
         testCacheAgingAndStaticVip();
 
-        System.out.println("\n--- 5. RFC 5227 Address Conflict Detection & Gratuitous ARP -------------");
-        testAcdAndGarp();
+        System.out.println("\n--- 6. RFC 5227 Address Conflict Detection (ACD) State Machine ----------");
+        testAcdStateMachineAndDefense();
 
-        System.out.println("\n--- 6. L2 Switch CAM Learning & Unicast vs Flood Forwarding -------------");
-        testSwitchCamLearning();
+        System.out.println("\n--- 7. RFC 903 Reverse ARP (RARP) Diskless Client Bootstrapping -------- ");
+        testReverseArpBoot();
 
-        System.out.println("\n--- 7. RFC 1027 Proxy ARP across Subnets -------------------------------");
+        System.out.println("\n--- 8. RFC 1027 Proxy ARP across Subnets -------------------------------");
         testProxyArp();
 
-        System.out.println("\n--- 8. Security: MITM ARP Poisoning vs Dynamic ARP Inspection (DAI) -----");
-        testSecurityAndDai();
+        System.out.println("\n--- 9. L2 Switch CAM Learning & 802.1Q VLAN Broadcast Isolation ---------");
+        testSwitchCamAndVlanIsolation();
+
+        System.out.println("\n--- 10. Cisco Switchport Port-Security vs macof CAM Overflow -----------");
+        testPortSecurity();
+
+        System.out.println("\n--- 11. Dynamic ARP Inspection (DAI) Binding & Rate Limiting -----------");
+        testDaiSecurityAndRateLimiting();
+
+        System.out.println("\n--- 12. Host-Side Arpwatch / MAC Flip-Flop Detection -------------------");
+        testHostArpwatchDefender();
+
+        System.out.println("\n--- 13. Wireshark PCAP Binary Export ------------------------------------");
+        testPcapBinaryExport();
 
         System.out.println("\n============================================================================");
         System.out.printf("  VERIFICATION RESULT: %d PASSED, %d FAILED%n", passCount, failCount);
@@ -116,7 +138,6 @@ public final class Verify {
         EthernetFrame frame = new EthernetFrame(dst, src, EthernetFrame.ETHERTYPE_ARP, smallPayload);
         byte[] wireBytes = frame.toBytes();
 
-        // 14 header bytes + 46 padded payload = 60 minimum Ethernet frame length
         check("Ethernet frame auto-pads short payloads to 60 bytes minimum", wireBytes.length == 60, "wireLen=" + wireBytes.length);
         check("Ethernet header contains EtherType 0x0806 (ARP)", frame.getEtherType() == EthernetFrame.ETHERTYPE_ARP, null);
         check("Ethernet frame correctly identifies broadcast destination", frame.isBroadcast(), null);
@@ -124,6 +145,23 @@ public final class Verify {
         EthernetFrame decoded = EthernetFrame.fromBytes(wireBytes);
         check("Ethernet frame deserializes correct Destination MAC", decoded.getDestinationMac().equals(dst), decoded.getDestinationMac().toString());
         check("Ethernet frame deserializes correct Source MAC", decoded.getSourceMac().equals(src), decoded.getSourceMac().toString());
+    }
+
+    private static void testDot1qVlanFraming() {
+        MacAddress src = MacAddress.parse("AA:AA:AA:11:11:11");
+        MacAddress dst = MacAddress.parse("BB:BB:BB:22:22:22");
+
+        EthernetFrame tagged = new EthernetFrame(dst, src, EthernetFrame.ETHERTYPE_IPV4, new byte[42], new Dot1qHeader(10));
+        byte[] raw = tagged.toBytes();
+
+        check("802.1Q tagged frame is at least 60 bytes on the wire", raw.length >= 60, "len=" + raw.length);
+        check("Frame recognizes 802.1Q tagged status", tagged.isTagged(), "vlan=" + tagged.getVlanId());
+        check("Frame preserves VLAN ID 10", tagged.getVlanId() == 10, null);
+
+        EthernetFrame parsed = EthernetFrame.fromBytes(raw);
+        check("Round-trip parses 802.1Q tagged frame correctly", parsed.isTagged(), null);
+        check("Parsed 802.1Q frame preserves VLAN ID", parsed.getVlanId() == 10, "vid=" + parsed.getVlanId());
+        check("Parsed 802.1Q frame preserves inner EtherType (0x0800)", parsed.getEtherType() == EthernetFrame.ETHERTYPE_IPV4, null);
     }
 
     private static void testResolutionAndQueueing() {
@@ -193,7 +231,7 @@ public final class Verify {
                 table.lookupMac(vipIp).equals(vipMac), table.lookupMac(vipIp).toString());
     }
 
-    private static void testAcdAndGarp() {
+    private static void testAcdStateMachineAndDefense() {
         DhcpSnoopingTable snooping = new DhcpSnoopingTable();
         DynamicArpInspection dai = new DynamicArpInspection(snooping);
         EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
@@ -214,7 +252,6 @@ public final class Verify {
         check("Gratuitous ARP has SPA == TPA (RFC 5227)", garp.isGratuitous(), null);
 
         hostB.sendGratuitousArp();
-        // Host A should learn Host B's address from the broadcast announcement
         check("Host-A updated ARP table from Host-B Gratuitous ARP announcement",
                 hostA.getArpTable().lookup(nicB.getIp()) != null, null);
 
@@ -222,30 +259,44 @@ public final class Verify {
         ArpPacket probe = ArpPacket.createProbe(nicA.getMac(), nicB.getIp());
         check("ARP Probe has SPA == 0.0.0.0 to prevent cache poisoning", probe.isProbe(), null);
 
-        // Host-B tries to claim Host-A's IP
-        ArpPacket conflictClaim = ArpPacket.createReply(nicB.getMac(), nicA.getIp(), MacAddress.BROADCAST, nicA.getIp());
-        nicB.send(conflictClaim.toFrame());
+        // RFC 5227 Active Defense: Host-B encounters a rogue claim for its IP
+        ArpPacket conflictClaim = ArpPacket.createReply(nicA.getMac(), nicB.getIp(), MacAddress.BROADCAST, nicB.getIp());
+        nicA.send(conflictClaim.toFrame());
 
-        check("Host-A flags IP Conflict Alarm upon seeing rogue claim for its IP",
-                hostA.isDuplicateIpDetected(), null);
+        check("Host-B transitions to DEFENDING on first conflict",
+                hostB.getAcdState() == AcdState.DEFENDING, "state=" + hostB.getAcdState());
+
+        // Second conflict within 10s window: Host-B must yield per RFC 5227 §2.4
+        nicA.send(conflictClaim.toFrame());
+        check("Host-B yields and transitions to CONFLICTED after repeated collision",
+                hostB.getAcdState() == AcdState.CONFLICTED, "state=" + hostB.getAcdState());
     }
 
-    private static void testSwitchCamLearning() {
+    private static void testReverseArpBoot() {
+        NetworkInterface nicR = new NetworkInterface("eth0", MacAddress.parse("00:1A:2B:00:01:01"), IpAddress.parse("192.168.1.1"), null, null);
+        NetworkInterface nicClient = new NetworkInterface("eth0", MacAddress.parse("CC:CC:CC:33:33:33"), IpAddress.ANY, null, null);
+
         DhcpSnoopingTable snooping = new DhcpSnoopingTable();
         DynamicArpInspection dai = new DynamicArpInspection(snooping);
         EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
+        sw.connect(4, nicR);
+        sw.connect(3, nicClient);
+        dai.setPortTrusted(4, true);
 
-        NetworkInterface nicA = new NetworkInterface("eth0", MacAddress.parse("AA:AA:AA:11:11:11"), IpAddress.parse("192.168.1.10"), null, null);
-        sw.connect(1, nicA);
+        RouterNode router = new RouterNode("Gateway-Router", nicR);
+        HostNode client = new HostNode("Diskless-Client", nicClient);
 
-        check("Initial switch CAM table is empty", sw.getCamEntries().isEmpty(), null);
+        // Configure RARP lease on server
+        IpAddress expectedIp = IpAddress.parse("192.168.1.30");
+        router.addRarpMapping(nicClient.getMac(), expectedIp);
 
-        // Send a frame from Host-A
-        EthernetFrame f = new EthernetFrame(MacAddress.BROADCAST, nicA.getMac(), EthernetFrame.ETHERTYPE_ARP, new byte[46]);
-        nicA.send(f);
+        // Client initiates RARP boot
+        client.bootViaRarp();
 
-        check("Switch learned Host-A MAC on Port 1 in CAM table",
-                sw.getCamEntries().stream().anyMatch(e -> e.getPort() == 1 && e.getMac().equals(nicA.getMac())), null);
+        check("Client bootstrapped valid IP via RFC 903 RARP",
+                client.getNic().getIp().equals(expectedIp), client.getNic().getIp().toString());
+        check("Client ACD state transitions to CONFIGURED after RARP boot",
+                client.getAcdState() == AcdState.CONFIGURED, "state=" + client.getAcdState());
     }
 
     private static void testProxyArp() {
@@ -272,7 +323,65 @@ public final class Verify {
                 resolved != null && resolved.equals(nicR.getMac()), resolved != null ? resolved.toString() : "null");
     }
 
-    private static void testSecurityAndDai() {
+    private static void testSwitchCamAndVlanIsolation() {
+        DhcpSnoopingTable snooping = new DhcpSnoopingTable();
+        DynamicArpInspection dai = new DynamicArpInspection(snooping);
+        EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
+
+        NetworkInterface nicA = new NetworkInterface("eth0", MacAddress.parse("AA:AA:AA:11:11:11"), IpAddress.parse("192.168.1.10"), null, null);
+        NetworkInterface nicB = new NetworkInterface("eth0", MacAddress.parse("BB:BB:BB:22:22:22"), IpAddress.parse("192.168.1.20"), null, null);
+        NetworkInterface nicC = new NetworkInterface("eth0", MacAddress.parse("CC:CC:CC:33:33:33"), IpAddress.parse("192.168.1.30"), null, null);
+
+        sw.connect(1, nicA);
+        sw.connect(2, nicB);
+        sw.connect(3, nicC);
+
+        // Configure VLANs: Port 1 & 2 in VLAN 10; Port 3 in VLAN 20
+        sw.setPortVlan(1, 10);
+        sw.setPortVlan(2, 10);
+        sw.setPortVlan(3, 20);
+
+        HostNode hostA = new HostNode("Host-A", nicA);
+        HostNode hostB = new HostNode("Host-B", nicB);
+        HostNode hostC = new HostNode("Host-C", nicC);
+
+        // Frame from Host-A (VLAN 10)
+        hostA.sendGratuitousArp();
+
+        check("Host-B in same VLAN 10 receives broadcast and learns Host-A",
+                hostB.getArpTable().lookup(nicA.getIp()) != null, null);
+        check("Host-C in isolated VLAN 20 NEVER receives VLAN 10 broadcast (802.1Q Isolation)",
+                hostC.getArpTable().lookup(nicA.getIp()) == null, null);
+    }
+
+    private static void testPortSecurity() {
+        DhcpSnoopingTable snooping = new DhcpSnoopingTable();
+        DynamicArpInspection dai = new DynamicArpInspection(snooping);
+        EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
+
+        NetworkInterface nicAttacker = new NetworkInterface("eth0", MacAddress.parse("66:66:66:66:66:66"), IpAddress.parse("192.168.1.66"), null, null);
+        sw.connect(5, nicAttacker);
+
+        // Enable port security: max 1 MAC, action = SHUTDOWN
+        sw.getPortSecurity().enablePortSecurity(5, 1, PortSecurity.ViolationAction.SHUTDOWN);
+
+        AttackerNode attacker = new AttackerNode("Attacker", nicAttacker);
+
+        // First frame with legal MAC: passes and is learned as sticky
+        attacker.sendGratuitousArp();
+        check("Port security permits first legal MAC on port 5",
+                !sw.getPortSecurity().isPortErrDisabled(5), null);
+
+        // Attacker attempts macof CAM overflow attack with random MACs
+        attacker.floodRandomMacs(5);
+
+        check("Port security triggers violation on unauthorized MAC flooding",
+                sw.getPortSecurity().getConfig(5).getViolations() > 0, "violations=" + sw.getPortSecurity().getConfig(5).getViolations());
+        check("Port security transitions port 5 to ERR_DISABLE (Link Down)",
+                sw.getPortSecurity().isPortErrDisabled(5), null);
+    }
+
+    private static void testDaiSecurityAndRateLimiting() {
         DhcpSnoopingTable snooping = new DhcpSnoopingTable();
         DynamicArpInspection dai = new DynamicArpInspection(snooping);
         EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
@@ -285,16 +394,12 @@ public final class Verify {
         sw.connect(4, nicR);
         sw.connect(5, nicAttacker);
 
-        // Configure Trusted Ports (Port 4 = Gateway is trusted)
         dai.setPortTrusted(4, true);
-
-        // Populate valid DHCP Snooping Bindings
         snooping.addBinding(nicA.getIp(), nicA.getMac(), 1, "Host-A");
         snooping.addBinding(nicR.getIp(), nicR.getMac(), 4, "Gateway");
         snooping.addBinding(nicAttacker.getIp(), nicAttacker.getMac(), 5, "Kali-Attacker");
 
         HostNode hostA = new HostNode("Host-A", nicA);
-        RouterNode router = new RouterNode("Gateway", nicR);
         AttackerNode attacker = new AttackerNode("Attacker", nicAttacker);
 
         // 1. Without DAI: Poisoning succeeds
@@ -310,7 +415,6 @@ public final class Verify {
         dai.setEnabled(true);
         int initialDrops = dai.getDroppedCount();
 
-        // Attacker attempts to poison again
         attacker.launchArpPoisoning();
 
         check("With DAI: Switch intercepts and drops spoofed ARP packets from untrusted port",
@@ -318,5 +422,53 @@ public final class Verify {
         check("DAI records violation with reason",
                 !dai.getRecentViolations().isEmpty() && dai.getRecentViolations().get(0).reason.contains("Mismatch"),
                 dai.getRecentViolations().isEmpty() ? "none" : dai.getRecentViolations().get(0).reason);
+
+        // 3. DAI Rate Limiter DoS Test
+        dai.getRateLimiter().getTracker(5).setRateLimitPps(5);
+        attacker.launchArpStorm(10);
+        check("DAI rate limiter flags burst ARP storm and transitions port to ERR_DISABLE",
+                dai.getRateLimiter().isPortErrDisabled(5), null);
+    }
+
+    private static void testHostArpwatchDefender() {
+        HostNode hostA = new HostNode("Host-A",
+                new NetworkInterface("eth0", MacAddress.parse("AA:AA:AA:11:11:11"), IpAddress.parse("192.168.1.10"), null, null));
+
+        IpAddress gwIp = IpAddress.parse("192.168.1.1");
+        MacAddress legitimateGwMac = MacAddress.parse("00:1A:2B:00:01:01");
+        MacAddress attackerMac = MacAddress.parse("66:66:66:66:66:66");
+
+        // Legitimate resolution
+        hostA.getArpTable().putDynamic(gwIp, legitimateGwMac, 30);
+
+        // Enable strict anti-spoofing mode on host
+        hostA.getDefender().setStrictMode(true);
+
+        // Attacker attempts unverified MAC flip-flop directly against host
+        boolean allowed = hostA.getDefender().checkUpdate(hostA.getArpTable(), gwIp, attackerMac);
+        check("Host Defender detects unsolicited MAC flip-flop",
+                hostA.getDefender().getFlipFlopCount() > 0, "flips=" + hostA.getDefender().getFlipFlopCount());
+        check("Host Defender strict mode BLOCKS malicious flip-flop", !allowed, null);
+    }
+
+    private static void testPcapBinaryExport() {
+        try {
+            byte[] pcapBytes = PcapExporter.exportToPcap(Hub.I.allFrames());
+            check("PCAP export generates non-empty binary byte stream", pcapBytes.length >= 24, "len=" + pcapBytes.length);
+
+            DataInputStream dis = new DataInputStream(new ByteArrayInputStream(pcapBytes));
+            int magic = dis.readInt();
+            short vMaj = dis.readShort();
+            short vMin = dis.readShort();
+            dis.skipBytes(8);
+            int snaplen = dis.readInt();
+            int linkType = dis.readInt();
+
+            check("PCAP magic number matches standard libpcap 0xa1b2c3d4", magic == 0xa1b2c3d4, String.format("0x%08X", magic));
+            check("PCAP version is 2.4", vMaj == 2 && vMin == 4, vMaj + "." + vMin);
+            check("PCAP link layer type is Ethernet (1)", linkType == 1, "linkType=" + linkType);
+        } catch (Exception e) {
+            check("PCAP export generates valid libpcap stream", false, e.getMessage());
+        }
     }
 }

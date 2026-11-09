@@ -2,4 +2,7 @@ out/
 data/*.db
 data/*.log
 *.class
+*.pcap
 .DS_Store
+__pycache__/
+*.pyc

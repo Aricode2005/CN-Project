@@ -2,12 +2,14 @@ package arp.dashboard;
 
 import arp.core.Hub;
 import arp.core.Json;
+import arp.core.PcapExporter;
 import arp.model.IpAddress;
 import arp.model.MacAddress;
 import arp.network.AttackerNode;
 import arp.network.EthernetSwitch;
 import arp.network.HostNode;
 import arp.network.RouterNode;
+import arp.security.PortSecurity;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -26,6 +28,13 @@ import java.util.Map;
 
 /**
  * Built-in Zero-Dependency HTTP Dashboard & Control Server on Port 8082.
+ *
+ * REST Endpoints:
+ * - GET  /                   Static Web Dashboard
+ * - GET  /api/state          Real-time JSON Telemetry
+ * - POST /api/action         Trigger Interactive Network Scenarios & Packet Injections
+ * - GET  /api/export/pcap    Download Wireshark-compatible .pcap binary packet trace
+ * - POST /api/cisco-cli      Execute Cisco IOS CLI diagnostic commands
  */
 public final class DashboardServer {
 
@@ -57,6 +66,8 @@ public final class DashboardServer {
         server.createContext("/", this::handleStatic);
         server.createContext("/api/state", this::handleApiState);
         server.createContext("/api/action", this::handleApiAction);
+        server.createContext("/api/export/pcap", this::handleApiExportPcap);
+        server.createContext("/api/cisco-cli", this::handleApiCiscoCli);
         server.setExecutor(null);
         server.start();
     }
@@ -86,7 +97,6 @@ public final class DashboardServer {
                 os.write(data);
             }
         } else {
-            // Serve fallback dashboard HTML if file is missing
             String html = getFallbackHtml();
             byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
             ex.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
@@ -139,6 +149,41 @@ public final class DashboardServer {
         }
     }
 
+    private void handleApiExportPcap(HttpExchange ex) throws IOException {
+        byte[] pcapBytes = PcapExporter.exportToPcap(Hub.I.allFrames());
+        ex.getResponseHeaders().set("Content-Type", "application/vnd.tcpdump.pcap");
+        ex.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"arp_lab_capture.pcap\"");
+        ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        ex.sendResponseHeaders(200, pcapBytes.length);
+        try (OutputStream os = ex.getResponseBody()) {
+            os.write(pcapBytes);
+        }
+    }
+
+    private void handleApiCiscoCli(HttpExchange ex) throws IOException {
+        String cmd = "";
+        if ("GET".equalsIgnoreCase(ex.getRequestMethod())) {
+            String query = ex.getRequestURI().getQuery();
+            if (query != null && query.startsWith("cmd=")) {
+                cmd = URLDecoder.decode(query.substring(4), StandardCharsets.UTF_8);
+            }
+        } else if ("POST".equalsIgnoreCase(ex.getRequestMethod())) {
+            String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            Map<String, String> params = parseFormBody(body);
+            cmd = params.getOrDefault("cmd", "");
+        }
+
+        String output = ethernetSwitch.executeCiscoCommand(cmd);
+        String resJson = Json.obj("command", cmd, "output", output);
+        byte[] bytes = resJson.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+        ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        ex.sendResponseHeaders(200, bytes.length);
+        try (OutputStream os = ex.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+
     private void handleApiAction(HttpExchange ex) throws IOException {
         if (!"POST".equalsIgnoreCase(ex.getRequestMethod())) {
             ex.sendResponseHeaders(405, -1);
@@ -183,6 +228,54 @@ public final class DashboardServer {
                     sender.sendArpProbe(IpAddress.parse(candidate));
                     message = "ARP Probe sent for " + candidate;
                 }
+            } else if ("acd_workflow".equals(action)) {
+                String host = params.get("host");
+                String candidate = params.get("candidate");
+                HostNode sender = findHost(host);
+                if (sender != null && candidate != null) {
+                    boolean ok = sender.performAcd(IpAddress.parse(candidate));
+                    message = "ACD completed for " + host + ": " + (ok ? "Configured" : "Conflicted");
+                }
+            } else if ("rarp_boot".equals(action)) {
+                String host = params.get("host");
+                HostNode sender = findHost(host);
+                if (sender != null) {
+                    sender.bootViaRarp();
+                    message = "RFC 903 RARP Bootstrapping dispatched for " + host;
+                }
+            } else if ("vlan_set".equals(action)) {
+                int p = Integer.parseInt(params.get("port"));
+                int vlan = Integer.parseInt(params.get("vlan"));
+                ethernetSwitch.setPortVlan(p, vlan);
+                message = "Switch Port " + p + " assigned to VLAN " + vlan;
+            } else if ("port_security_toggle".equals(action)) {
+                int p = Integer.parseInt(params.get("port"));
+                boolean enable = Boolean.parseBoolean(params.get("enabled"));
+                int maxMacs = Integer.parseInt(params.getOrDefault("maxMacs", "1"));
+                String actStr = params.getOrDefault("violation", "RESTRICT").toUpperCase();
+                PortSecurity.ViolationAction act = PortSecurity.ViolationAction.valueOf(actStr);
+                if (enable) {
+                    ethernetSwitch.getPortSecurity().enablePortSecurity(p, maxMacs, act);
+                    message = "Port-Security ENABLED on Port " + p + " (Max MACs=" + maxMacs + ", Action=" + act.name() + ")";
+                } else {
+                    ethernetSwitch.getPortSecurity().disablePortSecurity(p);
+                    message = "Port-Security DISABLED on Port " + p;
+                }
+            } else if ("reset_errdisable".equals(action)) {
+                ethernetSwitch.resetAllErrDisabled();
+                message = "All err-disabled ports restored to active service.";
+            } else if ("arp_storm".equals(action)) {
+                int count = Integer.parseInt(params.getOrDefault("count", "40"));
+                attacker.launchArpStorm(count);
+                message = "Dispatched ARP storm of " + count + " packets from Attacker.";
+            } else if ("host_defender_toggle".equals(action)) {
+                String host = params.get("host");
+                boolean strict = Boolean.parseBoolean(params.get("strict"));
+                HostNode targetHost = findHost(host);
+                if (targetHost != null) {
+                    targetHost.getDefender().setStrictMode(strict);
+                    message = host + " Host-Defender Strict Mode: " + (strict ? "ENABLED" : "DISABLED");
+                }
             } else if ("mitm_poison".equals(action)) {
                 attacker.launchArpPoisoning();
                 message = "MITM ARP Cache Poisoning launched!";
@@ -206,7 +299,7 @@ public final class DashboardServer {
             } else if ("cam_overflow".equals(action)) {
                 int count = Integer.parseInt(params.getOrDefault("count", "30"));
                 attacker.floodRandomMacs(count);
-                message = "Flooded switch with " + count + " random MACs.";
+                message = "Flooded switch with " + count + " random MACs (macof simulation).";
             } else if ("static_vip".equals(action)) {
                 String host = params.get("host");
                 String ip = params.get("ip");

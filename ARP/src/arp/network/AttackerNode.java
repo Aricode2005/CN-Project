@@ -12,7 +12,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 /**
- * Rogue Attacker Node (Kali Linux) demonstrating ARP Poisoning & Man-In-The-Middle (MITM).
+ * Rogue Attacker Node (Kali Linux) demonstrating:
+ * - Unsolicited Bidirectional ARP Cache Poisoning (MITM)
+ * - Broadcast Forged Gratuitous ARP (LAN-wide poisoning)
+ * - MAC Table Overflow Flooding (macof CAM exhaustion)
+ * - High-Rate ARP Storm (DoS testing for DAI Rate Limiting & Err-Disable)
+ * - Transparent Layer 2 Packet Interception & Forwarding
  */
 public final class AttackerNode extends HostNode {
 
@@ -89,10 +94,10 @@ public final class AttackerNode extends HostNode {
     }
 
     /**
-     * Floods the switch with randomized MAC addresses to overflow CAM table.
+     * Floods the switch with randomized MAC addresses to overflow CAM table (macof simulation).
      */
     public int floodRandomMacs(int count) {
-        Hub.I.log(String.format("[ATTACKER] Flooding switch with %d random MAC addresses (CAM Overflow)", count));
+        Hub.I.log(String.format("[ATTACKER] Flooding switch with %d random MAC addresses (macof CAM Overflow)", count));
         Random r = new Random();
         byte[] macBytes = new byte[6];
         for (int i = 0; i < count; i++) {
@@ -101,6 +106,18 @@ public final class AttackerNode extends HostNode {
             MacAddress spoofed = new MacAddress(macBytes);
             EthernetFrame frame = new EthernetFrame(MacAddress.BROADCAST, spoofed, EthernetFrame.ETHERTYPE_ARP, new byte[46]);
             getNic().send(frame);
+        }
+        return count;
+    }
+
+    /**
+     * Launches a high-rate ARP storm to test DAI Rate Limiting DoS defenses.
+     */
+    public int launchArpStorm(int count) {
+        Hub.I.log(String.format("[ATTACKER] Launching ARP Storm DoS (%d burst packets) to test DAI Rate Limiting...", count));
+        for (int i = 0; i < count; i++) {
+            ArpPacket req = ArpPacket.createRequest(getNic().getMac(), getNic().getIp(), IpAddress.parse("192.168.1." + (100 + (i % 50))));
+            getNic().send(req.toFrame());
         }
         return count;
     }

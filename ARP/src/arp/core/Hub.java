@@ -7,6 +7,7 @@ import arp.protocol.EthernetFrame;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -55,6 +56,8 @@ public final class Hub {
         public final boolean isArp;
         public final boolean isBroadcast;
         public final boolean blockedByDai;
+        public final byte[] rawBytes;
+        public final int vlanId;
 
         public CapturedFrame(
                 int port,
@@ -66,24 +69,31 @@ public final class Hub {
             this.srcVendor = frame.getSourceMac().getVendor();
             this.dstMac = frame.getDestinationMac().toString();
             this.dstVendor = frame.getDestinationMac().getVendor();
-            this.isArp = frame.isArp();
+            this.isArp = frame.isArp() || frame.isRarp();
             this.isBroadcast = frame.isBroadcast();
             this.blockedByDai = blockedByDai;
-            this.etherType = frame.isArp() ? "ARP (0x0806)" : frame.isIpv4() ? "IPv4 (0x0800)" : String.format("0x%04X", frame.getEtherType());
-            this.length = frame.toBytes().length;
+            this.rawBytes = frame.toBytes();
+            this.length = this.rawBytes.length;
             this.hexDump = frame.toHexDump();
+            this.vlanId = frame.getVlanId();
 
-            if (frame.isArp()) {
+            String vlanPrefix = frame.isTagged() ? String.format("[VLAN %d] ", frame.getVlanId()) : "";
+            this.etherType = frame.isArp() ? "ARP (0x0806)"
+                    : frame.isRarp() ? "RARP (0x8035)"
+                    : frame.isIpv4() ? "IPv4 (0x0800)"
+                    : String.format("0x%04X", frame.getEtherType());
+
+            if (frame.isArp() || frame.isRarp()) {
                 try {
                     ArpPacket arp = ArpPacket.fromBytes(frame.getPayload());
-                    this.summary = arp.toDetailedString();
+                    this.summary = vlanPrefix + arp.toDetailedString();
                 } catch (Exception e) {
-                    this.summary = "ARP: [Malformed Payload]";
+                    this.summary = vlanPrefix + "ARP/RARP: [Malformed Payload]";
                 }
             } else if (frame.isIpv4()) {
-                this.summary = "[IPv4 / ICMP] Payload " + frame.getPayload().length + " bytes";
+                this.summary = vlanPrefix + "[IPv4 / ICMP] Payload " + frame.getPayload().length + " bytes";
             } else {
-                this.summary = "Frame Type: " + etherType;
+                this.summary = vlanPrefix + "Frame Type: " + etherType;
             }
         }
 
@@ -92,6 +102,7 @@ public final class Hub {
                     "seq", seq,
                     "t", timestampMs,
                     "port", port,
+                    "vlanId", vlanId,
                     "srcMac", srcMac,
                     "srcVendor", srcVendor,
                     "dstMac", dstMac,
@@ -124,6 +135,10 @@ public final class Hub {
             if (f.seq > seq) out.add(f);
         }
         return out;
+    }
+
+    public List<CapturedFrame> allFrames() {
+        return frames.snapshot();
     }
 
     // ------------------------------------------------------------------ MITM Intercepted Data
