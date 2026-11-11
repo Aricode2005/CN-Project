@@ -1,66 +1,72 @@
-# Distributed & Load-Balanced DHCP Server System in Java
+# Computer Networks Lab & RFC Protocol Suite (Pure Java, JDK 11+)
 
-A complete **RFC 2131 DHCP Server Cluster** built in pure Java (Zero external dependencies, JDK 11+) incorporating modern **System Design & Distributed Systems** concepts.
-
----
-
-## 1. Primary Features (Core RFC 2131 DHCP Protocol)
-- **Full 4-Way DORA Handshake**:
-  1. `DHCPDISCOVER`: Client broadcasts discovery packet.
-  2. `DHCPOFFER`: Server offers an available IP from the pool along with Subnet Mask, Default Gateway, DNS Server, Domain Name, and Lease Time.
-  3. `DHCPREQUEST`: Client requests the offered IP address.
-  4. `DHCPACK` / `DHCPNAK`: Server commits the lease (`DHCPACK`) or rejects conflicting requests (`DHCPNAK`).
-- **Additional RFC Message Types**:
-  - `DHCPRELEASE`: Immediately returns an active IP lease to the pool.
-  - `DHCPINFORM`: Supplies network configuration options (DNS, Router, Domain) to static clients.
-  - `DHCPDECLINE`: Marks an IP as conflicted when a client detects an ARP collision.
-- **Binary RFC 2131 Packet Serializer/Parser**:
-  - Encodes and decodes the 236-byte BOOTP header, 4-byte Magic Cookie (`99.130.83.99`), and TLV (Type-Length-Value) DHCP Options (`1`, `3`, `6`, `12`, `15`, `50`, `51`, `53`, `54`, `56`, `255`).
-- **Dynamic IP Pool, Static VIP Reservations & Expiration Reaper**:
-  - Allocates dynamic leases from `192.168.10.10` – `192.168.10.150`.
-  - Supports static MAC-to-IP VIP reservations (e.g., `00:1A:2B:3C:4D:01` $\rightarrow$ `192.168.10.5`).
-  - Background **Lease Expiration Reaper** automatically reclaims expired leases.
+A comprehensive suite of **RFC-compliant protocol engines**, **system design implementations**, and **interactive live dashboards** built in pure Java (Zero external dependencies, JDK 11+).
 
 ---
 
-## 2. System Design & Distributed Systems Features
-1. **L4 UDP Load Balancer & DHCP Relay Agent (`giaddr`)**:
-   - Listens on UDP Port `6700`, stamps the `giaddr` (`192.168.10.254`) field, and routes packets across the 3 backend DHCP Server nodes (`6701`, `6702`, `6703`).
-   - Supports 3 live-switchable routing algorithms:
-     - **Consistent Hashing with Virtual Nodes** (32 virtual nodes per physical server, hashing client MAC `chaddr` onto a 32-bit ring so DORA sessions stay sticky to the same node with minimal disruption on failover).
-     - **Round-Robin**.
-     - **Least-Loaded**.
-2. **Active-Active Peer State Replication (UDP Gossip Sync)**:
-   - Every lease offer, commit, decline, or release is asynchronously replicated to peer nodes over UDP so any surviving node can renew or inspect leases if the original node crashes.
-3. **Heartbeat Health Checking & Automatic Failover**:
-   - Load Balancer sends periodic `CLUSTER_HEALTH_PING` probes to backend nodes (`6701`, `6702`, `6703`).
-   - If a node misses heartbeats, it is automatically evicted from the Consistent Hash Ring and re-added upon recovery.
-4. **Token-Bucket Rate Limiter (DHCP Starvation Protection)**:
-   - Dual-layer (Global + Per-MAC) Token Bucket rate limiter at the Load Balancer edge drops malicious `DHCPDISCOVER` floods before they can exhaust the IP pool.
-5. **Disk Persistence (`data/leases_node*.db`)**:
-   - Persists active leases to disk so server restarts preserve IP bindings.
-6. **Live Web Dashboard (`http://localhost:8080`)**:
-   - Real-time visualization of node health, load balancing metrics, replicated leases, packet logs, and one-click Chaos Engineering controls.
+## Repository Structure & Modules
+
+| Module | Protocol & RFCs | Ports | Description |
+|:---|:---|:---|:---|
+| **[DHCP](./DHCP)** | RFC 2131, RFC 2132 | UDP **6700** (LB), **6701-6703** (Cluster)<br/>HTTP **8080** (Dashboard) | Distributed & Load-Balanced DHCP Server Cluster with Consistent Hashing, Active-Active Gossip Lease Sync, and Rate Limiting. |
+| **[Telnet](./Telnet)** | RFC 854, RFC 855, RFC 1143 | TCP **2323** (Server), **2324** (Wire Tap)<br/>TCP **9923** (TLS), **9924** (TLS Tap)<br/>HTTP **8081** (Dashboard) | Telnet Remote-Management Lab with NVT codec, Q-method option negotiation, Cisco IOS VTY CLI, sniffer, and brute-force guard. |
+| **[ARP](./ARP)** | RFC 826, RFC 5227, RFC 1027 | HTTP **8082** (Dashboard & Wire Sniffer) | Address Resolution Protocol (ARP), L2 Switch CAM Learning, Address Conflict Detection (ACD), Proxy ARP, MITM Poisoning, and Dynamic ARP Inspection (DAI). |
 
 ---
 
-## 3. How to Compile & Run
+## 1. ARP: Address Resolution Protocol & L2 Security Lab (`./ARP`)
 
-### Option A: Using `run.bat` (Windows CMD / PowerShell)
+### Features
+- **RFC 826 Binary Engine**: 28-byte ARP header encoding/decoding and Ethernet II framing with auto-padding.
+- **Cache State Machine**: `INCOMPLETE`, `REACHABLE`, `STALE`, `STATIC`, and `POISONED` states with real-time TTL countdowns.
+- **Packet Buffer Queue**: Buffers outbound IP packets during cache misses and flushes them upon resolution.
+- **RFC 5227 ACD & GARP**: Gratuitous ARP announcements and ARP Probes (`SPA = 0.0.0.0`) for duplicate IP detection.
+- **RFC 1027 Proxy ARP**: Router transparently resolves remote subnet IPs (`10.0.0.0/24`) with its gateway MAC.
+- **L2 Switch CAM Table**: Dynamic source MAC learning and intelligent unicast forwarding vs broadcast flooding.
+- **Security & Dynamic ARP Inspection (DAI)**: Mitigates Man-In-The-Middle (MITM) cache poisoning by validating ARP frames against the DHCP Snooping database.
+- **Live Web Dashboard & Wireshark Sniffer**: Runs on **http://localhost:8082**.
+
 ```powershell
-.\run.bat
+cd ARP
+.\run.bat           # Start lab + dashboard
+.\run.bat --verify  # Run 30+ automated checks
 ```
 
-### Option B: Manual `javac` & `java` Commands
+---
+
+## 2. DHCP: Distributed & Load-Balanced Server Cluster (`./DHCP`)
+
+### Features
+- **Full RFC 2131 DORA Handshake**: `DHCPDISCOVER`, `DHCPOFFER`, `DHCPREQUEST`, `DHCPACK`/`DHCPNAK`, `DHCPRELEASE`, `DHCPINFORM`, and `DHCPDECLINE`.
+- **L4 UDP Load Balancer & Relay Agent (`giaddr`)**: Consistent Hashing with 32 virtual nodes per physical server, Round-Robin, and Least-Loaded routing.
+- **Active-Active Peer Gossip Replication**: UDP gossip sync keeps all 3 server nodes synchronized.
+- **Token-Bucket Rate Limiter**: Defends against DHCP starvation floods.
+- **Live Web Dashboard & Chaos Panel**: Runs on **http://localhost:8080**.
+
 ```powershell
-mkdir out -ErrorAction SilentlyContinue
-javac -d out src/dhcp/protocol/*.java src/dhcp/model/*.java src/dhcp/cluster/*.java src/dhcp/lb/*.java src/dhcp/client/*.java src/dhcp/dashboard/*.java src/dhcp/Main.java
-java -cp out dhcp.Main
+cd DHCP
+.\run.bat           # Compile and start 3-node cluster + LB + dashboard
 ```
 
-### Option C: Run Automated End-to-End Verification Suite
+---
+
+## 3. Telnet: Remote-Management Lab (`./Telnet`)
+
+### Features
+- **RFC 854 NVT Codec**: State machine handling control characters, CR NUL / CR LF, and IAC escaping.
+- **RFC 1143 Q-Method Option Negotiation**: ECHO, SGA, STATUS, TIMING-MARK, TTYPE, NAWS, TSPEED.
+- **Cisco IOS-style Command Shell**: Privilege levels, enable password, configuration modes, command history, and auto-completion.
+- **Plaintext vs TLS Sniffer (Wire Tap)**: Demonstrates why Telnet was replaced by SSH.
+- **Live Lecture-Slide Dashboard**: Runs on **http://localhost:8081**.
+
 ```powershell
-.\run.bat --verify
+cd Telnet
+.\run.bat           # Start server, wire tap, and dashboard
+.\run.bat --verify  # Run 35 automated checks
 ```
 
-Once running, open **http://localhost:8080** in your browser to use the interactive System Design & Chaos Dashboard, or use the interactive terminal menu!
+---
+
+## System Requirements
+- **JDK 11+** (Pure standard library, zero third-party dependencies).
+- Windows, macOS, or Linux.

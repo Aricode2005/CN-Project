@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JU Mail Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Public+Sans:ital,wght@0,400..700;1,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* ==========================================================================
+   JU MAIL LAB — art direction: "the post office"
+   Mail is the one internet service that copied a physical institution, so the
+   interface borrows its civic graphic language: airmail stripes, stamps,
+   postmarks, pigeon-holes, declaration forms and a transit-style route map.
+   SMTP = postal red (posting), POP3 = ochre (taking letters home),
+   IMAP = airmail blue (letters kept at the counter).
+   ========================================================================== */
+:root {
+  /* colour */
+  --paper: #f3eee3; --paper-2: #ebe4d3; --card: #fbf8f1; --ink: #191e35; --ink-2: #444a64; --muted: #686b80;
+  --rule: #d5cbb5; --rule-2: #e4dccb;
+  --navy: #141a33; --navy-2: #1c2445; --navy-ink: #ece6d6; --navy-muted: #9da3bd;
+  --smtp: #c4352b; --pop: #a3690a; --imap: #1f4ea8; --ok: #2c7a4b; --bad: #b3261e;
+  --smtp-hi: #ff7a6b; --pop-hi: #f2b544; --imap-hi: #7aaaff;
+  /* type */
+  --display: "Fraunces", Georgia, serif; --text: "Public Sans", "Segoe UI", sans-serif; --mono: "DM Mono", Consolas, monospace;
+  --t-xs: 11.5px; --t-s: 13px; --t-m: 15px; --t-l: 20px; --t-xl: 30px; --t-2xl: 46px; --t-3xl: clamp(48px, 7.4vw, 112px);
+  /* space */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px; --s9: 112px;
+  /* lines */
+  --hair: 1px solid var(--rule); --firm: 1.5px solid var(--ink);
+  --rail: 68px; --max: 1440px;
+  --airmail: repeating-linear-gradient(135deg, var(--smtp) 0 14px, var(--paper) 14px 21px, var(--imap) 21px 35px, var(--paper) 35px 42px);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 var(--t-m)/1.55 var(--text); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 600; letter-spacing: -.02em; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); }
+code { font-size: .88em; background: var(--paper-2); padding: 0 4px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--imap); outline-offset: 2px; }
+
+/* --------------------------------------------------------------- index rail (vertical type) */
+.rail { position: fixed; inset: 0 auto 0 0; width: var(--rail); background: var(--navy); z-index: 40; display: flex; flex-direction: column; align-items: center; padding: var(--s4) 0; gap: var(--s2); }
+.rail::after { content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 100%; background: var(--airmail); }
+.rail .mk { width: 36px; height: 36px; display: grid; place-items: center; border: 1.5px solid var(--navy-ink); color: var(--navy-ink); margin-bottom: var(--s4); }
+.rail a { writing-mode: vertical-rl; transform: rotate(180deg); text-decoration: none; color: var(--navy-muted); font: 500 var(--t-xs)/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: var(--s3) var(--s2); border-left: 2px solid transparent; transition: color .2s, border-color .2s; white-space: nowrap; }
+.rail a b { color: var(--navy-ink); font-weight: 500; margin-bottom: 8px; display: inline-block; }
+.rail a:hover { color: var(--navy-ink); }
+.rail a.on { color: var(--navy-ink); border-left-color: var(--pop-hi); }
+.rail .live { margin-top: auto; writing-mode: vertical-rl; transform: rotate(180deg); font: 500 10.5px/1 var(--mono); letter-spacing: .14em; color: var(--navy-muted); }
+.rail .live i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #5bd38c; margin-bottom: 8px; animation: beat 2s infinite; }
+@keyframes beat { 50% { opacity: .3; } }
+.page { margin-left: calc(var(--rail) + 8px); }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--s7); }
+
+/* --------------------------------------------------------------- masthead */
+.mast { padding: var(--s7) 0 var(--s6); border-bottom: var(--firm); }
+.mast .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s6); align-items: end; }
+.kicker { font: 500 var(--t-xs)/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); display: flex; gap: var(--s4); flex-wrap: wrap; }
+.kicker span + span::before { content: "/"; margin-right: var(--s4); color: var(--rule); }
+.mast h1 { font-size: var(--t-3xl); line-height: .9; font-weight: 400; margin: var(--s5) 0 var(--s5); font-variation-settings: "SOFT" 50, "WONK" 1; }
+.mast h1 em { font-style: italic; font-weight: 300; color: var(--smtp); }
+.mast h1 .u { font-weight: 800; }
+.mast .dek { max-width: 58ch; color: var(--ink-2); font-size: 17px; }
+.mast .dek b { color: var(--ink); }
+.stamps { display: grid; grid-template-columns: repeat(3, 118px); gap: var(--s4); }
+.stamp { --c: var(--smtp); position: relative; padding: 18px 16px 14px; text-align: left; transform: rotate(var(--r, 0deg)); filter: drop-shadow(0 2px 2px rgba(25,30,53,.18)); transition: transform .3s cubic-bezier(.2,1.4,.4,1);
+  background: radial-gradient(circle at 6px 6px, var(--paper) 3.2px, transparent 3.6px) -6px -6px / 12px 12px, var(--card); }
+.stamp:hover { transform: rotate(0deg) translateY(-3px); }
+.stamp::after { content: ""; position: absolute; inset: 6px; background: var(--card); z-index: 0; }
+.stamp::before { content: ""; position: absolute; inset: 10px; border: 1.5px solid var(--c); pointer-events: none; z-index: 1; }
+.stamp > * { position: relative; z-index: 2; }
+.stamp .p { font: 500 10px/1 var(--mono); letter-spacing: .14em; color: var(--c); position: relative; }
+.stamp .n { font: 600 34px/1 var(--display); color: var(--ink); margin: 6px 0 4px; position: relative; font-variant-numeric: lining-nums; }
+.stamp .tl { font: 400 10.5px/1.3 var(--mono); color: var(--muted); position: relative; }
+.stamp.p3 { --c: var(--pop); --r: 1.5deg; } .stamp.im { --c: var(--imap); --r: -1deg; } .stamp.sm { --r: -2deg; }
+.stamp.off .n { color: var(--muted); text-decoration: line-through; }
+
+/* --------------------------------------------------------------- shared */
+section { position: relative; }
+.chap { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: var(--s5); padding-top: var(--s8); padding-bottom: var(--s7); }
+.chap > .no { font: 300 var(--t-2xl)/1 var(--display); color: #bfb294; font-variation-settings: "opsz" 144; position: sticky; top: var(--s5); align-self: start; }
+.chap > .no small { display: block; font: 500 10.5px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-top: var(--s2); }
+.h2 { font-size: var(--t-xl); line-height: 1.1; max-width: 26ch; }
+.h2 em { font-style: italic; font-weight: 400; }
+.lede { color: var(--ink-2); max-width: 70ch; margin: var(--s3) 0 var(--s5); }
+.lede b { color: var(--ink); font-weight: 600; }
+.lab { font: 500 10.5px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.p-s { color: var(--smtp); } .p-p { color: var(--pop); } .p-i { color: var(--imap); }
+.btn { appearance: none; border: var(--firm); background: var(--card); padding: 9px 16px 8px; font: 600 var(--t-s)/1 var(--text); cursor: pointer; box-shadow: 3px 3px 0 var(--ink); transition: transform .12s, box-shadow .12s; white-space: nowrap; }
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.btn:disabled { opacity: .45; cursor: progress; transform: none; box-shadow: 3px 3px 0 var(--ink); }
+.btn.red { background: var(--smtp); color: #fff; }
+.btn.blue { background: var(--imap); color: #fff; }
+.btn.ghost { box-shadow: none; border-color: var(--rule); background: transparent; }
+.btn.ghost:hover { border-color: var(--ink); transform: none; }
+.btn.xs { padding: 5px 8px 4px; font-size: 11.5px; box-shadow: 2px 2px 0 var(--ink); }
+.field { display: grid; gap: 6px; }
+.field > span { font: 500 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+input, select, textarea { background: var(--card); border: 1px solid var(--rule); border-bottom: 1.5px solid var(--ink); padding: 9px 10px; font-size: var(--t-s); border-radius: 0; min-width: 0; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--imap); box-shadow: 0 2px 0 var(--imap); }
+.note { font-size: var(--t-s); color: var(--ink-2); padding-left: var(--s3); border-left: 2px solid var(--pop-hi); margin-top: var(--s4); max-width: 80ch; }
+.note b { color: var(--ink); }
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* --------------------------------------------------------------- 01 route map (full-bleed navy band) */
+.band { background: var(--navy); color: var(--navy-ink); position: relative; overflow: hidden; }
+.band::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(236,230,214,.09) 1px, transparent 1px); background-size: 22px 22px; pointer-events: none; }
+.band .chap > .no { color: #4a5790; }
+.band .chap > .no small, .band .lab { color: var(--navy-muted); }
+.band .lede { color: var(--navy-muted); } .band .lede b { color: var(--navy-ink); }
+.route { width: 100%; height: auto; display: block; overflow: visible; }
+.route .st-name { font: 600 15px var(--display); fill: var(--navy-ink); }
+.route .st-sub { font: 400 11px var(--mono); fill: var(--navy-muted); }
+.legend { display: flex; gap: var(--s5); flex-wrap: wrap; margin-top: var(--s4); font: 400 12px/1 var(--mono); color: var(--navy-muted); }
+.legend i { display: inline-block; width: 22px; height: 4px; vertical-align: middle; margin-right: 8px; }
+
+/* --------------------------------------------------------------- 02 compose: an envelope + a ledger */
+.post { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s6); align-items: start; }
+.envelope { position: relative; background: var(--card); padding: 28px 28px 24px; }
+.envelope::before { content: ""; position: absolute; inset: 0; padding: 8px; background: var(--airmail); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); -webkit-mask-composite: xor; pointer-events: none; }
+.envelope .addr { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); margin-bottom: var(--s4); }
+.envelope .to { grid-column: 1 / -1; }
+.envelope textarea { width: 100%; min-height: 150px; resize: vertical; font-family: var(--text); line-height: 28px; background: repeating-linear-gradient(transparent 0 27px, var(--rule-2) 27px 28px); background-color: var(--card); border: 0; border-bottom: 1.5px solid var(--ink); padding: 0 2px; }
+.envelope .foot { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; margin-top: var(--s4); }
+.envelope input[type=file] { border: 1px dashed var(--rule); padding: 6px; font-size: 12px; flex: 1; min-width: 180px; }
+.postmark { position: absolute; top: 18px; right: 26px; width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--smtp); color: var(--smtp); display: grid; place-items: center; text-align: center; font: 500 9.5px/1.3 var(--mono); letter-spacing: .1em; transform: rotate(-30deg) scale(1.4); opacity: 0; transition: opacity .25s, transform .5s cubic-bezier(.2,1.6,.4,1); pointer-events: none; background: rgba(251,248,241,.6); }
+.postmark::after { content: ""; position: absolute; left: -50px; top: 32px; width: 54px; height: 30px; background: repeating-linear-gradient(transparent 0 5px, currentColor 5px 7px); opacity: .8; }
+.postmark.on { opacity: .9; transform: rotate(-9deg) scale(1); }
+.postmark.err { border-color: var(--bad); color: var(--bad); }
+.status { margin-top: var(--s4); font: 400 var(--t-s)/1.4 var(--mono); color: var(--ink-2); min-height: 20px; }
+.status.ok { color: var(--ok); } .status.err { color: var(--bad); }
+
+.ledger { border: var(--firm); background: var(--card); display: flex; flex-direction: column; min-width: 0; }
+.ledger-h { display: flex; align-items: center; gap: var(--s3); padding: 10px 14px; border-bottom: var(--firm); flex-wrap: wrap; }
+.ledger-h h3 { font-size: var(--t-l); font-style: italic; font-weight: 500; margin-right: auto; }
+.seg { display: inline-flex; border: 1px solid var(--ink); }
+.seg button { border: 0; background: transparent; padding: 5px 10px 4px; font: 500 11px/1 var(--mono); letter-spacing: .06em; cursor: pointer; color: var(--ink-2); }
+.seg button + button { border-left: 1px solid var(--ink); }
+.seg button.on { background: var(--ink); color: var(--paper); }
+.chk { font: 400 11px/1 var(--mono); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.tx { height: 520px; overflow: auto; font: 400 12px/1.45 var(--mono); }
+.ln { display: grid; grid-template-columns: 64px 22px minmax(0, 1fr); gap: 8px; padding: 4px 14px; border-bottom: 1px solid var(--rule-2); }
+.ln.fresh { animation: ink 1.2s ease-out; }
+@keyframes ink { from { background: #fff3c4; } }
+.ln .sid { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 1px; }
+.ln.SMTP .sid { color: var(--smtp); } .ln.POP3 .sid { color: var(--pop); } .ln.IMAP .sid { color: var(--imap); }
+.ln .who { font-weight: 500; text-align: center; font-size: 10.5px; border: 1px solid var(--rule); height: 18px; line-height: 17px; }
+.ln .who.C { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ln .t { white-space: pre-wrap; word-break: break-word; }
+.ln .n { display: block; font-family: var(--text); font-size: 11.5px; color: var(--muted); font-style: italic; }
+.ln.tls .t { color: var(--ok); }
+.code { font-weight: 500; padding: 0 4px; margin-right: 3px; }
+.code.ok { background: #d6ecdc; color: #18502f; } .code.mid { background: #f6e3b8; color: #6b4300; } .code.err { background: #f6d2cd; color: #8a1a13; }
+.ledger-f { border-top: var(--hair); padding: 8px 14px; font-size: 12px; color: var(--muted); display: flex; gap: var(--s4); flex-wrap: wrap; }
+.tx-empty { padding: var(--s7) var(--s5); color: var(--muted); font-family: var(--display); font-style: italic; font-size: var(--t-l); text-align: center; }
+
+/* --------------------------------------------------------------- 03 POP3 vs IMAP */
+.diff-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s5); align-items: end; }
+.vs { font: 300 clamp(52px, 6.6vw, 112px)/.86 var(--display); letter-spacing: -.04em; font-variation-settings: "opsz" 144; text-align: right; display: grid; justify-items: end; }
+.vs .a { color: var(--pop); } .vs .b { color: var(--imap); font-style: italic; } .vs .x { color: var(--muted); font: italic 400 15px/1.6 var(--display); letter-spacing: .02em; }
+.ctrl { display: flex; gap: var(--s3); flex-wrap: wrap; align-items: center; margin: var(--s5) 0 var(--s4); }
+.ctrl .chk { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+.headline { border-top: var(--firm); border-bottom: var(--hair); padding: 12px 0; font: 500 var(--t-l)/1.35 var(--display); min-height: 54px; display: flex; gap: var(--s3); align-items: baseline; }
+.headline .k { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; color: var(--muted); flex: none; }
+.headline.pop { color: var(--pop); } .headline.imap { color: var(--imap); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1fr); gap: var(--s6); align-items: start; margin-top: var(--s6); }
+.dev { position: relative; display: grid; gap: var(--s3); align-content: start; }
+.dev .dh { display: flex; align-items: center; gap: var(--s2); }
+.dev .dh h3 { font-size: var(--t-l); font-weight: 500; }
+.dev .dh h3 em { font-weight: 400; color: var(--muted); font-size: .8em; }
+.dev .dh .btn { margin-left: auto; }
+.dev .ic { width: 22px; height: 22px; flex: none; }
+.screen { border: var(--firm); background: var(--card); padding: var(--s3); min-height: 300px; display: grid; gap: 8px; align-content: start; }
+.phone .screen { border-radius: 26px; padding: 26px 12px 18px; border-width: 2px; position: relative; }
+.phone .screen::before { content: ""; position: absolute; top: 9px; left: 50%; width: 58px; height: 6px; border-radius: 3px; background: var(--ink); transform: translateX(-50%); }
+.laptop .screen { border-width: 2px; border-bottom-width: 2px; }
+.laptop .base { height: 10px; margin: -12px -14px 0; background: var(--ink); clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); }
+.protos { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--ink); }
+.protos button { border: 0; background: transparent; padding: 7px 4px 6px; cursor: pointer; font: 500 11px/1.1 var(--mono); letter-spacing: .04em; color: var(--ink-2); }
+.protos button + button { border-left: 1px solid var(--ink); }
+.protos button:hover:not(.on) { background: var(--paper-2); }
+.protos button.on.P { background: var(--pop); color: #fff; } .protos button.on.I { background: var(--imap); color: #fff; }
+.explain { font-size: 12.5px; color: var(--ink-2); min-height: 38px; }
+.letter { position: relative; background: #fff; border: 1px solid var(--rule); padding: 9px 11px 8px 15px; display: grid; gap: 3px; }
+.letter::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--imap); }
+.letter.read::before { background: var(--rule); }
+.letter .s { font-weight: 700; font-size: var(--t-s); }
+.letter.read .s { font-weight: 400; color: var(--ink-2); }
+.letter .f { font-size: 11.5px; color: var(--muted); }
+.letter .acts { display: flex; gap: 12px; margin-top: 3px; flex-wrap: wrap; }
+.letter .acts button { border: 0; background: none; padding: 0; font: 500 11px/1 var(--mono); color: var(--ink-2); cursor: pointer; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.letter .acts button:hover { color: var(--ink); text-decoration-color: var(--ink); }
+.letter .acts button[aria-disabled=true] { color: var(--muted); text-decoration: line-through; }
+.letter.new { animation: drop .55s cubic-bezier(.2,1.4,.4,1); }
+@keyframes drop { from { transform: translateY(-14px) rotate(-1.5deg); opacity: 0; } }
+.devlast { font: 400 11px/1.45 var(--mono); color: var(--muted); min-height: 32px; }
+.empty { border: 1.5px dashed var(--rule); padding: var(--s6) var(--s3); text-align: center; color: var(--muted); font: italic 400 var(--t-m)/1.4 var(--display); }
+
+.office { background: var(--navy); color: var(--navy-ink); padding: var(--s5) var(--s4) var(--s4); position: relative; display: grid; gap: var(--s3); align-content: start; min-height: 380px; }
+.office::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: var(--airmail); }
+.office h3 { font-weight: 400; font-style: italic; font-size: var(--t-l); display: flex; align-items: center; gap: var(--s2); }
+.office h3 i { width: 8px; height: 8px; border-radius: 50%; background: #5bd38c; display: inline-block; }
+.office .meta { font: 400 10.5px/1.4 var(--mono); color: var(--navy-muted); letter-spacing: .04em; }
+.slots { display: grid; gap: 8px; }
+.slot { background: var(--navy-2); border: 1px solid #2c3866; padding: 10px 12px; display: grid; gap: 3px; }
+.slot .s { font-weight: 600; font-size: var(--t-s); }
+.slot.read .s { font-weight: 400; color: var(--navy-muted); }
+.slot .f { font: 400 10.5px/1.3 var(--mono); color: var(--navy-muted); }
+.flag { font: 500 10px/1 var(--mono); border: 1px solid #3d4a7e; padding: 2px 5px; margin-right: 4px; color: var(--navy-ink); display: inline-block; }
+.office .empty { border-color: #3d4a7e; color: var(--pop-hi); }
+.office .foot { font-size: 11.5px; color: var(--navy-muted); border-top: 1px solid #2c3866; padding-top: var(--s2); }
+
+.truth { width: 100%; border-collapse: collapse; margin-top: var(--s6); font-size: var(--t-s); }
+.truth th { text-align: left; font: 500 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 10px 8px; border-bottom: var(--firm); }
+.truth td { padding: 10px 8px; border-bottom: var(--hair); }
+.truth td.big { font: 500 var(--t-l)/1 var(--display); font-variant-numeric: tabular-nums; }
+.yes { color: var(--ok); font-weight: 600; } .no { color: var(--bad); font-weight: 600; }
+
+/* --------------------------------------------------------------- 04 pigeon-holes + MIME */
+.sorting { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--s6); align-items: start; }
+.who-sel { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s4); flex-wrap: wrap; }
+.who-sel select { font: 500 var(--t-l) var(--display); border: 0; border-bottom: var(--firm); background: transparent; padding: 2px 4px; }
+.holes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); border-top: var(--firm); border-left: var(--firm); margin-bottom: var(--s4); }
+.hole { border: 0; border-right: var(--firm); border-bottom: var(--firm); background: var(--card); padding: 10px 10px 14px; cursor: pointer; text-align: left; display: grid; gap: 2px; position: relative; }
+.hole::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 6px; height: 3px; background: var(--paper-2); }
+.hole .c { font: 500 30px/1 var(--display); font-variant-numeric: tabular-nums; }
+.hole .nm { font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hole .u { position: absolute; top: 8px; right: 8px; font: 500 10px/1 var(--mono); background: var(--imap); color: #fff; padding: 2px 5px; }
+.hole.on { background: var(--ink); color: var(--paper); } .hole.on .nm { color: var(--navy-muted); } .hole.on::after { background: var(--smtp); }
+.hole:hover:not(.on) { background: #fff; }
+.mlist { display: grid; max-height: 360px; overflow: auto; border-top: var(--hair); }
+.mrow { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: var(--s3); padding: 10px 4px; border: 0; border-bottom: var(--hair); cursor: pointer; align-items: center; background: transparent; text-align: left; width: 100%; }
+.mrow:hover { background: var(--card); }
+.mrow.on { background: var(--card); box-shadow: inset 3px 0 0 var(--smtp); }
+.mrow .u { font: 400 11px/1 var(--mono); color: var(--muted); }
+.mrow .sb { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-s); }
+.mrow.seen .sb { font-weight: 400; }
+.mrow .fr { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrow .fl { font: 400 10px/1.4 var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+.sheet { background: #fff; border: 1px solid var(--rule); box-shadow: 0 18px 40px -24px rgba(25,30,53,.35); padding: var(--s5); min-height: 420px; position: relative; }
+.sheet::before { content: ""; position: absolute; top: -1px; left: -1px; right: -1px; height: 6px; background: var(--airmail); }
+.sheet-h { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s4); flex-wrap: wrap; }
+.sheet-h h3 { font-size: var(--t-l); font-style: italic; font-weight: 500; margin-right: auto; }
+.hdrs { font: 400 11.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; color: var(--ink-2); max-height: 170px; overflow: auto; border-left: 2px solid var(--rule); padding-left: var(--s3); margin: 8px 0 var(--s5); }
+.hdrs b { color: var(--ink); font-weight: 500; }
+.part { border: 1px solid var(--ink); position: relative; margin-top: 16px; }
+.part > .ph { position: absolute; top: -10px; left: 10px; background: #fff; padding: 0 6px; display: flex; gap: 8px; font: 500 11px/18px var(--mono); flex-wrap: wrap; }
+.part > .body { padding: 16px 12px 12px; display: grid; gap: 10px; }
+.part.multi { border-style: dashed; }
+.dec { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.dec pre { margin: 4px 0 0; font: 400 11px/1.45 var(--mono); background: var(--paper); padding: 8px 10px; max-height: 150px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.dec .arrow { font: 400 10px/1 var(--mono); color: var(--muted); letter-spacing: .08em; }
+pre.raw { margin: 0; font: 400 11.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto; }
+.blank { display: grid; place-items: center; min-height: 340px; text-align: center; color: var(--muted); font: italic 400 var(--t-l)/1.4 var(--display); }
+
+/* --------------------------------------------------------------- 05 console: the back room */
+.backroom .wrap { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: var(--s6); padding-top: var(--s8); padding-bottom: var(--s8); position: relative; }
+.backroom h2 { color: var(--navy-ink); }
+.dial { display: flex; border: 1px solid var(--navy-muted); width: fit-content; margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }
+.dial button { border: 0; background: transparent; color: var(--navy-ink); padding: 10px 16px 9px; cursor: pointer; font: 500 12px/1 var(--mono); letter-spacing: .06em; }
+.dial button + button { border-left: 1px solid var(--navy-muted); }
+.dial button:hover:not(.on) { background: rgba(236,230,214,.06); }
+.dial button.on { background: var(--navy-ink); color: var(--navy); }
+.dial button span { color: var(--navy-muted); margin-left: 6px; }
+.dial button.on span { color: var(--ink-2); }
+.con { background: #0b0f20; border: 1px solid #2c3866; font: 400 12.5px/1.55 var(--mono); color: #d8dcef; height: 380px; overflow: auto; padding: 14px 16px; white-space: pre-wrap; word-break: break-word; }
+.con .me { color: var(--pop-hi); }
+.con .me::before { content: "› "; color: var(--navy-muted); }
+.prompt { display: flex; border: 1px solid #2c3866; border-top: 0; }
+.prompt input { flex: 1; background: #0b0f20; color: var(--navy-ink); border: 0; font-family: var(--mono); padding: 12px 14px; }
+.prompt input:focus { box-shadow: none; outline: 1px solid var(--pop-hi); outline-offset: -1px; }
+.prompt button { border: 0; border-left: 1px solid #2c3866; background: var(--pop-hi); color: var(--navy); font: 600 12px/1 var(--mono); padding: 0 18px; cursor: pointer; }
+.prompt button:disabled, .prompt input:disabled { opacity: .45; cursor: not-allowed; }
+.cstat { font: 400 11px/1 var(--mono); color: var(--navy-muted); margin-top: var(--s2); }
+.tickets { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--s3) 0 var(--s4); }
+.tickets button { font: 400 11.5px/1 var(--mono); background: transparent; color: var(--navy-ink); border: 1px dashed #4a5790; padding: 7px 9px 6px; cursor: pointer; transition: border-color .15s, background .15s; }
+.tickets button:hover { border-style: solid; border-color: var(--pop-hi); background: rgba(242,181,68,.08); }
+.backroom .note { color: var(--navy-muted); border-left-color: var(--pop-hi); }
+.backroom .note b { color: var(--navy-ink); }
+
+/* --------------------------------------------------------------- 06 declaration form */
+.form { border: 2px solid var(--ink); background: var(--card); }
+.form-h { display: grid; grid-template-columns: auto 1fr auto; gap: var(--s4); align-items: center; padding: 12px 16px; border-bottom: 2px solid var(--ink); }
+.form-h .fc { font: 600 22px/1 var(--display); background: var(--ink); color: var(--paper); padding: 6px 10px; }
+.form-h b { font: 600 var(--t-m)/1.2 var(--text); text-transform: uppercase; letter-spacing: .08em; }
+.form-h small { display: block; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.boxes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.box { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 8px 10px 10px; display: grid; gap: 4px; min-width: 0; }
+.box > span { font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.box > span b { color: var(--ink); margin-right: 5px; }
+.box input, .box select { border: 0; background: transparent; padding: 4px 0; font-size: var(--t-m); border-bottom: 1px dotted var(--rule); }
+.box.c2 { grid-column: span 2; } .box.c3 { grid-column: span 3; } .box.c4 { grid-column: span 4; }
+.box.end { border-right: 0; }
+.form-f { display: flex; justify-content: space-between; align-items: center; gap: var(--s4); padding: 12px 16px; flex-wrap: wrap; }
+.form-f p { font-size: 12px; color: var(--ink-2); max-width: 70ch; }
+.receipt { margin-top: var(--s5); background: #fff; padding: var(--s4) var(--s5) var(--s6); font: 400 12.5px/1.6 var(--mono); white-space: pre-wrap; position: relative; border: 1px solid var(--rule); border-bottom: 0; max-width: 760px;
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from 135deg at top, #000 90deg, #0000 0) bottom / 20px 10px repeat-x;
+  mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from 135deg at top, #000 90deg, #0000 0) bottom / 20px 10px repeat-x; }
+.receipt.ok { border-top: 4px solid var(--ok); } .receipt.err { border-top: 4px solid var(--bad); color: var(--bad); }
+
+/* --------------------------------------------------------------- 07 comparison — editorial table */
+.atlas { width: 100%; border-collapse: collapse; }
+.atlas th { font: 400 clamp(32px, 4vw, 58px)/1 var(--display); text-align: left; padding: 0 12px 14px; letter-spacing: -.03em; vertical-align: bottom; border-bottom: 2px solid var(--ink); }
+.atlas th small { display: block; font: 500 10.5px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.atlas th:first-child { width: 16%; }
+.atlas td { padding: 12px; border-bottom: var(--hair); vertical-align: top; font-size: var(--t-s); }
+.atlas td:first-child { font: 500 10.5px/1.5 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.atlas tr:hover td { background: var(--card); }
+.atlas td.k { font-family: var(--mono); font-size: 12px; }
+
+/* --------------------------------------------------------------- log footer + toasts */
+.foot-log { border-top: var(--firm); padding: var(--s6) 0 var(--s8); }
+.foot-log .wrap { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--s6); }
+.foot-log h4 { font-size: var(--t-l); font-style: italic; font-weight: 400; }
+.foot-log p { font-size: 12px; color: var(--muted); margin-top: var(--s2); }
+.log { font: 400 11px/1.6 var(--mono); color: var(--ink-2); height: 190px; overflow: auto; white-space: pre-wrap; border-left: 1px solid var(--rule); padding-left: var(--s4); }
+.toasts { position: fixed; right: 22px; bottom: 22px; display: grid; gap: 12px; z-index: 60; width: min(380px, calc(100vw - 110px)); }
+.toast { --c: var(--imap); background: var(--card); border: var(--firm); box-shadow: 4px 4px 0 var(--ink); padding: 12px 14px 12px 78px; position: relative; font-size: var(--t-s); animation: tin .45s cubic-bezier(.2,1.3,.4,1); min-height: 70px; }
+.toast .pm { position: absolute; left: 12px; top: 50%; width: 52px; height: 52px; margin-top: -26px; border: 2px solid var(--c); border-radius: 50%; display: grid; place-items: center; font: 500 8.5px/1.1 var(--mono); letter-spacing: .06em; color: var(--c); text-align: center; transform: rotate(-14deg); }
+.toast b { display: block; font: 600 var(--t-m)/1.2 var(--display); margin-bottom: 2px; }
+.toast.DELIVER { --c: var(--smtp); } .toast.BOUNCE { --c: var(--bad); } .toast.RELAY { --c: var(--pop); }
+@keyframes tin { from { transform: translateY(16px) rotate(1deg); opacity: 0; } }
+
+/* --------------------------------------------------------------- responsive */
+@media (max-width: 1200px) {
+  .post, .sorting, .backroom .wrap { grid-template-columns: minmax(0, 1fr); }
+  .backroom .wrap > div:last-child { padding-top: 0 !important; }
+  .stage { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .office { grid-column: 1 / -1; order: -1; }
+  .mast .wrap { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  :root { --rail: 0px; }
+  .rail { position: sticky; top: 0; width: 100%; height: auto; flex-direction: row; padding: 0 var(--s3); overflow-x: auto; gap: 0; }
+  .rail::after { top: auto; bottom: -6px; right: 0; width: 100%; height: 6px; }
+  .rail .mk, .rail .live { display: none; }
+  .rail a { writing-mode: horizontal-tb; transform: none; border-left: 0; border-bottom: 2px solid transparent; padding: 14px 10px; }
+  .rail a b { margin: 0 6px 0 0; }
+  .rail a.on { border-bottom-color: var(--pop-hi); }
+  .page { margin-left: 0; }
+  .wrap { padding: 0 var(--s4); }
+  .chap { grid-template-columns: minmax(0, 1fr); padding-top: var(--s7); padding-bottom: var(--s6); gap: var(--s3); }
+  .chap > .no { position: static; font-size: var(--t-xl); }
+  .stage, .dec, .diff-top { grid-template-columns: minmax(0, 1fr); }
+  .vs { text-align: left; justify-items: start; }
+  .boxes { grid-template-columns: minmax(0, 1fr); }
+  .box.c2, .box.c3, .box.c4 { grid-column: auto; border-right: 0; }
+  .form-h { grid-template-columns: auto 1fr; } .form-h > .lab { display: none; }
+  .stamps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .foot-log .wrap { grid-template-columns: minmax(0, 1fr); }
+  .atlas-wrap { overflow-x: auto; }
+  .atlas { min-width: 720px; }
+  .envelope .addr { grid-template-columns: minmax(0, 1fr); }
+  .postmark { width: 72px; height: 72px; top: 10px; right: 12px; font-size: 8px; }
+  .toasts { width: calc(100vw - 32px); right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="rail" aria-label="Sections">
+  <div class="mk" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5.5" width="18" height="13"/><path d="M3 6.5l9 6.5 9-6.5"/></svg></div>
+  <a href="#route"><b>01</b>Route</a><a href="#post"><b>02</b>Post</a><a href="#diff"><b>03</b>POP3 / IMAP</a><a href="#sort"><b>04</b>Sorting</a><a href="#backroom"><b>05</b>Console</a><a href="#real"><b>06</b>Real</a><a href="#atlas"><b>07</b>Atlas</a>
+  <div class="live" id="liveTag"><i></i>LIVE</div>
+</nav>
+
+<div class="page">
+  <!-- ================================================================ MASTHEAD -->
+  <header class="mast">
+    <div class="wrap">
+      <div>
+        <div class="kicker"><span>CN Lab · Group project</span><span>RFC 5321 · 1939 · 3501</span><span>cse.myuniv.edu</span></div>
+        <h1>The <em>mail</em> <span class="u">office.</span></h1>
+        <p class="dek">Our own <b>SMTP</b>, <b>POP3</b> and <b>IMAP4</b> servers, written from the RFCs, and our own clients that talk to them and to real providers. Each letter on this page is a real protocol line, sent and seen live.</p>
+      </div>
+      <div class="stamps" id="stamps" aria-label="Server ports">
+        <div class="stamp sm"><div class="p">SMTP</div><div class="n">2525</div><div class="tl">TLS 2465<br>posting</div></div>
+        <div class="stamp p3"><div class="p">POP3</div><div class="n">1110</div><div class="tl">TLS 2995<br>collection</div></div>
+        <div class="stamp im"><div class="p">IMAP4</div><div class="n">1143</div><div class="tl">TLS 2993<br>counter</div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================================================================ 01 ROUTE -->
+  <section class="band" id="route">
+    <div class="wrap chap">
+      <div class="no">01<small>The route</small></div>
+      <div>
+        <h2 class="h2" style="color:var(--navy-ink)">Mail is <em>pushed</em> to the post office, then <em>pulled</em> home.</h2>
+        <p class="lede">The sender's user agent hands the letter to an <b>MTA</b> over SMTP. It waits in the recipient's <b>mailbox</b> until the recipient's agent fetches it through an <b>MAA</b>, using POP3 or IMAP. The letters moving on this map are real lines exchanged by our servers.</p>
+        <svg class="route" id="routeSvg" viewBox="0 0 1200 230" role="img" aria-label="Route of an e-mail from Alice to Bob"></svg>
+        <div class="legend"><span><i style="background:var(--smtp-hi)"></i>SMTP · push · 25 / 587 / 465</span><span><i style="background:var(--pop-hi)"></i>POP3 · pull · 110 / 995</span><span><i style="background:var(--imap-hi)"></i>IMAP · pull · 143 / 993</span><span><i style="background:repeating-linear-gradient(90deg,var(--navy-muted) 0 4px,transparent 4px 8px)"></i>MTA to MTA via DNS MX</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 02 POST A LETTER -->
+  <section id="post">
+    <div class="wrap chap">
+      <div class="no">02<small>Posting</small></div>
+      <div>
+        <h2 class="h2">Write a letter. Our SMTP client posts it to our SMTP server.</h2>
+        <p class="lede">Each reply in the ledger has a three-digit code and a plain-English meaning. After sending, the client files a copy in <b>Sent</b> with <b>IMAP APPEND</b>, just like Thunderbird. An outside address is relayed only after AUTH; with no smart host, the server writes back a <b>bounce</b>.</p>
+        <div class="post">
+          <div class="envelope">
+            <div class="postmark" id="pm"><span id="pmTxt">POSTED<br>CSE·JU</span></div>
+            <div class="addr">
+              <label class="field"><span>From</span><select id="cFrom"><option>alice</option><option>bob</option><option>subham</option></select></label>
+              <label class="field"><span>Security</span><select id="cTls"><option value="STARTTLS">STARTTLS · 587 style</option><option value="IMPLICIT">TLS · 465 style</option><option value="NONE">None · plaintext</option></select></label>
+              <label class="field to"><span>To — comma separated, try an outside address</span><input id="cTo" value="bob"></label>
+              <label class="field to"><span>Subject</span><input id="cSubj" value="Assignment discussion"></label>
+            </div>
+            <textarea id="cBody" aria-label="Message body">Hi Bob,
+
+This letter was posted by our own SMTP client to our own SMTP server.
+.this line starts with a dot — watch the dot-stuffing
+
+— Alice</textarea>
+            <div class="foot"><input type="file" id="cAtt" aria-label="Attachment"><button class="btn red" id="cSend">Post the letter</button></div>
+            <div class="status" id="cRes">Ready at the counter.</div>
+          </div>
+
+          <div class="ledger">
+            <div class="ledger-h">
+              <h3>The ledger</h3>
+              <div class="seg" id="txTabs"><button data-p="ALL" class="on">ALL</button><button data-p="SMTP">SMTP</button><button data-p="POP3">POP3</button><button data-p="IMAP">IMAP</button></div>
+              <label class="chk"><input type="checkbox" id="txSrv" checked> server side</label>
+            </div>
+            <div class="tx" id="tx"><div class="tx-empty">The ledger is empty.<br>Post a letter to fill it.</div></div>
+            <div class="ledger-f"><span><span class="code ok">2xx +OK OK</span> done</span><span><span class="code mid">3xx +</span> go on</span><span><span class="code err">4xx 5xx -ERR NO BAD</span> refused</span><span><b style="color:var(--ink)">C</b> client · <b style="color:var(--ink)">S</b> server</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 03 POP3 vs IMAP -->
+  <section id="diff" style="border-top:var(--firm)">
+    <div class="wrap chap">
+      <div class="no">03<small>The difference</small></div>
+      <div>
+        <div class="diff-top">
+          <div>
+            <h2 class="h2">Two devices, one mailbox. See what each protocol does to the post office.</h2>
+            <p class="lede" style="margin-bottom:0">Bob reads mail on a <b>phone</b> and a <b>laptop</b>. Give each device a protocol and press <b>Check mail</b>; every button runs our real client against our server. POP3 <b>takes letters home</b>, and in delete mode it empties the counter. IMAP <b>leaves them at the counter</b>, so every device sees the same state.</p>
+          </div>
+          <div class="vs" aria-hidden="true"><span class="a">POP3</span><span class="x">— versus —</span><span class="b">IMAP</span></div>
+        </div>
+        <div class="ctrl">
+          <button class="btn red" id="dNew">Alice posts Bob a letter</button>
+          <button class="btn ghost" id="dReset">Reset the demo</button>
+          <label class="chk"><input type="checkbox" id="idleChk"> IMAP IDLE: the server pushes "you've got mail"</label>
+        </div>
+        <div class="headline" id="dBanner"><span class="k">NOW</span><span>Pick protocols, then press Check mail on each device.</span></div>
+        <div class="stage">
+          <div class="dev phone" id="dev-phone"></div>
+          <div class="office" id="srvCol"></div>
+          <div class="dev laptop" id="dev-laptop"></div>
+        </div>
+        <table class="truth" id="liveCmp"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 04 SORTING OFFICE -->
+  <section id="sort" style="border-top:var(--firm);background:var(--paper-2)">
+    <div class="wrap chap">
+      <div class="no">04<small>Sorting</small></div>
+      <div>
+        <h2 class="h2">Inside the mailbox: pigeon-holes, UIDs, flags, and the letter taken apart.</h2>
+        <p class="lede">Each folder is a pigeon-hole on the server, and each message is one <code>.eml</code> file with a permanent <b>UID</b> and its <b>flags</b>. POP3 can only reach INBOX; IMAP reaches every folder.</p>
+        <div class="sorting">
+          <div>
+            <div class="who-sel"><span class="lab">Mailbox of</span><select id="mUser"><option>bob</option><option>alice</option><option>subham</option></select><span class="lab" id="mMeta"></span></div>
+            <div class="holes" id="mFolders"></div>
+            <div class="mlist" id="mList"></div>
+          </div>
+          <div class="sheet">
+            <div class="sheet-h"><h3>Anatomy of a letter</h3><div class="seg" id="mvTabs"><button data-v="tree" class="on">MIME TREE</button><button data-v="raw">RAW SOURCE</button></div></div>
+            <div id="mView"><div class="blank">Choose a letter on the left<br>to see its headers, its MIME parts<br>and how base64 decodes.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 05 BACK ROOM CONSOLE -->
+  <section class="band backroom" id="backroom">
+    <div class="wrap">
+      <div>
+        <div class="lab">05 · The back room</div>
+        <h2 class="h2" style="margin-top:var(--s3)">Speak the protocol yourself, <em>like telnet localhost 2525.</em></h2>
+        <div class="dial" id="dial"><button data-raw="smtp">SMTP<span>:2525</span></button><button data-raw="pop3">POP3<span>:1110</span></button><button data-raw="imap">IMAP<span>:1143</span></button></div>
+        <div class="con" id="con" aria-live="polite">Choose a server above to open a raw TCP connection.</div>
+        <div class="prompt"><input id="rawIn" placeholder="type a command and press Enter" disabled aria-label="Raw command"><button id="rawSend" disabled>SEND</button></div>
+        <div class="cstat" id="rawStat">not connected</div>
+      </div>
+      <div style="padding-top:var(--s9)">
+        <div class="lab">Commands to try, in order</div>
+        <div class="tickets" id="rawChips"><span class="lab" style="color:#6b77ad">connect first</span></div>
+        <div class="note" id="rawHelp">These are the commands an examiner is most likely to ask you to type.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 06 REAL PROVIDER -->
+  <section id="real">
+    <div class="wrap chap">
+      <div class="no">06<small>Abroad</small></div>
+      <div>
+        <h2 class="h2">The same clients, sent abroad: Gmail, Outlook, any real server.</h2>
+        <p class="lede">Implicit TLS on 993, 995 and 465; STARTTLS on 587. Gmail needs 2-step verification and an <b>app password</b>, not your normal password. Credentials go only to the server on this PC, are masked in the ledger, and are never stored.</p>
+        <div class="form">
+          <div class="form-h"><span class="fc">CN-23</span><b>Declaration for an outbound connection<small>Fill in each box. Presets fill the form for you.</small></b><span class="lab">Form JU/MAIL</span></div>
+          <div class="boxes">
+            <label class="box c4"><span><b>1</b>Preset</span><select id="rPreset"><option value="">custom</option><option value="imap|imap.gmail.com|993|IMPLICIT">Gmail · IMAP 993</option><option value="pop3|pop.gmail.com|995|IMPLICIT">Gmail · POP3 995</option><option value="smtp|smtp.gmail.com|587|STARTTLS">Gmail · SMTP 587</option><option value="imap|outlook.office365.com|993|IMPLICIT">Outlook · IMAP 993</option><option value="imap|localhost|2993|IMPLICIT">Our own IMAPS 2993</option></select></label>
+            <label class="box c2"><span><b>2</b>Protocol</span><select id="rKind"><option value="imap">IMAP</option><option value="pop3">POP3</option><option value="smtp">SMTP</option></select></label>
+            <label class="box c4"><span><b>3</b>Host</span><input id="rHost" value="localhost"></label>
+            <label class="box c2 end"><span><b>4</b>Port</span><input id="rPort" value="2993" inputmode="numeric"></label>
+            <label class="box c3"><span><b>5</b>Security</span><select id="rTls"><option>IMPLICIT</option><option>STARTTLS</option><option>NONE</option></select></label>
+            <label class="box c3"><span><b>6</b>User</span><input id="rUser" value="bob" autocomplete="off"></label>
+            <label class="box c3"><span><b>7</b>Password / app password</span><input id="rPass" type="password" value="bob123" autocomplete="off"></label>
+            <label class="box c3 end"><span><b>8</b>Test letter to (SMTP)</span><input id="rTo" placeholder="you@gmail.com"></label>
+          </div>
+          <div class="form-f"><p>By connecting, our Java client opens a TCP socket, negotiates TLS and logs in. For SMTP it sends one test letter. The full conversation appears in the ledger above, with "server side" unticked.</p><button class="btn blue" id="rGo">Connect</button></div>
+        </div>
+        <div class="receipt" id="rOut">Receipt: nothing sent yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 07 ATLAS -->
+  <section id="atlas" style="border-top:var(--firm)">
+    <div class="wrap chap">
+      <div class="no">07<small>Atlas</small></div>
+      <div class="atlas-wrap">
+        <table class="atlas">
+          <tr><th></th><th class="p-s">SMTP<small>Simple Mail Transfer</small></th><th class="p-p">POP3<small>Post Office Protocol 3</small></th><th class="p-i"><em>IMAP4</em><small>Internet Message Access</small></th></tr>
+          <tr><td>Job</td><td>send and relay (MTA)</td><td>download (MAA)</td><td>access mail kept on the server (MAA)</td></tr>
+          <tr><td>Direction</td><td><b>push</b> toward the recipient's server</td><td><b>pull</b></td><td><b>pull</b>, plus server push with IDLE</td></tr>
+          <tr><td>Ports</td><td class="k">25 relay · 587 STARTTLS · 465 TLS<br>lab 2525 / 2465</td><td class="k">110 · 995<br>lab 1110 / 2995</td><td class="k">143 · 993<br>lab 1143 / 2993</td></tr>
+          <tr><td>Where mail lives</td><td>passes through a queue</td><td>moves to the device (delete) or is copied (keep)</td><td><b>stays on the server</b>; devices cache it</td></tr>
+          <tr><td>Folders</td><td>—</td><td class="no">INBOX only</td><td class="yes">create, rename, delete, move</td></tr>
+          <tr><td>Read / flagged</td><td>—</td><td class="no">local to each device</td><td class="yes">flags on the server: \Seen \Flagged …</td></tr>
+          <tr><td>Many devices</td><td>—</td><td class="no">they diverge</td><td class="yes">all in sync</td></tr>
+          <tr><td>Search</td><td>—</td><td>on the client, after download</td><td class="yes">on the server: SEARCH</td></tr>
+          <tr><td>Partial fetch</td><td>—</td><td>TOP: headers + n lines</td><td class="yes">any part, headers only, byte ranges</td></tr>
+          <tr><td>Offline</td><td>—</td><td class="yes">everything is downloaded</td><td>cached messages only</td></tr>
+          <tr><td>States</td><td>connect → EHLO → MAIL → RCPT → DATA</td><td>AUTHORIZATION → TRANSACTION → UPDATE</td><td>NOT AUTH → AUTH → SELECTED → LOGOUT</td></tr>
+          <tr><td>Commands</td><td class="k">EHLO STARTTLS AUTH MAIL RCPT DATA QUIT</td><td class="k">USER PASS STAT LIST UIDL RETR TOP DELE RSET QUIT</td><td class="k">LOGIN LIST SELECT FETCH STORE SEARCH COPY MOVE EXPUNGE APPEND IDLE</td></tr>
+          <tr><td>Replies</td><td>3 digits: 220 250 354 221 · 535 550 554</td><td>+OK / -ERR; multi-line ends with "."</td><td>tagged OK / NO / BAD; untagged "*" data</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot-log">
+    <div class="wrap"><div><h4>Server log</h4><p>Connections, logins, deliveries and bounces, as the servers record them.</p></div><div class="log" id="logs"></div></div>
+  </footer>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async (p, body) => {
+  const o = body ? { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body).toString() } : {};
+  const r = await fetch(p, Object.assign({ cache: 'no-store' }, o)); return r.json();
+};
+const PW = { alice: 'alice123', bob: 'bob123', subham: 'ju2026' };
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const tx = (p, x, y, s, a = {}) => { const t = sv('text', Object.assign({ x, y, 'text-anchor': 'middle' }, a), p); t.textContent = s; return t; };
+const ICON = {
+  phone: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+  laptop: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="11"/><path d="M2 19h20"/></svg>'
+};
+
+// ================================================================ 01 route map (transit-map style)
+const R = { y: 110, st: [80, 255, 430, 600, 770, 945, 1120] };
+(function drawRoute() {
+  const s = $('routeSvg'), y = R.y;
+  const seg = (a, b, col) => sv('line', { x1: R.st[a], y1: y, x2: R.st[b], y2: y, stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round' }, s);
+  sv('path', { d: `M${R.st[2]} ${y} C ${R.st[2] + 20} ${y + 70}, ${R.st[2] + 60} ${y + 92}, ${R.st[2] + 110} ${y + 92}`, stroke: '#9da3bd', 'stroke-width': 2, fill: 'none', 'stroke-dasharray': '4 6' }, s);
+  tx(s, R.st[2] + 118, y + 96, 'to another MTA, found through the DNS MX record', { class: 'st-sub', 'text-anchor': 'start' });
+  seg(0, 3, '#ff7a6b'); seg(3, 6, '#7aaaff');
+  sv('line', { x1: R.st[3], y1: y + 10, x2: R.st[6], y2: y + 10, stroke: '#f2b544', 'stroke-width': 3, 'stroke-linecap': 'round' }, s);
+  const names = [['Alice', 'user agent'], ['MTA client', 'SmtpClient'], ['MTA server', 'SMTP :2525'], ['Mailbox', 'bob / INBOX'], ['MAA server', 'POP3 :1110 · IMAP :1143'], ['MAA client', 'Pop3Client · ImapClient'], ['Bob', 'user agent']];
+  names.forEach(([n, sub], i) => {
+    const x = R.st[i], big = i === 0 || i === 6, up = i % 2 === 0;
+    if (i === 3) { sv('rect', { x: x - 17, y: y - 17, width: 34, height: 34, fill: '#141a33', stroke: '#ece6d6', 'stroke-width': 3 }, s); sv('path', { d: `M${x - 9} ${y - 5}l9 7 9-7`, stroke: '#ece6d6', 'stroke-width': 2, fill: 'none' }, s); }
+    else sv('circle', { cx: x, cy: y, r: big ? 13 : 9, fill: '#141a33', stroke: '#ece6d6', 'stroke-width': big ? 4 : 3 }, s);
+    if (i === 3) { tx(s, x, y - 44, n, { class: 'st-name' }); tx(s, x, y - 28, sub, { class: 'st-sub' }); return; }
+    tx(s, x, up ? y - 40 : y + 46, n, { class: 'st-name' });
+    tx(s, x, up ? y - 24 : y + 62, sub, { class: 'st-sub' });
+  });
+  tx(s, (R.st[0] + R.st[3]) / 2, 18, 'P U S H  ·  S M T P', { fill: '#ff7a6b', 'font-size': 12, 'font-family': 'DM Mono, monospace' });
+  tx(s, (R.st[3] + R.st[6]) / 2, 18, 'P U L L  ·  P O P 3  /  I M A P', { fill: '#7aaaff', 'font-size': 12, 'font-family': 'DM Mono, monospace' });
+  R.layer = sv('g', {}, s);
+})();
+const dots = [];
+function spawnDot(proto, fromClient) {
+  if (REDUCED || dots.length > 50 || document.hidden) return;
+  let a, b;
+  if (proto === 'SMTP') { a = 1; b = 2; } else { a = 5; b = 4; }   // requests travel client → server
+  if (!fromClient) [a, b] = [b, a];
+  dots.push({ a: R.st[a], b: R.st[b], t0: performance.now(), dur: 900, col: proto === 'SMTP' ? '#ff7a6b' : proto === 'POP3' ? '#f2b544' : '#7aaaff', dy: proto === 'POP3' ? 10 : 0 });
+}
+function deliverDot() { if (!REDUCED) dots.push({ a: R.st[2], b: R.st[3], t0: performance.now(), dur: 1200, col: '#ece6d6', big: 1, dy: 0 }); }
+(function anim() {
+  const now = performance.now(); let h = '';
+  for (let i = dots.length - 1; i >= 0; i--) {
+    const d = dots[i], t = (now - d.t0) / d.dur;
+    if (t >= 1) { dots.splice(i, 1); continue; }
+    const e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, x = d.a + (d.b - d.a) * e, y = R.y + d.dy, w = d.big ? 24 : 15, hh = d.big ? 16 : 10;
+    h += `<g transform="translate(${x - w / 2} ${y - hh / 2})"><rect width="${w}" height="${hh}" fill="${d.col}" stroke="#141a33" stroke-width="1.5"/><path d="M0 0L${w / 2} ${hh * .6}L${w} 0" fill="none" stroke="#141a33" stroke-width="1.3"/></g>`;
+  }
+  R.layer.innerHTML = h; requestAnimationFrame(anim);
+})();
+
+// ================================================================ 02 ledger
+let lseq = 0, txFilter = 'ALL', txHasLines = false;
+function codeChip(text, proto) {
+  let m = text.match(/^(\d{3})([ -])/);
+  if (m) { const c = m[1][0]; return `<span class="code ${c === '2' ? 'ok' : c === '3' ? 'mid' : 'err'}">${m[1]}</span>` + esc(text.slice(3)); }
+  if (text.startsWith('+OK')) return `<span class="code ok">+OK</span>` + esc(text.slice(3));
+  if (text.startsWith('-ERR')) return `<span class="code err">-ERR</span>` + esc(text.slice(4));
+  m = text.match(/^(\S+) (OK|NO|BAD)\b/);
+  if (m && proto === 'IMAP') return esc(m[1]) + ` <span class="code ${m[2] === 'OK' ? 'ok' : 'err'}">${m[2]}</span>` + esc(text.slice(m[0].length));
+  if (text.startsWith('+ ')) return `<span class="code mid">+</span>` + esc(text.slice(1));
+  return esc(text);
+}
+function setTx(p) { txFilter = p; document.querySelectorAll('#txTabs button').forEach(x => x.classList.toggle('on', x.dataset.p === p)); document.querySelectorAll('#tx .ln').forEach(l => l.style.display = p === 'ALL' || l.dataset.p === p ? '' : 'none'); }
+async function pollLines() {
+  try {
+    const r = await api('/api/lines?since=' + lseq);
+    const box = $('tx'), atB = box.scrollTop + box.clientHeight >= box.scrollHeight - 40, frag = document.createDocumentFragment();
+    for (const l of r.lines) {
+      lseq = l.seq;
+      const client = l.session.startsWith('client:');
+      if (!client) spawnDot(l.proto, l.dir === 'C');
+      if ($('txSrv').checked === client) continue;
+      const d = document.createElement('div');
+      d.className = `ln ${l.proto}${txHasLines ? ' fresh' : ''}${l.text.includes('TLS handshake') ? ' tls' : ''}`;
+      d.dataset.p = l.proto;
+      d.style.display = txFilter === 'ALL' || txFilter === l.proto ? '' : 'none';
+      d.innerHTML = `<span class="sid">${esc(l.session.replace('client:', '↪'))}</span><span class="who ${l.dir}">${l.dir}</span><span class="t">${l.dir === 'S' ? codeChip(l.text, l.proto) : esc(l.text)}${l.note ? `<span class="n">${esc(l.note)}</span>` : ''}</span>`;
+      frag.appendChild(d);
+    }
+    if (frag.childNodes.length) { if (!txHasLines) { box.innerHTML = ''; txHasLines = true; } box.appendChild(frag); }
+    while (box.children.length > 1500) box.removeChild(box.firstChild);
+    if (atB) box.scrollTop = box.scrollHeight;
+  } catch (e) { }
+  setTimeout(pollLines, 450);
+}
+document.querySelectorAll('#txTabs button').forEach(b => b.onclick = () => setTx(b.dataset.p));
+$('txSrv').onchange = () => { $('tx').innerHTML = ''; txHasLines = false; lseq = Math.max(0, lseq - 400); };
+
+$('cSend').onclick = async () => {
+  const b = $('cSend'), pm = $('pm'); b.disabled = true; pm.className = 'postmark'; $('cRes').className = 'status'; $('cRes').textContent = 'Handing the letter to the SMTP client…';
+  const u = $('cFrom').value, body = { user: u, pass: PW[u], to: $('cTo').value, subject: $('cSubj').value, body: $('cBody').value, tls: $('cTls').value };
+  const f = $('cAtt').files[0];
+  if (f) { body.attName = f.name; body.attData = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.readAsDataURL(f); }); }
+  setTx('SMTP');
+  let r; try { r = await api('/api/send', body); } catch (e) { r = { error: String(e) }; }
+  b.disabled = false;
+  const t = new Date().toTimeString().slice(0, 5);
+  if (r.error) { pm.className = 'postmark err on'; $('pmTxt').innerHTML = `RETURNED<br>${t}`; $('cRes').className = 'status err'; $('cRes').textContent = '✗ ' + r.error; }
+  else { pm.className = 'postmark on'; $('pmTxt').innerHTML = `POSTED<br>${t}<br>CSE·JU`; $('cRes').className = 'status ok'; $('cRes').textContent = `✓ ${r.reply} · copy filed in ${u}'s Sent via IMAP APPEND`; deliverDot(); loadMailbox(); }
+};
+
+// ================================================================ 03 POP3 vs IMAP
+const PROTOS = [['POP3DEL', 'POP3 delete', 'P'], ['POP3KEEP', 'POP3 keep', 'P'], ['IMAP', 'IMAP', 'I']];
+const PN = { POP3DEL: 'POP3 · delete', POP3KEEP: 'POP3 · keep', IMAP: 'IMAP' };
+const EXPL = { POP3DEL: 'Downloads every letter, then DELE + QUIT removes them from the server. Classic POP3.', POP3KEEP: 'Downloads new letters (tracked by UIDL) and leaves the originals on the server.', IMAP: 'Mirrors the server. Reading, deleting and moving are all changes made ON the server.' };
+let prevKeys = {}, devSig = '';
+function renderDevices(r) {
+  if (r.message) { const p = r.message.startsWith('IMAP') ? ' imap' : r.message.startsWith('POP3') ? ' pop' : ''; $('dBanner').className = 'headline' + p; $('dBanner').innerHTML = `<span class="k">NOW</span><span>${esc(r.message)}</span>`; }
+  const sig = JSON.stringify([r.devices, r.server]);
+  if (sig === devSig) return;
+  devSig = sig;
+  for (const d of r.devices) {
+    const el = $('dev-' + d.name), isImap = d.proto === 'IMAP';
+    const before = prevKeys[d.name] || new Set(); prevKeys[d.name] = new Set(d.local.map(m => m.key));
+    el.innerHTML = `<div class="dh">${ICON[d.name]}<h3>Bob's ${d.name} <em>· ${PN[d.proto]}</em></h3><button class="btn xs" data-act="check">Check mail</button></div>
+      <div class="protos" role="group" aria-label="Protocol for the ${d.name}">${PROTOS.map(([k, l, c]) => `<button class="${c}${d.proto === k ? ' on' : ''}" data-proto="${k}" aria-pressed="${d.proto === k}">${l}</button>`).join('')}</div>
+      <div class="explain">${EXPL[d.proto]}</div>
+      <div class="screen">${d.local.length ? d.local.map(m => `<div class="letter${m.read ? ' read' : ''}${before.has(m.key) ? '' : ' new'}">
+          <div class="s">${esc(m.subject)}</div><div class="f">${esc(m.from)}</div>
+          <div class="acts"><button data-act="read" data-key="${esc(m.key)}">open</button><button data-act="delete" data-key="${esc(m.key)}">delete</button><button data-act="move" data-key="${esc(m.key)}"${isImap ? '' : ' aria-disabled="true" title="POP3 has no folders on the server"'}>move to Projects</button></div></div>`).join('')
+        : '<div class="empty">Nothing on this device yet.</div>'}</div>
+      ${d.name === 'laptop' ? '<div class="base"></div>' : ''}
+      <div class="devlast">${d.last ? '› ' + esc(d.last) : ''}</div>`;
+    el.querySelectorAll('[data-proto]').forEach(b => b.onclick = () => devAct(d.name, { proto: b.dataset.proto, action: 'none' }));
+    el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => devAct(d.name, { action: b.dataset.act, key: b.dataset.key || '' }));
+  }
+  const s = r.server;
+  $('srvCol').innerHTML = `<h3><i></i>mail.cse.myuniv.edu</h3><div class="meta">bob / INBOX · UIDVALIDITY ${s.uidValidity} · UIDNEXT ${s.uidNext}</div>
+    <div class="slots">${s.messages.length ? s.messages.map(m => `<div class="slot${/\\Seen/.test(m.flags) ? ' read' : ''}"><div class="s">${esc(m.subject)}</div>
+      <div class="f">UID ${m.uid} · ${esc(m.from)}</div><div>${m.flags.split(' ').filter(Boolean).map(f => `<span class="flag">${esc(f)}</span>`).join('') || '<span class="flag">unread</span>'}</div></div>`).join('')
+      : '<div class="empty">The counter is empty.<br>A POP3 delete-mode device took every letter home; the other device will find nothing.</div>'}</div>
+    <div class="foot">This is the <b style="color:var(--navy-ink)">real</b> mailbox on our server. It refreshes live.</div>`;
+  const [a, b] = r.devices, srv = s.messages;
+  const agree = a.local.length === b.local.length && a.local.every(m => b.local.some(n => n.subject === m.subject && n.read === m.read));
+  $('liveCmp').innerHTML = `<tr><th>Right now</th><th>Phone · ${PN[a.proto]}</th><th>Laptop · ${PN[b.proto]}</th></tr>
+    <tr><td>Letters on the device</td><td class="big">${a.local.length}</td><td class="big">${b.local.length}</td></tr>
+    <tr><td>Unread on the device</td><td class="big">${a.local.filter(m => !m.read).length}</td><td class="big">${b.local.filter(m => !m.read).length}</td></tr>
+    <tr><td>Still at the post office</td><td class="big" colspan="2">${srv.length} <span class="lab">· ${srv.filter(m => !/\\Seen/.test(m.flags)).length} unread by server flags</span></td></tr>
+    <tr><td>Do the devices agree?</td><td colspan="2">${agree ? '<span class="yes">Yes: same letters, same read state.</span>' : '<span class="no">No, they disagree.</span> Typical of POP3; IMAP devices agree again after each sync.'}</td></tr>`;
+}
+async function devAct(dev, p) {
+  document.querySelectorAll('#diff button').forEach(b => b.disabled = true);
+  try { renderDevices(await api(`/api/device?dev=${dev}&` + new URLSearchParams(p).toString())); }
+  catch (e) { $('dBanner').innerHTML = `<span class="k">ERROR</span><span>${esc(e)}</span>`; }
+  document.querySelectorAll('#diff button').forEach(b => b.disabled = false);
+}
+$('dNew').onclick = async () => { renderDevices(await api('/api/device?action=newmail')); deliverDot(); };
+$('dReset').onclick = async () => { prevKeys = {}; renderDevices(await api('/api/device?action=reset')); };
+$('idleChk').onchange = () => api('/api/idle?on=' + ($('idleChk').checked ? 1 : 0));
+(async () => { try { renderDevices(await api('/api/devices')); } catch (e) { } })();
+setInterval(async () => { if (!document.querySelector('#diff button:disabled')) { try { const r = await api('/api/devices'); r.message = null; renderDevices(r); } catch (e) { } } }, 3000);
+
+// ================================================================ 04 sorting office
+let mFolder = 'INBOX', mUid = null, mvMode = 'tree', lastState = null, mSig = '';
+async function loadMailbox() {
+  const u = $('mUser').value, st = lastState && lastState.users.find(x => x.user === u);
+  if (st) {
+    const h = st.folders.map(f => `<button class="hole${f.name === mFolder ? ' on' : ''}" data-f="${esc(f.name)}"><span class="c">${f.count}</span><span class="nm">${esc(f.name)}</span>${f.unseen ? `<span class="u">${f.unseen} new</span>` : ''}</button>`).join('');
+    if ($('mFolders').dataset.h !== h) { $('mFolders').innerHTML = h; $('mFolders').dataset.h = h; $('mFolders').querySelectorAll('.hole').forEach(b => b.onclick = () => { mFolder = b.dataset.f; mUid = null; $('mFolders').dataset.h = ''; loadMailbox(); }); }
+  }
+  let r; try { r = await api(`/api/mailbox?user=${u}&folder=${encodeURIComponent(mFolder)}`); } catch (e) { return; }
+  if (r.error) { mFolder = 'INBOX'; return; }
+  $('mMeta').textContent = `UIDVALIDITY ${r.uidValidity} · UIDNEXT ${r.uidNext}`;
+  const sig = JSON.stringify(r.messages) + mUid + mFolder;
+  if (sig === mSig) return; mSig = sig;
+  $('mList').innerHTML = r.messages.length ? r.messages.slice().reverse().map(m => `<button class="mrow${/\\Seen/.test(m.flags) ? ' seen' : ''}${m.uid === mUid ? ' on' : ''}" data-uid="${m.uid}">
+    <span class="u">UID ${m.uid}</span><span style="min-width:0;display:grid"><span class="sb">${m.attach ? '⎘ ' : ''}${esc(m.subject || '(no subject)')}</span><span class="fr">${esc(m.from)}</span></span>
+    <span class="fl">${esc(m.flags || 'unread')}<br>${(m.size / 1024).toFixed(1)} KB</span></button>`).join('') : '<div class="empty" style="margin-top:12px">This pigeon-hole is empty.</div>';
+  $('mList').querySelectorAll('.mrow').forEach(r2 => r2.onclick = () => { mUid = +r2.dataset.uid; mSig = ''; loadMailbox(); showMsg(); });
+}
+$('mUser').onchange = () => { mFolder = 'INBOX'; mUid = null; mSig = ''; $('mFolders').dataset.h = ''; loadMailbox(); };
+document.querySelectorAll('#mvTabs button').forEach(b => b.onclick = () => { mvMode = b.dataset.v; document.querySelectorAll('#mvTabs button').forEach(x => x.classList.toggle('on', x === b)); showMsg(); });
+function partHtml(p) {
+  const leaf = !p.children.length, cls = p.type.startsWith('multipart') ? 'p-i' : p.type.startsWith('text') ? 'p-s' : 'p-p';
+  return `<div class="part${leaf ? '' : ' multi'}"><div class="ph"><span class="${cls}">${esc(p.type)}</span><span>part ${esc(p.path)}</span><span style="color:var(--muted)">${esc(p.encoding)} · ${p.size} B${p.disposition ? ' · ' + esc(p.disposition.split(';')[0]) : ''}</span></div><div class="body">
+    ${leaf ? `<div class="dec"><div><div class="arrow">ON THE WIRE · ${esc(p.encoding)}</div><pre>${esc(p.encoded)}</pre></div><div><div class="arrow">DECODED →</div><pre>${esc(p.preview)}</pre></div></div>` : ''}
+    ${p.children.map(partHtml).join('')}</div></div>`;
+}
+async function showMsg() {
+  if (mUid == null) return;
+  const r = await api(`/api/message?user=${$('mUser').value}&folder=${encodeURIComponent(mFolder)}&uid=${mUid}`);
+  if (r.error) { $('mView').innerHTML = `<div class="blank">${esc(r.error)}</div>`; return; }
+  const hdr = r.raw.split(/\r?\n\r?\n/)[0];
+  $('mView').innerHTML = mvMode === 'raw' ? `<pre class="raw">${esc(r.raw)}</pre>`
+    : `<div class="lab">Headers · written by the client, then stamped by our MTA</div><div class="hdrs">${esc(hdr).replace(/^([\w-]+):/gm, '<b>$1</b>:')}</div><div class="lab">MIME structure · envelopes inside envelopes</div>${partHtml(r.tree)}`;
+}
+
+// ================================================================ 05 back-room console
+const RAW = {
+  smtp: { chips: ['EHLO me', 'AUTH LOGIN', 'YWxpY2U=', 'YWxpY2UxMjM=', 'MAIL FROM:<alice@cse.myuniv.edu>', 'RCPT TO:<bob@cse.myuniv.edu>', 'RCPT TO:<x@gmail.com>', 'DATA', 'Subject: typed by hand', '', 'Hello Bob, typed in the raw console.', '.', 'QUIT'],
+    help: 'Order: EHLO → AUTH (optional) → MAIL FROM → RCPT TO → DATA → the letter → a line with only "." → QUIT. <b>YWxpY2U=</b> is base64 for "alice" and <b>YWxpY2UxMjM=</b> for "alice123". Try RCPT TO an outside address without AUTH: you get <b>554 relay denied</b>.' },
+  pop3: { chips: ['CAPA', 'USER bob', 'PASS bob123', 'STAT', 'LIST', 'UIDL', 'TOP 1 0', 'RETR 1', 'DELE 1', 'RSET', 'QUIT'],
+    help: 'AUTHORIZATION (USER, PASS) → TRANSACTION (STAT, LIST, RETR, DELE…) → QUIT → UPDATE. DELE only <b>marks</b> a message; it is removed after QUIT, and RSET undoes the mark.' },
+  imap: { chips: ['a1 CAPABILITY', 'a2 LOGIN bob bob123', 'a3 LIST "" "*"', 'a4 SELECT INBOX', 'a5 SEARCH UNSEEN', 'a6 FETCH 1 (FLAGS ENVELOPE)', 'a7 FETCH 1 BODY.PEEK[HEADER]', 'a8 FETCH 1 BODYSTRUCTURE', 'a9 STORE 1 +FLAGS (\\Flagged)', 'b1 CREATE Projects', 'b2 COPY 1 Projects', 'b3 STATUS INBOX (MESSAGES UNSEEN)', 'b4 IDLE', 'DONE', 'b5 LOGOUT'],
+    help: 'Every command begins with a <b>tag</b> (a1, a2…). Lines starting with <b>*</b> are untagged data; the line with the tag ends the command. After <b>b4 IDLE</b>, post a letter in section 02 and watch "* n EXISTS" arrive, then type DONE.' }
+};
+let rawId = null, rawNext = 0, rawTok = 0;
+document.querySelectorAll('[data-raw]').forEach(b => b.onclick = async () => {
+  if (rawId) await fetch('/api/raw/close?id=' + rawId);
+  const p = b.dataset.raw, r = await api('/api/raw/open?proto=' + p);
+  document.querySelectorAll('[data-raw]').forEach(x => x.classList.toggle('on', x === b));
+  rawId = r.id; rawNext = 0; $('con').textContent = ''; $('rawStat').textContent = `connected · localhost:${r.port} · ${p.toUpperCase()}`;
+  $('rawIn').disabled = false; $('rawSend').disabled = false; $('rawIn').focus();
+  $('rawChips').innerHTML = RAW[p].chips.map(c => `<button data-c="${esc(c)}">${c === '' ? '(empty line)' : esc(c)}</button>`).join('');
+  $('rawChips').querySelectorAll('button').forEach(x => x.onclick = () => rawSend(x.dataset.c));
+  $('rawHelp').innerHTML = RAW[p].help;
+  readRaw(++rawTok);
+});
+async function readRaw(tok) {
+  while (rawId && tok === rawTok) {
+    let r; try { r = await api(`/api/raw/read?id=${rawId}&since=${rawNext}`); } catch (e) { return; }
+    if (tok !== rawTok) return;
+    if (r.text) { $('con').append(r.text.replace(/\r/g, '')); $('con').scrollTop = 1e9; }
+    rawNext = r.next;
+    if (r.closed) { $('con').append('\n[connection closed by the server]\n'); $('rawStat').textContent = 'closed'; $('rawIn').disabled = true; $('rawSend').disabled = true; return; }
+  }
+}
+async function rawSend(line) {
+  if (!rawId) return;
+  const s = document.createElement('span'); s.className = 'me'; s.textContent = line + '\n'; $('con').append(s); $('con').scrollTop = 1e9;
+  await api(`/api/raw/send?id=${rawId}`, { line });
+}
+$('rawIn').addEventListener('keydown', e => { if (e.key === 'Enter') { rawSend($('rawIn').value); $('rawIn').value = ''; } });
+$('rawSend').onclick = () => { rawSend($('rawIn').value); $('rawIn').value = ''; $('rawIn').focus(); };
+
+// ================================================================ 06 real provider
+$('rPreset').onchange = () => { const v = $('rPreset').value; if (!v) return; const [k, h, p, t] = v.split('|'); $('rKind').value = k; $('rHost').value = h; $('rPort').value = p; $('rTls').value = t; if (h !== 'localhost') { $('rUser').value = ''; $('rPass').value = ''; } };
+$('rGo').onclick = async () => {
+  $('rGo').disabled = true; $('rOut').className = 'receipt'; $('rOut').textContent = `Connecting to ${$('rHost').value}:${$('rPort').value} …`;
+  $('txSrv').checked = false; $('tx').innerHTML = ''; txHasLines = false; setTx('ALL');
+  let r; try { r = await api('/api/real', { kind: $('rKind').value, host: $('rHost').value, port: $('rPort').value, tls: $('rTls').value, user: $('rUser').value, pass: $('rPass').value, to: $('rTo').value }); } catch (e) { r = { error: String(e) }; }
+  $('rGo').disabled = false;
+  $('rOut').className = 'receipt ' + (r.error ? 'err' : 'ok');
+  $('rOut').textContent = r.error ? `RECEIPT · REFUSED\n\n${r.error}` : `RECEIPT · ${$('rKind').value.toUpperCase()} ${$('rHost').value}:${$('rPort').value} · ${new Date().toLocaleTimeString()}\n\n` + r.result.join('\n');
+};
+
+// ================================================================ state, toasts, log, nav
+let evSeen = null;
+const TOAST = { DELIVER: ['Delivered', 'SMTP'], PUSH: ['You’ve got mail', 'IDLE'], BOUNCE: ['Returned to sender', 'DSN'], RELAY: ['Relayed onward', 'RELAY'] };
+function toast(e) {
+  const [title, pm] = TOAST[e.kind] || [e.kind, e.kind];
+  const d = document.createElement('div'); d.className = 'toast ' + e.kind;
+  d.innerHTML = `<span class="pm">${pm}<br>${new Date().toTimeString().slice(0, 5)}</span><b>${esc(title)}</b>${esc(e.text)}`;
+  $('toasts').appendChild(d); setTimeout(() => d.remove(), 6500);
+  while ($('toasts').children.length > 3) $('toasts').firstChild.remove();
+}
+async function pollState() {
+  try {
+    const s = await api('/api/state'); lastState = s;
+    const P = s.ports;
+    const st = `<div class="stamp sm"><div class="p">SMTP</div><div class="n">${P.smtp}</div><div class="tl">TLS ${P.smtps}<br>posting</div></div>
+      <div class="stamp p3"><div class="p">POP3</div><div class="n">${P.pop3}</div><div class="tl">TLS ${P.pop3s}<br>collection</div></div>
+      <div class="stamp im"><div class="p">IMAP4</div><div class="n">${P.imap}</div><div class="tl">TLS ${P.imaps}${s.idle ? ' · IDLE' : ''}<br>counter</div></div>`;
+    if ($('stamps').dataset.h !== st) { $('stamps').innerHTML = st; $('stamps').dataset.h = st; }
+    $('liveTag').innerHTML = '<i></i>LIVE';
+    const maxSeq = s.events.length ? s.events[s.events.length - 1].seq : 0;
+    if (evSeen === null) evSeen = maxSeq;
+    for (const e of s.events) if (e.seq > evSeen && TOAST[e.kind]) toast(e);
+    evSeen = maxSeq;
+    const lb = $('logs'), atB = lb.scrollTop + lb.clientHeight >= lb.scrollHeight - 30;
+    lb.textContent = s.logs.join('\n'); if (atB) lb.scrollTop = 1e9;
+    loadMailbox();
+  } catch (e) { $('liveTag').innerHTML = '<i style="background:var(--bad);animation:none"></i>OFFLINE'; $('stamps').dataset.h = ''; document.querySelectorAll('.stamp').forEach(x => x.classList.add('off')); }
+  setTimeout(pollState, 1500);
+}
+const links = [...document.querySelectorAll('.rail a')];
+const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-40% 0px -55% 0px' });
+document.querySelectorAll('.page > section[id]').forEach(s => spy.observe(s));
+if (!REDUCED && 'IntersectionObserver' in window) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('.chap > div:last-child, .backroom .wrap > div').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+}
+document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a) return; const t = document.querySelector(a.getAttribute('href')); if (t) t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); });
+setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { const r = x.getBoundingClientRect(); if (r.top < innerHeight * 1.2) x.classList.add('in'); }), 400);
+pollState(); pollLines();
+</script>
+</body>
+</html>

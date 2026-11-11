@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telnet Lab · JU-Main-R</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* ==========================================================================
+   TELNET LAB — art direction: "the terminal room, 1969"
+   Telnet is older than the web: a terminal attached to a remote machine.
+   The page is split the way that room was. On the left, a live amber-phosphor
+   CRT you actually type into. On the right, the specification printed on
+   green-bar continuous-form paper with tractor-feed holes, the way RFC 854 was
+   read. Bytes on the wire are shown as punched paper tape.
+   ========================================================================== */
+:root {
+  /* machine (left) */
+  --crt: #0f0e0b; --crt-2: #17150f; --crt-3: #221f17; --crt-rule: #343024;
+  --phos: #ffb340; --phos-hi: #ffd79a; --phos-dim: #9c7436; --phos-glow: rgba(255, 179, 64, .35);
+  /* paper (right) */
+  --paper: #f5f2e7; --bar: #e3eedb; --ink: #1d1b16; --ink-2: #4a463b; --muted: #6e685a; --rule: #cdc5ae; --rule-2: #e0d9c6;
+  --c2s: #b5361f; --s2c: #1f5ea8; --arrow: #b0185a; --good: #2b7a43; --bad: #b3261e; --warn: #9a6400; --cyan: #1f5ea8;
+  /* textbook byte colours (from the slides) */
+  --b-iac: #ffd84a; --b-verb: #86cfee; --b-sb: #f6a9d0; --b-opt: #ffffff; --b-ink: #10141f; --iac-ink: #8a5a00;
+  --tape: #eadcae; --tape-edge: #d4c48f; --hole: #2a2519;
+  /* type */
+  --display: "Bricolage Grotesque", "Segoe UI", sans-serif; --text: "IBM Plex Sans", "Segoe UI", sans-serif; --mono: "IBM Plex Mono", Consolas, monospace;
+  --t-xs: 11px; --t-s: 12.5px; --t-m: 14.5px; --t-l: 19px; --t-xl: 34px; --t-2xl: clamp(64px, 7vw, 104px);
+  /* space */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  --dock: clamp(440px, 42vw, 720px); --feed: 30px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: var(--ink); font: 400 var(--t-m)/1.55 var(--text); background: var(--crt); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--display); }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); }
+code { font-size: .9em; background: rgba(29,27,22,.07); padding: 0 4px; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--phos); outline-offset: 2px; }
+
+/* --------------------------------------------------------------- split */
+.room { display: grid; grid-template-columns: var(--dock) minmax(0, 1fr); min-height: 100vh; }
+
+/* --------------------------------------------------------------- the machine (sticky dock) */
+.dock { position: sticky; top: 0; height: 100vh; overflow: auto; background: var(--crt); color: var(--phos-hi); padding: 22px 24px 18px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid #000; scrollbar-color: var(--crt-rule) transparent; }
+.ident { display: flex; align-items: flex-end; gap: 14px; }
+.ident h1 { font: 800 56px/.8 var(--display); font-stretch: 75%; letter-spacing: -.02em; color: var(--phos); text-shadow: 0 0 18px var(--phos-glow); }
+.ident .meta { font: 400 10.5px/1.5 var(--mono); color: var(--phos-dim); letter-spacing: .12em; text-transform: uppercase; padding-bottom: 2px; }
+.ident .meta b { color: var(--phos-hi); font-weight: 500; }
+.stat { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; align-self: flex-start; }
+.chipst { font: 500 10.5px/1 var(--mono); padding: 5px 7px 4px; border: 1px solid var(--crt-rule); color: var(--phos-dim); white-space: nowrap; letter-spacing: .04em; }
+.chipst b { color: var(--phos-hi); font-weight: 500; }
+.chipst.bad { border-color: #ff5f45; color: #ff8a75; animation: pulse 1.2s infinite; }
+.chipst.hot { border-color: var(--phos); color: var(--phos); }
+@keyframes pulse { 50% { background: rgba(255, 95, 69, .15); } }
+.dock-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--phos-dim); }
+.dock-h span:first-child { display: flex; align-items: center; gap: 8px; }
+.led { width: 8px; height: 8px; border-radius: 50%; background: var(--crt-rule); }
+.led.on { background: #7dff8a; box-shadow: 0 0 8px #7dff8a; } .led.tls { background: var(--phos); box-shadow: 0 0 8px var(--phos); }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--crt-rule); }
+.modes button { border: 0; background: transparent; color: var(--phos-dim); padding: 9px 10px 8px; cursor: pointer; text-align: left; display: grid; gap: 2px; font: 600 12.5px/1.1 var(--text); transition: background .15s, color .15s; }
+.modes button + button { border-left: 1px solid var(--crt-rule); }
+.modes button small { font: 400 10px/1 var(--mono); color: #6f5a35; letter-spacing: .04em; }
+.modes button:hover { background: var(--crt-2); color: var(--phos-hi); }
+.modes button.on { background: var(--phos); color: var(--crt); } .modes button.on small { color: #5a3d0c; }
+/* the CRT */
+.term-wrap { position: relative; background: radial-gradient(ellipse at 50% 45%, #1d1910 0%, #0b0a07 85%); border: 1px solid var(--crt-rule); border-radius: 18px / 14px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 0 60px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,179,64,.05), 0 0 0 6px var(--crt-2), 0 0 0 7px var(--crt-rule); }
+.term-wrap::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); z-index: 2; }
+.term-wrap::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 30% 0%, rgba(255,215,154,.06), transparent 50%); z-index: 2; }
+.term { position: relative; font-family: var(--mono); color: var(--phos); white-space: pre; line-height: 1.28; outline: none; cursor: text; text-shadow: 0 0 5px var(--phos-glow), 0 0 1px var(--phos); overflow: hidden; }
+.term .ln { height: 1.28em; }
+.term .cur { background: var(--phos); color: var(--crt); animation: blink 1.05s steps(1) infinite; box-shadow: 0 0 8px var(--phos-glow); }
+.term:not(:focus) .cur { animation: none; background: transparent; outline: 1px solid var(--phos-dim); color: inherit; }
+@keyframes blink { 50% { background: transparent; color: var(--phos); } }
+.term .inv { background: var(--phos); color: var(--crt); } .term .b { font-weight: 600; color: var(--phos-hi); }
+.term-off { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(11,10,7,.9); }
+.term-off h3 { font: 700 26px/1.1 var(--display); font-stretch: 80%; color: var(--phos); margin-bottom: 10px; text-shadow: 0 0 14px var(--phos-glow); }
+.term-off p { color: var(--phos-dim); font-size: 13px; margin: 4px 0; }
+.term-off .cred { font: 400 12px/1.6 var(--mono); color: var(--phos-hi); margin-top: 10px; }
+.go { display: flex; justify-content: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.keys { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.key { border: 1px solid var(--crt-rule); border-bottom-width: 3px; background: var(--crt-2); color: var(--phos-hi); padding: 5px 8px 3px; font: 500 11.5px/1 var(--mono); cursor: pointer; transition: transform .08s, border-color .15s; }
+.key:hover { border-color: var(--phos-dim); }
+.key:active { transform: translateY(2px); border-bottom-width: 1px; }
+.key:disabled { opacity: .35; cursor: default; }
+.key.iac { color: var(--b-iac); border-color: #5c4d1d; }
+.dock select { background: var(--crt-2); color: var(--phos-hi); border: 1px solid var(--crt-rule); padding: 5px 6px; font: 400 11.5px var(--mono); }
+.quick { display: flex; flex-wrap: wrap; gap: 4px 12px; border-top: 1px dashed var(--crt-rule); padding-top: 10px; }
+.quick::before { content: "RUN ›"; font: 500 10.5px/1.9 var(--mono); color: #6f5a35; letter-spacing: .1em; }
+.quick button { font: 400 11.5px/1.9 var(--mono); border: 0; background: none; color: var(--phos-dim); padding: 0; cursor: pointer; }
+.quick button:hover { color: var(--phos); text-decoration: underline; text-underline-offset: 3px; }
+.tstat { margin-top: auto; display: flex; justify-content: space-between; gap: 8px; font: 400 10.5px/1.4 var(--mono); color: #6f5a35; flex-wrap: wrap; border-top: 1px solid var(--crt-rule); padding-top: 10px; letter-spacing: .04em; }
+.btn-p { border: 0; background: var(--phos); color: var(--crt); padding: 10px 16px 9px; font: 600 13px/1 var(--text); cursor: pointer; box-shadow: 0 0 20px var(--phos-glow); }
+.btn-p.alt { background: transparent; color: var(--phos); box-shadow: inset 0 0 0 1px var(--phos-dim); }
+.btn-p:hover { filter: brightness(1.08); }
+
+/* --------------------------------------------------------------- the printout (green-bar paper, tractor feed) */
+.printout { position: relative; background: repeating-linear-gradient(180deg, var(--bar) 0 66px, var(--paper) 66px 132px); background-attachment: local; min-width: 0; padding: 0 calc(var(--feed) + 34px) 0 calc(var(--feed) + 40px); }
+.printout::before, .printout::after { content: ""; position: absolute; top: 0; bottom: 0; width: var(--feed); background: radial-gradient(circle at 50% 50%, var(--crt) 5px, transparent 5.6px) 0 0 / var(--feed) 22px repeat-y, var(--paper); }
+.printout::before { left: 0; border-right: 1px dashed var(--rule); } .printout::after { right: 0; border-left: 1px dashed var(--rule); }
+/* running head + chapter tabs */
+.runhead { position: sticky; top: 0; z-index: 10; margin: 0 calc(-1 * 34px) 0 calc(-1 * 40px); padding: 0 34px 0 40px; background: var(--paper); border-bottom: 1.5px solid var(--ink); display: flex; align-items: stretch; gap: 0; }
+.runhead .rfc { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; color: var(--muted); padding: 14px 16px 12px 0; white-space: nowrap; align-self: center; }
+nav.chapters { display: flex; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: flex-end; }
+nav.chapters a { color: var(--muted); text-decoration: none; font: 500 12px/1 var(--text); padding: 14px 11px 12px; white-space: nowrap; border-left: 1px solid var(--rule-2); transition: background .15s, color .15s; }
+nav.chapters a span { font: 500 10.5px/1 var(--mono); margin-right: 5px; color: var(--rule); }
+nav.chapters a:hover { color: var(--ink); background: rgba(29,27,22,.04); }
+nav.chapters a.on { color: var(--paper); background: var(--ink); } nav.chapters a.on span { color: var(--phos); }
+/* chapters */
+section.ch { padding: 56px 0 64px; border-bottom: 1.5px dashed var(--rule); scroll-margin-top: 44px; position: relative; }
+section.ch:last-of-type { border-bottom: 0; }
+.ch-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 22px; align-items: end; margin-bottom: 22px; }
+.ch-num { font: 300 var(--t-2xl)/.78 var(--display); font-stretch: 75%; letter-spacing: -.04em; color: var(--ink); grid-column: 1; grid-row: 1 / span 2; }
+.ch-num::before { content: "§"; font-size: .38em; vertical-align: top; margin-right: 4px; color: var(--c2s); font-weight: 500; }
+.ch-head h2 { font: 700 var(--t-xl)/1 var(--display); font-stretch: 85%; letter-spacing: -.02em; }
+.ch-head .src { font: 400 10.5px/1.4 var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; grid-column: 2; grid-row: 1; align-self: end; margin-bottom: 6px; }
+.ch-head h2 { grid-column: 2; grid-row: 2; }
+.lead { color: var(--ink-2); max-width: 74ch; margin: 0 0 22px; }
+.lead b { color: var(--ink); font-weight: 600; }
+.sub { font: 500 10.5px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.sub::after { content: ""; flex: 1; border-top: 1px solid var(--rule); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 32px; align-items: start; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); padding: 8px 13px 7px; font: 600 12.5px/1 var(--text); cursor: pointer; transition: background .15s, color .15s, transform .1s; white-space: nowrap; }
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; background: var(--paper); color: var(--ink); }
+.btn.hot { background: var(--c2s); border-color: var(--c2s); color: #fff; } .btn.hot:hover { background: #8f2817; }
+.tabs { display: inline-flex; border: 1.5px solid var(--ink); margin-bottom: 14px; }
+.tabs button { border: 0; background: transparent; padding: 7px 12px 6px; cursor: pointer; font: 500 12px/1 var(--text); color: var(--ink-2); }
+.tabs button + button { border-left: 1.5px solid var(--ink); }
+.tabs button.on { background: var(--ink); color: var(--paper); }
+.chk { font: 400 11px/1 var(--mono); color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.note { font-size: 13px; color: var(--ink-2); border-left: 3px solid var(--c2s); padding: 2px 0 2px 12px; margin-top: 16px; max-width: 80ch; }
+.note b { color: var(--ink); }
+.diagram { width: 100%; height: auto; display: block; }
+.diagram text { font-family: var(--text); }
+.diagram .m { font-family: var(--mono); }
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* §1 counters as large numerals */
+.counter { display: grid; gap: 18px; padding-top: 8px; }
+.counter div { font: 400 11px/1.3 var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; border-top: 1.5px solid var(--ink); padding-top: 8px; }
+.counter b { display: block; font: 300 56px/.95 var(--display); font-stretch: 75%; color: var(--ink); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.counter div:first-child b { color: var(--c2s); } .counter div:nth-child(2) b { color: var(--s2c); }
+
+/* byte blocks (slide style) */
+.blk { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1.5px solid var(--b-ink); font: 600 11.5px var(--mono); color: var(--b-ink); background: var(--b-opt); margin-left: -1.5px; }
+.blk.iac { background: var(--b-iac); } .blk.verb { background: var(--b-verb); } .blk.sb { background: var(--b-sb); } .blk.d { background: #fff; font-weight: 400; }
+
+/* §2 punched paper tape */
+.tape { position: relative; background: var(--tape); border-top: 2px solid var(--tape-edge); border-bottom: 2px solid var(--tape-edge); padding: 10px 14px 8px; overflow-x: auto; box-shadow: 0 6px 14px -10px rgba(29,27,22,.5); }
+.ribbon { display: flex; gap: 2px; min-height: 120px; align-items: flex-start; }
+.byte { display: grid; gap: 4px; justify-items: center; flex: 0 0 auto; width: 30px; animation: punch .35s ease-out; }
+@keyframes punch { from { opacity: 0; transform: translateX(10px); } }
+.bits { display: grid; grid-template-rows: repeat(8, 9px); gap: 1px; padding: 3px 0; position: relative; }
+.bits::after { content: ""; position: absolute; left: 50%; top: 32px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgba(42,37,25,.35); }
+.bit { width: 9px; height: 9px; border-radius: 50%; background: rgba(42,37,25,.08); }
+.bit.one { background: var(--hole); box-shadow: inset 0 1px 1px rgba(0,0,0,.5); }
+.byte.ctl .bit.msb.one { background: var(--c2s); }
+.byte .lbl { font: 600 10.5px/1 var(--mono); color: var(--ink); max-width: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 2px solid var(--c2s); padding-top: 3px; width: 100%; text-align: center; }
+.byte.s2c .lbl { border-top-color: var(--s2c); }
+.byte.ctl .lbl { color: var(--c2s); }
+.byte .hx { font: 400 9px/1 var(--mono); color: #7a6e4c; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 400 11.5px/1.4 var(--mono); color: var(--ink-2); margin-bottom: 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend i.bar { border-radius: 0; height: 3px; width: 16px; vertical-align: 2px; }
+.tape-empty { font: italic 400 14px/1.5 var(--text); color: #7a6e4c; padding: 38px 4px; }
+
+/* tables */
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font: 500 10px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 8px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+table.t td { padding: 7px 8px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+table.t td.m { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+table.t tr { transition: background .6s; }
+table.t tr.flash td { background: rgba(255, 216, 74, .5); transition: none; }
+.minibits { display: inline-grid; grid-template-columns: repeat(8, 7px); gap: 1px; vertical-align: middle; }
+.minibits i { width: 7px; height: 7px; border-radius: 50%; background: rgba(29,27,22,.12); }
+.minibits i.one { background: var(--ink); } .minibits i.one.msb { background: var(--c2s); }
+.cnt { font: 500 12px var(--mono); min-width: 30px; display: inline-block; text-align: right; color: var(--muted); }
+.cnt.nz { color: var(--c2s); font-weight: 600; }
+.mini { font: 500 11px/1 var(--mono); border: 1px solid var(--ink); background: transparent; color: var(--ink); padding: 4px 7px 3px; cursor: pointer; }
+.mini:hover { background: var(--ink); color: var(--paper); }
+.st { font: 600 10px/1 var(--mono); padding: 3px 7px 2px; white-space: nowrap; border: 1px solid currentColor; }
+.st.YES { color: #fff; background: var(--good); border-color: var(--good); } .st.NO { color: var(--muted); }
+.st.WANTYES, .st.WANTNO { color: #fff; background: var(--warn); border-color: var(--warn); }
+.st.TLS { color: var(--s2c); }
+
+/* §3 embedding strip */
+.strip { display: flex; flex-wrap: wrap; align-items: stretch; margin: 6px 0 22px; }
+.cell { min-width: 40px; height: 46px; display: grid; place-items: center; border: 2px solid var(--b-ink); background: #fff; color: var(--b-ink); font: 600 18px var(--mono); margin-left: -2px; transition: transform .25s, box-shadow .25s; position: relative; }
+.cell.ctl { background: var(--b-sb); font-size: 13px; padding: 0 8px; }
+.cell.ctl:nth-child(10) { background: var(--b-iac); }
+.cell.go { transform: translateY(-8px); box-shadow: 0 8px 0 -4px var(--c2s); }
+.cell.erased { background: #f1ddd8; color: var(--c2s); text-decoration: line-through; }
+.cell.erased::after { content: "erased by EC"; position: absolute; top: 100%; font: 500 9.5px var(--mono); color: var(--c2s); white-space: nowrap; margin-top: 4px; text-decoration: none; }
+.result { font: 400 13px/1.5 var(--mono); padding: 10px 12px; background: #e3efe2; border-left: 3px solid var(--good); display: none; }
+
+/* §5 meanings + sequence */
+.mean { display: grid; grid-template-columns: 96px 1fr; border-top: 1.5px solid var(--ink); }
+.mean > div { padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+.mean .verbcell { display: grid; align-content: center; gap: 2px; border-right: 1px solid var(--rule); }
+.mean .verbcell b { font: 700 22px/1 var(--display); font-stretch: 75%; color: var(--ink); }
+.mean .verbcell small { font: 400 10px var(--mono); color: var(--muted); }
+.mitem { display: flex; justify-content: space-between; gap: 8px; padding: 4px 6px; font-size: 13px; transition: background .8s; }
+.mitem .ex { font: 400 10.5px var(--mono); color: var(--muted); }
+.mitem.flash { background: rgba(176, 24, 90, .16); transition: none; }
+.mitem .n { font: 500 13px var(--mono); color: var(--rule); }
+.mitem .n.nz { color: var(--arrow); }
+.seqbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.seq { position: relative; max-height: 580px; overflow-y: auto; overflow-x: hidden; border: 1.5px solid var(--ink); background: rgba(255,255,255,.55); padding: 0 0 6px; }
+.seq-hd { display: grid; grid-template-columns: 74px 1fr 74px; align-items: end; padding: 8px 10px; position: sticky; top: 0; background: var(--paper); z-index: 2; border-bottom: 1px solid var(--rule); }
+.seq-hd div { text-align: center; font: 500 10.5px var(--mono); color: var(--ink-2); letter-spacing: .06em; }
+.seq-hd svg { display: block; margin: 0 auto 3px; }
+.msg { display: grid; grid-template-columns: 74px 1fr 74px; align-items: center; padding: 3px 10px; position: relative; }
+.msg.new { animation: fadein .45s ease-out; }
+@keyframes fadein { from { opacity: 0; transform: translateX(var(--fx, 0)); } }
+.msg::before, .msg::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .7; }
+.msg::before { left: 47px; } .msg::after { right: 47px; }
+.msg .mid { display: grid; gap: 3px; justify-items: center; padding: 6px 0; min-width: 0; }
+.msg .say { font: italic 400 13px/1.3 var(--text); color: var(--ink); text-align: center; }
+.msg .arrow { position: relative; width: 100%; height: 26px; display: flex; align-items: center; }
+.msg .arrow .line { position: absolute; left: -26px; right: -26px; top: 50%; height: 2px; background: var(--arrow); }
+.msg.s2c .arrow .line::before, .msg.c2s .arrow .line::after { content: ""; position: absolute; top: -5px; border: 6px solid transparent; }
+.msg.c2s .arrow .line::after { right: -2px; border-left: 9px solid var(--arrow); border-right: 0; }
+.msg.s2c .arrow .line::before { left: -2px; border-right: 9px solid var(--arrow); border-left: 0; }
+.msg .blocks { position: relative; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; row-gap: 3px; max-width: 100%; z-index: 1; }
+.msg.c2s .blocks { flex-direction: row-reverse; }
+.msg .meta { font: 400 10.5px var(--mono); color: var(--muted); text-align: center; }
+.msg .meta .mn { color: var(--arrow); } .msg .meta .sc { color: var(--good); }
+.msg.cmd .arrow .line { background: var(--warn); } .msg.cmd.c2s .arrow .line::after { border-left-color: var(--warn); } .msg.cmd.s2c .arrow .line::before { border-right-color: var(--warn); }
+.msg.dim { opacity: .25; }
+.msg .t { position: absolute; left: 4px; top: 8px; font: 400 9.5px var(--mono); color: var(--muted); }
+.loopc { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid var(--ink); }
+.loopc:empty { display: none; }
+.loopc > div { padding: 12px; display: grid; gap: 8px; align-content: start; background: rgba(255,255,255,.5); }
+.loopc > div + div { border-left: 1.5px solid var(--ink); }
+.ll { font: 400 11px/1.5 var(--mono); max-height: 230px; overflow: auto; display: grid; gap: 1px; }
+.ll div { animation: fadein .25s ease-out both; }
+.ll .S { color: var(--s2c); } .ll .C { color: var(--c2s); text-align: right; }
+.verdict { font: 600 11px/1 var(--mono); padding: 5px 8px 4px; width: fit-content; color: #fff; }
+.verdict.bad { background: var(--bad); } .verdict.good { background: var(--good); }
+
+/* §6 the intercept — a dark insert pasted onto the printout */
+.intercept { background: var(--crt); color: var(--phos-hi); padding: 22px 22px 18px; margin: 0 -14px; box-shadow: 0 18px 40px -20px rgba(0,0,0,.6); position: relative; }
+.intercept::before { content: "INTERCEPT · TAP :2324 / :9924"; position: absolute; top: -9px; left: 18px; background: var(--c2s); color: #fff; font: 600 10px/1 var(--mono); letter-spacing: .12em; padding: 4px 8px 3px; }
+.intercept .sub { color: var(--phos-dim); } .intercept .sub::after { border-color: var(--crt-rule); }
+.intercept .chk { color: var(--phos-dim); }
+.intercept .mini { border-color: var(--crt-rule); color: var(--phos-hi); } .intercept .mini:hover { background: var(--phos); color: var(--crt); }
+.alert { padding: 12px 14px; font-size: 14px; display: none; margin-bottom: 14px; }
+.alert.bad { display: block; background: var(--c2s); color: #fff; animation: pulse2 2s infinite; }
+@keyframes pulse2 { 50% { box-shadow: 0 0 0 4px rgba(181,54,31,.25); } }
+.alert.ok { display: block; background: #e3efe2; color: var(--good); border-left: 3px solid var(--good); }
+.alert b { font-family: var(--mono); background: rgba(0,0,0,.25); padding: 1px 6px; }
+.frames { height: 420px; overflow: auto; background: #0b0a07; border: 1px solid var(--crt-rule); font: 400 11.5px/1.45 var(--mono); }
+.fr { display: grid; grid-template-columns: 70px 56px 40px minmax(0, 1fr); gap: 6px; padding: 3px 9px; border-bottom: 1px solid #1a1812; align-items: start; }
+.fr .tm, .fr .cn { color: #6f5a35; }
+.dir { font-weight: 600; font-size: 10.5px; text-align: center; padding: 0 3px; }
+.dir.c { color: #ff8a75; background: rgba(255, 138, 117, .12); } .dir.s { color: #8ab8ff; background: rgba(138, 184, 255, .12); }
+.tks { display: flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
+.tk { padding: 0 5px; white-space: pre-wrap; word-break: break-all; color: var(--phos-hi); }
+.tk.data { background: rgba(255,215,154,.06); } .tk.iac { background: rgba(255, 216, 74, .15); color: var(--b-iac); }
+.tk.sb { background: rgba(246, 169, 208, .14); color: var(--b-sb); } .tk.tls { background: rgba(125, 255, 138, .12); color: #7dff8a; }
+.tk.secret { background: #ff5f45; color: #fff; font-weight: 600; }
+.tk .hx { display: block; color: #6f5a35; font-size: 10px; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--crt-rule); }
+.cmp > div { padding: 10px 12px; } .cmp > div + div { border-left: 1px solid var(--crt-rule); }
+.cmp h4 { margin: 0 0 6px; font: 700 15px/1 var(--display); font-stretch: 85%; }
+.cmp .smp { font: 400 11px/1.5 var(--mono); color: var(--phos-dim); word-break: break-all; }
+.guard { border: 1px solid var(--crt-rule); padding: 12px 14px; display: grid; gap: 12px; }
+.guard .seqbar b { font: 700 15px/1 var(--display); font-stretch: 85%; color: var(--phos); }
+.guard .note { color: var(--phos-dim); border-left-color: var(--phos); margin-top: 0; } .guard .note b { color: var(--phos-hi); }
+.guard .btn { background: transparent; color: var(--phos-hi); border-color: var(--crt-rule); } .guard .btn:hover { background: var(--phos); color: var(--crt); }
+.guard .btn.hot { background: #ff5f45; border-color: #ff5f45; color: #fff; }
+.ring { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--crt-rule); }
+.tile { padding: 8px 10px; } .tile + .tile { border-left: 1px solid var(--crt-rule); }
+.tile .k { font: 400 10px var(--mono); color: var(--phos-dim); letter-spacing: .1em; text-transform: uppercase; } .tile .v { font: 300 30px/1 var(--display); font-stretch: 75%; color: var(--phos-hi); }
+.log { background: #0b0a07; border: 1px solid var(--crt-rule); font: 400 11px/1.55 var(--mono); color: var(--phos-dim); padding: 8px 10px; height: 170px; overflow: auto; white-space: pre-wrap; }
+.log .sec { color: #ff8a75; } .log .tap { color: var(--phos-hi); } .log .bot { color: #f6a9d0; }
+
+/* §7 */
+.printout select { border: 1.5px solid var(--ink); background: var(--paper); padding: 6px 8px; font: 400 12px var(--mono); border-radius: 0; }
+table.vty td { white-space: nowrap; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
+.free { color: var(--muted); font-style: italic; }
+.spark { width: 100%; height: 70px; border-bottom: 1.5px solid var(--ink); }
+.replay .term-wrap { border-radius: 10px; padding: 12px 14px; }
+input[type=range] { accent-color: var(--c2s); width: 100%; }
+.lab-log { height: 210px; }
+
+/* --------------------------------------------------------------- responsive */
+@media (max-width: 1800px) { .grid2.wide { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1750px) { .runhead .rfc { display: none; } nav.chapters { justify-content: flex-start; } nav.chapters a:first-child { border-left: 0; } }
+@media (max-width: 1150px) {
+  .room { grid-template-columns: minmax(0, 1fr); }
+  .dock { position: relative; height: auto; }
+  .tstat { margin-top: 0; }
+  .grid2, .split { grid-template-columns: minmax(0, 1fr); }
+  .counter { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 720px) {
+  :root { --feed: 14px; }
+  .printout { padding: 0 calc(var(--feed) + 14px); }
+  .printout::before, .printout::after { background-size: var(--feed) 18px; }
+  .runhead { margin: 0 -14px; padding: 0 14px; }
+  .runhead .rfc { display: none; }
+  .dock { padding: 16px; }
+  .ident h1 { font-size: 44px; }
+  .ch-head { grid-template-columns: minmax(0, 1fr); }
+  .ch-num, .ch-head .src, .ch-head h2 { grid-column: 1; grid-row: auto; }
+  .ch-num { font-size: 64px; }
+  .ch-head h2 { font-size: 26px; }
+  .modes button small { display: none; }
+  .cmp, .loopc { grid-template-columns: minmax(0, 1fr); }
+  .loopc > div + div, .cmp > div + div { border-left: 0; border-top: 1px solid var(--crt-rule); }
+  .ring { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  .intercept { margin: 0; padding: 22px 12px 14px; }
+  .counter b { font-size: 40px; }
+  .table-scroll { overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="room">
+  <!-- ================================================================ THE MACHINE -->
+  <aside class="dock" aria-label="Live Telnet terminal">
+    <div class="ident">
+      <h1>TELNET</h1>
+      <div class="meta">RFC 854 · NVT<br><b id="hostTag">JU-MAIN-R · LINE VTY 0 4</b></div>
+      <div class="stat" id="stat"></div>
+    </div>
+    <div class="modes" id="modes">
+      <button data-mode="tap"><span>Wire-tapped</span><small>:2324 → :2323</small></button>
+      <button data-mode="direct"><span>Direct</span><small>:2323</small></button>
+      <button data-mode="tls"><span>Over TLS</span><small>:9924 → :9923</small></button>
+    </div>
+    <div class="dock-h"><span><span class="led" id="led"></span>VTY terminal</span><span id="sessTag">not connected</span></div>
+    <div class="term-wrap" id="termWrap">
+      <div class="term" id="term" tabindex="0" aria-label="Telnet terminal"></div>
+      <div class="term-off" id="termOff"><div>
+        <h3>Open a Telnet session.</h3>
+        <p>Every key you type is sent the moment you press it,<br>one byte at a time, character mode.</p>
+        <div class="cred">admin / cisco · student / ju2026 · enable: class</div>
+        <div class="go"><button class="btn-p" data-go="tap">Connect through the wire tap</button><button class="btn-p alt" data-go="tls">Connect over TLS</button></div>
+      </div></div>
+    </div>
+    <div class="keys">
+      <button class="key" data-key="\t">TAB</button><button class="key" data-key="?">?</button><button class="key" data-key="\x1b[A">↑</button>
+      <button class="key" data-key="\x03">^C</button><button class="key" data-key="\x1a">^Z</button><button class="key" data-key="q">q</button>
+      <button class="key iac" data-cmd="AYT">IAC AYT</button><button class="key iac" data-cmd="IP">IAC IP</button><button class="key iac" data-cmd="EL">IAC EL</button>
+      <select id="size" title="Window size, reported with NAWS" aria-label="Window size"><option value="80x24">80×24</option><option value="96x26" selected>96×26</option><option value="120x32">120×32</option><option value="64x20">64×20</option></select>
+      <button class="key" id="disc" disabled title="Disconnect">EJECT</button>
+    </div>
+    <div class="quick" id="quick"></div>
+    <div class="tstat"><span id="tstat">offline</span><span id="tbytes"></span></div>
+  </aside>
+
+  <!-- ================================================================ THE PRINTOUT -->
+  <main class="printout">
+    <div class="runhead">
+      <span class="rfc">RFC 854 · TELNET PROTOCOL SPECIFICATION</span>
+      <nav class="chapters" id="nav" aria-label="Chapters">
+        <a href="#c1"><span>01</span>Remote log-in</a><a href="#c2"><span>02</span>NVT</a><a href="#c3"><span>03</span>Control chars</a>
+        <a href="#c4"><span>04</span>Options</a><a href="#c5"><span>05</span>Negotiation</a><a href="#c6"><span>06</span>Security</a><a href="#c7"><span>07</span>Lab</a>
+      </nav>
+    </div>
+
+    <!-- 01 -->
+    <section class="ch" id="c1">
+      <div class="ch-head"><span class="ch-num">01</span><span class="src">slide · Local and remote log-in</span><h2>Local and remote log-in</h2></div>
+      <p class="lead">Logged in <b>locally</b>, keystrokes go from the terminal driver straight to the operating system. Logged in <b>remotely</b>, the TELNET client takes them from the terminal driver and sends them through TCP/IP and the Internet. On the server they enter a <b>pseudoterminal driver</b>, so the programs there believe a real terminal is attached. Type in the terminal on the left: <b>each key travels this path and the echo comes back</b>.</p>
+      <div class="tabs" id="loginTabs"><button data-v="remote" class="on">b. Remote log-in · live</button><button data-v="local">a. Local log-in</button></div>
+      <div class="split">
+        <svg class="diagram" id="loginSvg" viewBox="0 0 780 360"></svg>
+        <div class="counter"><div><b id="kCount">0</b>keystrokes sent</div><div><b id="eCount">0</b>echo / output chunks back</div><div><b id="segCount">0</b>TCP segments seen by the tap</div></div>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="ch" id="c2">
+      <div class="ch-head"><span class="ch-num">02</span><span class="src">slide · Concept of NVT</span><h2>Network Virtual Terminal</h2></div>
+      <p class="lead">Client and server may use different character sets, so both translate to one common <b>NVT character set</b> on the wire. A byte whose highest bit is <b>0</b> is a <b>data character</b> (7-bit ASCII). A byte whose highest bit is <b>1</b> is a <b>control character</b>, and it only counts as a command after <code>IAC</code> (255).</p>
+      <svg class="diagram" id="nvtSvg" viewBox="0 0 780 200"></svg>
+      <div class="sub" style="margin-top:22px">Live · the last bytes on the wire, punched as paper tape</div>
+      <div class="legend"><span><i style="background:var(--hole)"></i>hole = bit 1, top row = most significant bit</span><span><i style="background:var(--c2s)"></i>MSB punched: control character</span><span><i class="bar" style="background:var(--c2s)"></i>client → server</span><span><i class="bar" style="background:var(--s2c)"></i>server → client</span></div>
+      <div class="tape"><div class="ribbon" id="ribbon"><span class="tape-empty">Connect through the wire tap and type. Each byte is punched here as a column of 8 bits.</span></div></div>
+      <div class="note">Line endings in the NVT: <code>CR LF</code> = newline, <code>CR NUL</code> = carriage return only. A data byte 255 is sent twice (<code>FF FF</code>) so it is not mistaken for IAC.</div>
+    </section>
+
+    <!-- 03 -->
+    <section class="ch" id="c3">
+      <div class="ch-head"><span class="ch-num">03</span><span class="src">slides · NVT control characters · An example of embedding</span><h2>Control characters &amp; embedding</h2></div>
+      <p class="lead">Every control character starts with the high bit set. A row <b>lights up</b> when that byte crosses the wire, and the count is live. Use <b>send</b> to push a command into your session.</p>
+      <div class="grid2 wide">
+        <div class="table-scroll"><table class="t" id="ctlTable"></table></div>
+        <div>
+          <div class="sub">An example of embedding</div>
+          <p class="lead" style="font-size:13.5px">The user types <code>cat filea</code>, notices the mistake, and presses <b>erase character</b>. The client <b>embeds</b> <code>IAC EC</code> in the data stream, then types <code>1</code>, all in <b>one TCP segment</b>. The server applies the erase before running the command.</p>
+          <div class="strip" id="strip"></div>
+          <div class="row"><button class="btn hot" id="embedBtn">Send this exact segment</button><span class="mono" style="font-size:11.5px;color:var(--muted)">63 61 74 20 66 69 6C 65 61 <b style="color:var(--iac-ink)">FF F7</b> 31 0D 0A</span></div>
+          <div style="height:12px"></div>
+          <div class="result" id="embedRes"></div>
+          <div class="note">The server echoes <code>a</code>. On <code>IAC EC</code> it erases it on screen (<code>\b \b</code>) and in its line buffer, then echoes <code>1</code>. It executes <b>cat file1</b>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="ch" id="c4">
+      <div class="ch-head"><span class="ch-num">04</span><span class="src">slide · Options</span><h2>Options</h2></div>
+      <p class="lead">Options change how the NVT behaves. Each has a code, and each side of the connection turns it on or off separately. The Server and Client columns show the <b>live state</b> negotiated by your session (RFC 1143 states).</p>
+      <div class="table-scroll"><table class="t" id="optTable"></table></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="statusBtn">Ask the server: IAC SB STATUS SEND</button><span id="statusRes" class="mono" style="font-size:12px;color:var(--ink-2)"></span></div>
+    </section>
+
+    <!-- 05 -->
+    <section class="ch" id="c5">
+      <div class="ch-head"><span class="ch-num">05</span><span class="src">slides · Character set for negotiation · Echo option · Suboption negotiation</span><h2>Option negotiation</h2></div>
+      <p class="lead">The same byte means different things depending on the state of the conversation: <code>WILL</code> may be an <b>offer</b> or an <b>acceptance</b>. The server tracks each option with the RFC 1143 states and labels every message it sends or receives. The counts come from your session.</p>
+      <div class="grid2 wide">
+        <div class="mean" id="meanTable"></div>
+        <div>
+          <div class="seqbar">
+            <div class="tabs" id="seqTabs" style="margin:0"><button data-f="all" class="on">All messages</button><button data-f="echo">Echo option</button><button data-f="sub">Suboption</button></div>
+            <label class="chk"><input type="checkbox" id="hideTm" checked> hide RTT probes</label>
+          </div>
+          <div class="seq" id="seq"></div>
+        </div>
+      </div>
+      <div class="sub" style="margin-top:34px">Why RFC 1143 matters · the negotiation loop</div>
+      <p class="lead" style="font-size:13.5px">Both ends turn ECHO on at the same moment, then the server changes its mind. <b>Naive</b> endpoints acknowledge everything and bounce messages forever. <b>Q-method</b> endpoints finish in 4 messages and agree.</p>
+      <div class="row" style="margin-bottom:12px"><button class="btn" id="loopBtn">Run the experiment</button></div>
+      <div class="loopc" id="loop"></div>
+    </section>
+
+    <!-- 06 -->
+    <section class="ch" id="c6">
+      <div class="ch-head"><span class="ch-num">06</span><span class="src">why SSH replaced Telnet</span><h2>Security: what the wire reveals</h2></div>
+      <p class="lead">Telnet sends everything, passwords included, as plain bytes. Our wire tap sits on the path like an attacker would. Log in through it and read what it captures.</p>
+      <div class="intercept">
+        <div class="alert" id="alert"></div>
+        <div class="grid2 wide">
+          <div>
+            <div class="seqbar"><span class="sub" style="margin:0;flex:1">Sniffer on the path</span>
+              <label class="chk"><input type="checkbox" id="hex"> hex</label>
+              <label class="chk"><input type="checkbox" id="onlyCmd"> commands only</label>
+              <button class="mini" id="wclear">clear</button></div>
+            <div class="frames" id="frames"><div style="padding:14px;color:#6f5a35">Traffic through TCP 2324 (plaintext) and 9924 (TLS) appears here, one row per TCP segment.</div></div>
+          </div>
+          <div style="display:grid;gap:14px;align-content:start">
+            <div class="cmp">
+              <div><h4 style="color:#ff8a75">Telnet · plaintext</h4><div class="smp" id="cmpPlain">Log in through the wire tap: the password appears one keystroke per segment.</div></div>
+              <div><h4 style="color:#7dff8a">Telnet over TLS</h4><div class="smp" id="cmpTls">Log in over TLS: the tap sees only encrypted records.</div></div>
+            </div>
+            <div class="guard">
+              <div class="seqbar"><b>login block-for</b><span class="mono" style="font-size:11px;color:var(--phos-dim)" id="blockCfg"></span><span style="flex:1"></span><button class="btn hot" id="bf">Run dictionary attack</button><button class="btn" id="unb">clear login</button></div>
+              <div class="ring"><svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true"><circle cx="50" cy="50" r="40" fill="none" stroke="#343024" stroke-width="9"/><circle id="ringArc" cx="50" cy="50" r="40" fill="none" stroke="var(--good)" stroke-width="9" transform="rotate(-90 50 50)" stroke-dasharray="251.3" stroke-dashoffset="0"/><text id="ringTxt" x="50" y="50" text-anchor="middle" fill="#ffd79a" font-size="17" font-weight="600" font-family="IBM Plex Mono, monospace">OPEN</text><text id="ringSub" x="50" y="65" text-anchor="middle" fill="#9c7436" font-size="8.5" font-family="IBM Plex Mono, monospace">logins</text></svg>
+                <div class="tiles" id="secTiles"></div></div>
+              <div class="note">After 3 failed logins within 60 s, the router enters <b>quiet mode</b> and refuses all logins for 30 s. The bot's 7th guess is the right password, but it never gets that far. Passwords are stored as <b>PBKDF2-SHA256</b> hashes.</div>
+            </div>
+            <div class="log" id="secLog"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="ch" id="c7">
+      <div class="ch-head"><span class="ch-num">07</span><span class="src">line vty 0 4 · RFC 860 · session recording</span><h2>The lab: lines, timing, replay</h2></div>
+      <div class="grid2 wide">
+        <div>
+          <div class="sub">VTY lines (line vty 0 4)</div>
+          <div class="table-scroll"><table class="t vty" id="lines"></table></div>
+          <div class="note">Open more sessions (another tab, <code>telnet localhost 2323</code>, PuTTY). Try <code>send * hello</code>, <code>monitor line 0</code>, <code>clear line 1</code>, <code>debug telnet</code> or <code>top</code>. A sixth connection is refused.</div>
+          <div class="sub" style="margin-top:26px">RTT via TIMING-MARK (RFC 860)</div>
+          <svg class="spark" id="spark" viewBox="0 0 300 60" preserveAspectRatio="none" aria-label="Round-trip time"></svg>
+          <div class="mono" style="font-size:11.5px;color:var(--ink-2);margin-top:6px" id="sparkTxt">measured every 5 s · run tmping</div>
+        </div>
+        <div class="replay">
+          <div class="seqbar"><span class="sub" style="margin:0;flex:1">Session recording &amp; replay</span><select id="recSel" aria-label="Recording"></select><select id="recSpeed" aria-label="Speed"><option value="1">1×</option><option value="4" selected>4×</option><option value="12">12×</option></select><button class="btn" id="recPlay">Play</button></div>
+          <div class="term-wrap"><div class="term" id="rterm"></div></div>
+          <input type="range" id="recPos" min="0" max="1000" value="0" aria-label="Replay position">
+          <div class="sub" style="margin-top:16px">Server log</div>
+          <div class="log lab-log" id="logs"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async (p, o) => (await fetch(p, Object.assign({ cache: 'no-store' }, o))).json();
+const W = ms => new Promise(r => setTimeout(r, ms));
+const NS = 'http://www.w3.org/2000/svg';
+
+// ===================================================================== VT100 emulator
+class Term {
+  constructor(el, cols, rows) { this.el = el; this.cursorOn = true; this.resize(cols, rows); }
+  resize(cols, rows) { this.cols = cols; this.rows = rows; this.grid = Array.from({ length: rows }, () => this.blank()); this.x = this.y = 0; this.attr = 0; this.st = 0; this.p = ''; this.dirty = true; this.fit(); }
+  blank() { return Array.from({ length: this.cols }, () => [' ', 0]); }
+  fit() { const w = (this.el.parentElement.clientWidth || 600) - 40; this.el.style.fontSize = Math.max(9, Math.min(14, w / (this.cols * 0.602))) + 'px'; }
+  lf() { if (this.y === this.rows - 1) { this.grid.shift(); this.grid.push(this.blank()); } else this.y++; }
+  write(s) {
+    for (const ch of s) {
+      const c = ch.charCodeAt(0);
+      if (this.st === 0) {
+        if (c === 27) this.st = 1;
+        else if (ch === '\r') this.x = 0;
+        else if (ch === '\n') this.lf();
+        else if (c === 8) this.x = Math.max(0, this.x - 1);
+        else if (c === 9) this.x = Math.min(this.cols - 1, (this.x + 8) & ~7);
+        else if (c >= 32) { if (this.x >= this.cols) { this.x = 0; this.lf(); } this.grid[this.y][this.x++] = [ch, this.attr]; }
+      } else if (this.st === 1) { if (ch === '[') { this.st = 2; this.p = ''; } else this.st = 0; }
+      else { if (/[0-9;?]/.test(ch)) { this.p += ch; continue; } this.csi(ch, this.p); this.st = 0; }
+    }
+    this.dirty = true;
+  }
+  csi(f, p) {
+    const pr = p.startsWith('?'), n = (pr ? p.slice(1) : p).split(';').map(x => parseInt(x, 10)), n0 = isNaN(n[0]) ? 1 : n[0];
+    if (f === 'H' || f === 'f') { this.y = Math.min(this.rows - 1, n0 - 1); this.x = Math.min(this.cols - 1, (isNaN(n[1]) ? 1 : n[1]) - 1); }
+    else if (f === 'J') { if ((n[0] || 0) === 2) this.grid = Array.from({ length: this.rows }, () => this.blank()); else { for (let c = this.x; c < this.cols; c++) this.grid[this.y][c] = [' ', 0]; for (let r = this.y + 1; r < this.rows; r++) this.grid[r] = this.blank(); } }
+    else if (f === 'K') { for (let c = this.x; c < this.cols; c++) this.grid[this.y][c] = [' ', 0]; }
+    else if (f === 'A') this.y = Math.max(0, this.y - n0); else if (f === 'B') this.y = Math.min(this.rows - 1, this.y + n0);
+    else if (f === 'C') this.x = Math.min(this.cols - 1, this.x + n0); else if (f === 'D') this.x = Math.max(0, this.x - n0);
+    else if (f === 'm') { for (const v of (p === '' ? [0] : n)) { if (!v) this.attr = 0; else if (v === 7) this.attr |= 1; else if (v === 1) this.attr |= 2; else if (v === 27) this.attr &= ~1; } }
+    else if (f === 'l' && pr && n[0] === 25) this.cursorOn = false; else if (f === 'h' && pr && n[0] === 25) this.cursorOn = true;
+  }
+  render() {
+    if (!this.dirty) return; this.dirty = false;
+    let h = '';
+    for (let r = 0; r < this.rows; r++) {
+      let ln = '', run = '', ra = -1;
+      const fl = () => { if (run) { const cl = ((ra & 1) ? 'inv ' : '') + ((ra & 2) ? 'b' : ''); ln += cl.trim() ? `<span class="${cl.trim()}">${esc(run)}</span>` : esc(run); run = ''; } };
+      for (let c = 0; c < this.cols; c++) {
+        const [ch, a] = this.grid[r][c];
+        if (this.cursorOn && r === this.y && c === this.x) { fl(); ln += `<span class="cur">${esc(ch)}</span>`; ra = -1; continue; }
+        if (a !== ra) { fl(); ra = a; } run += ch;
+      }
+      fl(); h += `<div class="ln">${ln}</div>`;
+    }
+    this.el.innerHTML = h;
+  }
+}
+
+// ===================================================================== app state
+const A = { tid: null, tnext: 0, mode: '', reader: 0, chain: Promise.resolve(), mySession: null, keys: 0, echoes: 0, segs: 0, wseq: 0, ctl: {}, meanings: {}, negSig: '', seqFilter: 'all', lastState: null, firstFrame: true };
+const term = new Term($('term'), 96, 26);
+let rterm = null;
+
+// ===================================================================== terminal connection
+const QUICK = ['show telnet', 'show terminal', 'tmping', 'cat file1', 'dir', 'top', 'show users', 'debug telnet', 'show dhcp leases', 'show arp', 'show login', 'enable', 'show running-config'];
+$('quick').innerHTML = QUICK.map(c => `<button data-type="${esc(c)}">${esc(c)}</button>`).join('');
+
+async function connect(mode) {
+  await disconnect();
+  const [c, r] = $('size').value.split('x').map(Number);
+  term.resize(c, r);
+  const before = new Set((A.lastState ? A.lastState.sessions : []).map(s => s.id));
+  const res = await api(`/api/term/open?mode=${mode}&cols=${c}&rows=${r}`, { method: 'POST' });
+  if (res.error) { term.write('\r\n% ' + res.error + '\r\n'); return; }
+  A.tid = res.id; A.tnext = 0; A.mode = mode; A.mySession = null;
+  $('termOff').style.display = 'none';
+  $('disc').disabled = false;
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  $('led').className = 'led ' + (mode === 'tls' ? 'tls' : 'on');
+  $('tstat').textContent = mode === 'tap' ? 'plaintext · browser → tap :2324 → server :2323' : mode === 'direct' ? 'plaintext · direct to :2323 (tap bypassed)' : 'TLS 1.3 · tap :9924 → server :9923';
+  $('term').focus();
+  read(++A.reader);
+  for (let i = 0; i < 12 && A.tid && !A.mySession; i++) {     // find which VTY session is ours
+    await W(250);
+    const s = await api('/api/state');
+    const mine = s.sessions.filter(x => !before.has(x.id)).sort((a, b) => b.id - a.id)[0];
+    if (mine) { A.mySession = mine.id; $('sessTag').textContent = `session ${mine.id} · vty ${mine.line}`; A.meanings = {}; A.negSig = ''; A.seqSeen = 0; }
+  }
+}
+async function read(tok) {
+  while (A.tid && tok === A.reader) {
+    let r;
+    try { r = await api(`/api/term/read?id=${A.tid}&since=${A.tnext}`); } catch (e) { await W(500); continue; }
+    if (tok !== A.reader) return;
+    if (r.text) { term.write(r.text); A.echoes++; $('eCount').textContent = A.echoes; spawn(false); }
+    A.tnext = r.next; $('tbytes').textContent = `${A.tnext} chars in`;
+    if (r.closed) { term.write('\r\n\r\n[connection closed by foreign host]\r\n'); offline(); return; }
+  }
+}
+function offline() { A.tid = null; $('disc').disabled = true; $('led').className = 'led'; $('tstat').textContent = 'offline'; $('sessTag').textContent = 'not connected'; document.querySelectorAll('#modes button').forEach(b => b.classList.remove('on')); }
+async function disconnect() { if (A.tid) { const id = A.tid; offline(); A.reader++; await fetch(`/api/term/close?id=${id}`, { method: 'POST' }); } }
+function send(s) {
+  if (!A.tid) return; const id = A.tid;
+  A.keys++; $('kCount').textContent = A.keys; spawn(true);
+  A.chain = A.chain.then(() => fetch(`/api/term/send?id=${id}`, { method: 'POST', body: s })).catch(() => {});
+}
+async function typeSlow(s, gap = 28) { for (const ch of s) { send(ch); await W(gap); } }
+const cmd = c => A.tid && fetch(`/api/term/cmd?id=${A.tid}&cmd=${c}`, { method: 'POST' });
+const unesc = s => s.replace(/\\t/g, '\t').replace(/\\x([0-9a-f]{2})/gi, (m, h) => String.fromCharCode(parseInt(h, 16)));
+
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => connect(b.dataset.mode));
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => connect(b.dataset.go));
+$('disc').onclick = disconnect;
+addEventListener('pagehide', () => { if (A.tid) navigator.sendBeacon(`/api/term/close?id=${A.tid}`); });
+document.querySelectorAll('[data-key]').forEach(b => b.onclick = () => { send(unesc(b.dataset.key)); $('term').focus(); });
+document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => { cmd(b.dataset.cmd); $('term').focus(); });
+$('quick').onclick = e => { const b = e.target.closest('[data-type]'); if (b && A.tid) { typeSlow(b.dataset.type + '\r\n', 18); $('term').focus(); } };
+$('size').onchange = () => { const [c, r] = $('size').value.split('x').map(Number); term.resize(c, r); if (A.tid) fetch(`/api/term/resize?id=${A.tid}&cols=${c}&rows=${r}`, { method: 'POST' }); };
+addEventListener('resize', () => { term.fit(); rterm && rterm.fit(); });
+$('term').addEventListener('keydown', e => {
+  if (!A.tid) return;
+  let s = null;
+  if (e.ctrlKey && !e.altKey && e.key.length === 1) { if (e.key === 'v' || e.key === 'c' && getSelection().toString()) return; const k = e.key.toUpperCase().charCodeAt(0); if (k >= 64 && k < 96) s = String.fromCharCode(k - 64); }
+  else s = { Enter: '\r\n', Backspace: '\b', Tab: '\t', Escape: '\x1b', ArrowUp: '\x1b[A', ArrowDown: '\x1b[B', ArrowRight: '\x1b[C', ArrowLeft: '\x1b[D' }[e.key] || (e.key.length === 1 && !e.metaKey ? e.key : null);
+  if (s !== null) { e.preventDefault(); send(s); }
+});
+$('term').addEventListener('paste', e => { e.preventDefault(); send((e.clipboardData.getData('text') || '').replace(/\r?\n/g, '\r\n')); });
+
+// ===================================================================== 01 remote log-in diagram (live)
+const LOGIN = { remote: null, local: null };
+function sv(tag, a, parent) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; }
+function txt(p, x, y, s, a = {}) { const t = sv('text', Object.assign({ x, y, fill: 'var(--ink)', 'font-size': 12, 'text-anchor': 'middle' }, a), p); t.textContent = s; return t; }
+function doc(p, x, y, fill, label, sub) {
+  sv('path', { d: `M${x} ${y}h22l8 8v30h-30z`, fill, stroke: '#0b0f19', 'stroke-width': 1.5 }, p);
+  sv('path', { d: `M${x + 22} ${y}v8h8`, fill: 'none', stroke: '#0b0f19', 'stroke-width': 1.2 }, p);
+  if (label) txt(p, x + 15, y - 8, label, { 'font-size': 11.5, 'font-weight': 700 });
+  if (sub) txt(p, x + 15, y + 52, sub, { 'font-size': 9.5, fill: 'var(--muted)', class: 'm' });
+}
+function termIcon(p, x, y) {
+  sv('rect', { x, y, width: 46, height: 30, rx: 3, fill: '#c9d3e6', stroke: '#0b0f19' }, p); sv('rect', { x: x + 4, y: y + 4, width: 38, height: 21, fill: '#1c2c4c' }, p);
+  sv('rect', { x: x - 4, y: y + 34, width: 54, height: 9, rx: 2, fill: '#9aa6bd', stroke: '#0b0f19' }, p); txt(p, x + 23, y - 6, 'Terminal', { 'font-size': 11.5 });
+}
+function stack(p, x, y) {
+  ['TCP', 'IP', 'Data link', 'Physical'].forEach((l, i) => { sv('rect', { x, y: y + i * 20, width: 74, height: 20, fill: '#cfd6e3', stroke: '#0b0f19' }, p); txt(p, x + 37, y + i * 20 + 14, l, { fill: '#10141f', 'font-size': 11 }); });
+}
+function yellow(p, x, y, w, l1, l2, sub) {
+  sv('rect', { x, y, width: w, height: 40, fill: '#fff04a', stroke: '#0b0f19', 'stroke-width': 1.5 }, p);
+  txt(p, x + w / 2, y + 17, l1, { fill: '#10141f', 'font-size': 11.5, 'font-weight': 600 }); txt(p, x + w / 2, y + 31, l2, { fill: '#10141f', 'font-size': 11.5, 'font-weight': 600 });
+  if (sub) txt(p, x + w / 2, y + 54, sub, { 'font-size': 9.5, fill: 'var(--muted)', class: 'm' });
+}
+function drawLogin(view) {
+  const s = $('loginSvg'); s.innerHTML = '';
+  const g = sv('g', {}, s);
+  if (view === 'local') {
+    sv('rect', { x: 260, y: 30, width: 360, height: 270, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+    txt(g, 440, 52, 'Application programs', { 'font-size': 13, 'font-weight': 600 });
+    [0, 1, 2].forEach(i => doc(g, 330 + i * 60, 66, '#9be36b'));
+    txt(g, 520, 92, '…', { 'font-size': 18 });
+    sv('rect', { x: 290, y: 150, width: 310, height: 140, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+    txt(g, 545, 270, 'Operating system', { 'font-size': 11.5, fill: 'var(--ink-2)' });
+    yellow(g, 340, 200, 110, 'Terminal', 'driver');
+    [345, 395, 445].forEach(x => sv('line', { x1: 395, y1: 200, x2: x + 15, y2: 110, stroke: 'var(--ink-2)', 'stroke-dasharray': '4 4' }, g));
+    termIcon(g, 90, 230); sv('path', { d: 'M136 270H240V290H395V240', fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.8 }, g);
+    txt(g, 390, 335, 'a. Local log-in: the terminal driver hands keystrokes to the OS and the applications.', { fill: 'var(--ink-2)', 'font-size': 12 });
+    LOGIN.path = null; return;
+  }
+  sv('rect', { x: 120, y: 40, width: 220, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  sv('rect', { x: 440, y: 40, width: 320, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  txt(g, 230, 32, 'Local computer (browser / PuTTY)', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
+  txt(g, 600, 32, 'Remote computer: JU-Main-R', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
+  sv('rect', { x: 140, y: 140, width: 190, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  sv('rect', { x: 450, y: 140, width: 300, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
+  txt(g, 183, 158, 'Operating', { 'font-size': 10.5, fill: 'var(--ink-2)' }); txt(g, 183, 171, 'system', { 'font-size': 10.5, fill: 'var(--ink-2)' });
+  txt(g, 493, 158, 'Operating', { 'font-size': 10.5, fill: 'var(--ink-2)' }); txt(g, 493, 171, 'system', { 'font-size': 10.5, fill: 'var(--ink-2)' });
+  doc(g, 190, 64, '#2bb6e0', 'TELNET client', 'TelnetClient');
+  doc(g, 500, 64, '#2bb6e0', 'TELNET server', 'VtyPool');
+  txt(g, 680, 56, 'Application programs', { 'font-size': 11.5, 'font-weight': 700 });
+  [0, 1].forEach(i => doc(g, 630 + i * 40, 68, '#9be36b')); txt(g, 715, 92, '…', { 'font-size': 16 });
+  txt(g, 680, 124, 'CommandShell (IOS EXEC)', { 'font-size': 9.5, fill: 'var(--muted)', class: 'm' });
+  stack(g, 245, 180); stack(g, 460, 180);
+  yellow(g, 152, 250, 82, 'Terminal', 'driver');
+  yellow(g, 600, 230, 120, 'Pseudoterminal', 'driver', 'TelnetSession');
+  termIcon(g, 26, 262);
+  // cloud
+  const cl = sv('g', { transform: 'translate(392 346)' }, g);
+  sv('path', { d: 'M-50 0c-16 0-18-20-2-22c0-16 22-20 30-8c8-14 32-12 34 4c18-2 24 22 6 26z', fill: '#d6dceb', stroke: '#0b0f19' }, cl);
+  txt(cl, -8, -6, 'Internet', { fill: '#10141f', 'font-size': 11, 'font-weight': 600 });
+  const line = (d, dash) => sv('path', { d, fill: 'none', stroke: '#6e685a', 'stroke-width': 1.6, 'stroke-dasharray': dash ? '4 4' : '' }, g);
+  line('M72 290H140V300H193V290'); line('M193 250V200'); line('M205 104L193 250', 1); line('M215 104L282 180');
+  line('M282 260V300H344'); line('M440 300H497V260'); line('M497 180L515 104'); line('M525 104L630 230'); line('M660 230L645 108'); line('M680 230L685 108');
+  // keystroke path
+  LOGIN.path = [[72, 285], [193, 270], [203, 104], [282, 182], [282, 258], [344, 330], [440, 330], [497, 258], [497, 182], [515, 104], [640, 232], [660, 232], [665, 104]];
+  LOGIN.layer = sv('g', {}, s);
+  txt(g, 390, 22, '', {});
+}
+document.querySelectorAll('#loginTabs button').forEach(b => b.onclick = () => { document.querySelectorAll('#loginTabs button').forEach(x => x.classList.toggle('on', x === b)); drawLogin(b.dataset.v); });
+drawLogin('remote');
+
+const dots = [];
+function spawn(out) {
+  if (!LOGIN.path || dots.length > 40) return;
+  const pts = out ? LOGIN.path : LOGIN.path.slice(0, -2).reverse();
+  dots.push({ pts, t0: performance.now(), dur: 1500, out });
+}
+function animate() {
+  if (!LOGIN.layer) return;
+  const now = performance.now();
+  let h = '';
+  for (let i = dots.length - 1; i >= 0; i--) {
+    const d = dots[i], t = (now - d.t0) / d.dur;
+    if (t >= 1) { dots.splice(i, 1); continue; }
+    const p = along(d.pts, t), col = d.out ? '#b5361f' : '#1f5ea8';
+    h += `<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="${col}" opacity=".18"/><circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="${col}"/>`;
+  }
+  LOGIN.layer.innerHTML = h;
+}
+function along(pts, t) {
+  if (!pts.len) { pts.len = []; let L = 0; for (let i = 1; i < pts.length; i++) { L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); pts.len.push(L); } pts.total = L; }
+  const e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, want = e * pts.total;
+  for (let i = 0; i < pts.len.length; i++) if (pts.len[i] >= want) { const a = pts[i], b = pts[i + 1], prev = i ? pts.len[i - 1] : 0, k = (want - prev) / (pts.len[i] - prev || 1); return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]; }
+  return pts[pts.length - 1];
+}
+
+// ===================================================================== 02 NVT diagram + ribbon
+(function drawNvt() {
+  const s = $('nvtSvg');
+  termIcon(s, 40, 40); doc(s, 180, 30, '#2bb6e0', 'TELNET client'); doc(s, 560, 30, '#2bb6e0', 'TELNET server');
+  sv('rect', { x: 650, y: 34, width: 110, height: 40, fill: '#fff04a', stroke: '#0b0f19' }, s); txt(s, 705, 51, 'Pseudoterminal', { fill: '#10141f', 'font-size': 11.5, 'font-weight': 600 }); txt(s, 705, 65, 'driver', { fill: '#10141f', 'font-size': 11.5, 'font-weight': 600 });
+  const cl = sv('g', { transform: 'translate(392 92)' }, s);
+  sv('path', { d: 'M-60 0c-18 0-20-22-2-24c0-18 24-22 34-9c9-15 36-13 38 4c20-2 27 24 7 29z', fill: '#d6dceb', stroke: '#0b0f19' }, cl);
+  txt(cl, -12, -8, 'Internet', { fill: '#10141f', 'font-size': 11, 'font-weight': 600 });
+  sv('path', { d: 'M63 92V110H195V72 M195 110H330 M455 110H575V72 M575 110H705V76', fill: 'none', stroke: '#6e685a', 'stroke-width': 1.6 }, s);
+  const dim = (x1, x2, y, label, col) => {
+    sv('line', { x1, y1: y, x2, y2: y, stroke: col, 'stroke-dasharray': '5 4', 'stroke-width': 1.4 }, s);
+    sv('line', { x1, y1: y - 7, x2: x1, y2: y + 7, stroke: col }, s); sv('line', { x1: x2, y1: y - 7, x2, y2: y + 7, stroke: col }, s);
+    txt(s, (x1 + x2) / 2, y - 8, label, { fill: col, 'font-size': 12, 'font-weight': 600 });
+  };
+  dim(40, 205, 160, 'Local computer character set', 'var(--ink-2)');
+  dim(205, 575, 160, 'NVT character set (on the wire)', 'var(--cyan)');
+  dim(575, 760, 160, 'Remote computer character set', 'var(--ink-2)');
+  txt(s, 390, 192, 'data character: 0xxxxxxx         control character: 1xxxxxxx', { class: 'm', 'font-size': 11.5, fill: 'var(--ink-2)' });
+})();
+const CTL_NAMES = { 236: 'EOF', 237: 'SUSP', 238: 'ABORT', 239: 'EOR', 240: 'SE', 241: 'NOP', 242: 'DM', 243: 'BRK', 244: 'IP', 245: 'AO', 246: 'AYT', 247: 'EC', 248: 'EL', 249: 'GA', 250: 'SB', 251: 'WILL', 252: 'WONT', 253: 'DO', 254: 'DONT', 255: 'IAC' };
+const OPT_NAMES = { 0: 'BINARY', 1: 'ECHO', 3: 'SGA', 5: 'STATUS', 6: 'TM', 24: 'TTYPE', 31: 'NAWS', 32: 'TSPEED', 34: 'LINEMODE' };
+const ribbon = [];
+function pushBytes(hexStr, c2s) {
+  const bytes = hexStr.replace(/\.\.\.|\|/g, ' ').trim().split(/\s+/).filter(x => /^[0-9A-F]{2}$/i.test(x)).map(x => parseInt(x, 16));
+  let afterIac = 0;
+  for (const b of bytes) {
+    let label, ctl = false;
+    if (afterIac === 2) { label = OPT_NAMES[b] || String(b); ctl = true; afterIac = 0; }
+    else if (afterIac === 1 && b >= 236) { label = CTL_NAMES[b]; ctl = true; afterIac = (b >= 251 && b <= 254) ? 2 : (b === 250 ? 2 : 0); }
+    else if (b === 255) { label = 'IAC'; ctl = true; afterIac = 1; continue_push(b, label, ctl, c2s); continue; }
+    else { afterIac = 0; label = b === 13 ? 'CR' : b === 10 ? 'LF' : b === 0 ? 'NUL' : b === 8 ? 'BS' : b === 27 ? 'ESC' : b < 32 ? '^' + String.fromCharCode(b + 64) : b < 127 ? (b === 32 ? '␠' : String.fromCharCode(b)) : '·'; ctl = b >= 128; }
+    continue_push(b, label, ctl, c2s);
+  }
+}
+// append-only, so existing cells keep their place and only new bytes animate in
+const pendingBytes = [];
+function continue_push(b, label, ctl, c2s) { pendingBytes.push({ b, label, ctl, c2s }); }
+function renderRibbon() {
+  if (!pendingBytes.length) return;
+  const el = $('ribbon');
+  if (el.querySelector('span:not(.lbl):not(.hx)') && !el.querySelector('.byte')) el.innerHTML = '';
+  const batch = pendingBytes.splice(0, pendingBytes.length).slice(-60);
+  for (const x of batch) {
+    let bits = ''; for (let i = 7; i >= 0; i--) bits += `<i class="bit${(x.b >> i) & 1 ? ' one' : ''}${i === 7 ? ' msb' : ''}"></i>`;
+    const d = document.createElement('div');
+    d.className = 'byte' + (x.ctl ? ' ctl' : '') + (x.c2s ? '' : ' s2c');
+    d.title = `${x.b} = ${x.b.toString(2).padStart(8, '0')}`;
+    d.innerHTML = `<div class="bits">${bits}</div><span class="lbl">${esc(x.label)}</span><span class="hx">${x.b.toString(16).toUpperCase().padStart(2, '0')}</span>`;
+    el.appendChild(d);
+  }
+  while (el.children.length > 60) el.removeChild(el.firstChild);
+  el.parentElement.scrollLeft = el.scrollWidth;
+}
+setInterval(renderRibbon, 200);
+
+// ===================================================================== 03 control characters + embedding
+const CTL = [[236, 'EOF', 'End of file'], [239, 'EOR', 'End of record'], [240, 'SE', 'Suboption end'], [241, 'NOP', 'No operation'], [242, 'DM', 'Data mark'], [243, 'BRK', 'Break'],
+  [244, 'IP', 'Interrupt process'], [245, 'AO', 'Abort output'], [246, 'AYT', 'Are you there?'], [247, 'EC', 'Erase character'], [248, 'EL', 'Erase line'], [249, 'GA', 'Go ahead'],
+  [250, 'SB', 'Suboption begin'], [251, 'WILL', 'Agreement to enable option'], [252, 'WONT', 'Refusal to enable option'], [253, 'DO', 'Approval to option request'], [254, 'DONT', 'Denial of option request'], [255, 'IAC', 'Interpret (the next character) as control']];
+const SENDABLE = new Set(['EOF', 'EOR', 'NOP', 'DM', 'BRK', 'IP', 'AO', 'AYT', 'EC', 'EL', 'GA']);
+const minibits = n => { let s = '<span class="minibits">'; for (let i = 7; i >= 0; i--) s += `<i class="${(n >> i) & 1 ? 'one' : ''}${i === 7 ? ' msb' : ''}"></i>`; return s + '</span>'; };
+$('ctlTable').innerHTML = '<tr><th>Character</th><th>Decimal</th><th>Binary</th><th>Meaning</th><th>Seen</th><th></th></tr>' + CTL.map(([d, n, m]) =>
+  `<tr id="ctl-${n}"><td><span class="blk ${n === 'IAC' ? 'iac' : n === 'SB' || n === 'SE' ? 'sb' : /WILL|WONT|DO/.test(n) ? 'verb' : ''}">${n}</span></td><td class="m">${d}</td><td>${minibits(d)} <span class="m" style="font-size:11px;color:var(--muted)">${d.toString(2)}</span></td><td>${m}</td><td><span class="cnt" id="cnt-${n}">0</span></td><td>${SENDABLE.has(n) ? `<button class="mini" data-send="${n}">send</button>` : ''}</td></tr>`).join('');
+$('ctlTable').onclick = e => { const b = e.target.closest('[data-send]'); if (!b) return; if (!A.tid) { flashMsg('Connect a terminal first'); return; } cmd(b.dataset.send); $('term').focus(); };
+function bumpCtl(name, by = 1) {
+  A.ctl[name] = (A.ctl[name] || 0) + by;
+  const c = $('cnt-' + name); if (!c) return;
+  c.textContent = A.ctl[name]; c.classList.add('nz');
+  const r = $('ctl-' + name); r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 60);
+}
+const STRIP = ['c', 'a', 't', '␠', 'f', 'i', 'l', 'e', 'a', 'IAC', 'EC', '1'];
+$('strip').innerHTML = STRIP.map((c, i) => `<div class="cell${c.length > 1 && c !== '␠' ? ' ctl' : ''}" id="sc${i}">${c === '␠' ? '' : c}</div>`).join('');
+$('embedBtn').onclick = async () => {
+  if (!A.tid) { flashMsg('Connect a terminal first, then log in'); return; }
+  STRIP.forEach((c, i) => $('sc' + i).className = 'cell' + (c.length > 1 && c !== '␠' ? ' ctl' : ''));
+  $('embedRes').style.display = 'none';
+  const mark = A.tnext;
+  fetch(`/api/term/embed?id=${A.tid}`, { method: 'POST' });
+  A.keys++; spawn(true);
+  for (let i = 0; i < STRIP.length; i++) {
+    const el = $('sc' + i); el.classList.add('go'); await W(140); el.classList.remove('go');
+    if (STRIP[i] === 'EC') { $('sc8').classList.add('erased'); }
+  }
+  await W(700);
+  const r = await api(`/api/term/read?id=-1&since=0`).catch(() => null);
+  $('embedRes').style.display = 'block';
+  $('embedRes').innerHTML = `received <span style="color:var(--ink-2)">c a t _ f i l e a <b style="color:var(--iac-ink)">IAC EC</b> 1</span> &nbsp;→&nbsp; executed <b style="color:var(--good)">cat file1</b>`;
+};
+
+// ===================================================================== 04 options
+const OPTS = [[0, 'Binary', 'Interpret as 8-bit binary transmission.', 'refused: NVT text is 7-bit'], [1, 'Echo', 'Echo the data received on one side to the other.', 'server echoes each key (but not the password)'],
+  [3, 'Suppress go ahead', 'Suppress go-ahead signals after data.', 'with ECHO = character-at-a-time mode'], [5, 'Status', 'Request the status of TELNET.', 'server answers SB STATUS SEND'],
+  [6, 'Timing mark', 'Define the timing marks.', 'used to measure RTT (tmping)'], [24, 'Terminal type', 'Set the terminal type.', 'server cycles the list until it repeats'],
+  [31, 'Window size (NAWS)', 'Negotiate About Window Size.', 'top reflows when you resize'], [32, 'Terminal speed', 'Set the terminal speed.', 'client reports 38400,38400'], [34, 'Line mode', 'Change to line mode.', 'refused: we use character mode']];
+function renderOpts(info) {
+  const map = {}; if (info) info.options.forEach(o => map[o.code] = o);
+  $('optTable').innerHTML = '<tr><th>Code</th><th>Option</th><th>Meaning</th><th>RFC</th><th>Server</th><th>Client</th><th>In this lab</th></tr>' + OPTS.map(([c, n, m, use]) => {
+    const o = map[c], us = o ? o.us : '—', him = o ? o.him : '—';
+    return `<tr><td class="m">${c}</td><td><b>${n}</b></td><td style="color:var(--ink-2)">${m}</td><td class="m" style="color:var(--muted)">${o ? o.rfc : ''}</td><td>${o ? `<span class="st ${us.split('+')[0]}">${us}</span>` : '—'}</td><td>${o ? `<span class="st ${him.split('+')[0]}">${him}</span>` : '—'}</td><td style="color:var(--ink-2);font-size:12.5px">${use}</td></tr>`;
+  }).join('');
+}
+renderOpts(null);
+$('statusBtn').onclick = async () => {
+  if (!A.tid) { flashMsg('Connect a terminal first'); return; }
+  await cmd('STATUS'); await W(600); A.negSig = ''; pollNeg();
+};
+
+// ===================================================================== 05 negotiation: meanings + slide-style sequence
+const MEAN = [['WILL', 251, ['Offering to enable', 'Accepting a request to enable']], ['WONT', 252, ['Rejecting a request to enable', 'Offering to disable', 'Accepting a request to disable']],
+  ['DO', 253, ['Approving an offer to enable', 'Requesting to enable']], ['DONT', 254, ['Disapproving an offer to enable', 'Approving an offer to disable', 'Requesting to disable']]];
+const mid = (v, m) => 'm-' + v + '-' + m.replace(/\W+/g, '');
+$('meanTable').innerHTML = MEAN.map(([v, d, ms]) => `<div class="verbcell"><b>${v}</b><small>${d} · ${d.toString(2)}</small></div><div>${ms.map((m, i) =>
+  `<div class="mitem" id="${mid(v, m)}"><span>${i + 1}. ${m}<br><span class="ex" id="${mid(v, m)}-ex"></span></span><span class="n" id="${mid(v, m)}-n">0</span></div>`).join('')}</div>`).join('');
+
+document.querySelectorAll('#seqTabs button').forEach(b => b.onclick = () => { document.querySelectorAll('#seqTabs button').forEach(x => x.classList.toggle('on', x === b)); A.seqFilter = b.dataset.f; A.negSig = ''; pollNeg(); });
+$('hideTm').onchange = () => { A.negSig = ''; pollNeg(); };
+
+function blocksFor(text) {
+  // "IAC DO ECHO" -> [IAC][DO][ECHO]; "SB TERMINAL-TYPE IS "XTERM"" -> IAC SB TERMINAL-TYPE IS X T E R M IAC SE
+  const short = { 'TERMINAL-TYPE': 'Terminal type', 'SUPPRESS-GO-AHEAD': 'Suppress GA', 'TERMINAL-SPEED': 'Terminal speed', 'TIMING-MARK': 'Timing mark', 'ECHO': 'Echo', 'NAWS': 'NAWS', 'STATUS': 'Status', 'LINEMODE': 'Line mode', 'BINARY': 'Binary' };
+  const B = (t, c) => ({ t, c });
+  if (text.startsWith('IAC ')) {
+    const p = text.split(' ');
+    const out = [B('IAC', 'iac'), B(p[1], 'verb')];
+    if (p[2]) out.push(B(short[p.slice(2).join(' ')] || p.slice(2).join(' '), ''));
+    return out;
+  }
+  if (text.startsWith('SB ')) {
+    const m = text.match(/^SB (\S+)\s*(.*)$/);
+    const out = [B('IAC', 'iac'), B('SB', 'sb'), B(short[m[1]] || m[1], '')];
+    let rest = m[2];
+    const q = rest.match(/^IS "(.*)"$/);
+    if (q) { out.push(B('IS', 'd')); [...q[1]].slice(0, 9).forEach(ch => out.push(B("'" + ch + "'", 'd'))); if (q[1].length > 9) out.push(B('…', 'd')); }
+    else if (/^\d+ x \d+$/.test(rest)) { const [w, h] = rest.split(' x '); out.push(B('0', 'd'), B(w, 'd'), B('0', 'd'), B(h, 'd')); }
+    else if (rest) rest.split(' ').slice(0, 6).forEach(w => out.push(B(w, w === 'WILL' || w === 'DO' ? 'verb' : 'd')));
+    out.push(B('IAC', 'iac'), B('SE', 'sb'));
+    return out;
+  }
+  return [B(text, '')];
+}
+function sentence(e) {
+  const t = e.text, opt = (t.split(' ').slice(2).join(' ') || '').toLowerCase().replace('suppress-go-ahead', 'suppress go-ahead').replace('terminal-type', 'terminal type');
+  if (t.startsWith('IAC WILL')) return `I will enable the ${opt} option`;
+  if (t.startsWith('IAC WONT')) return `I won't enable the ${opt} option`;
+  if (t.startsWith('IAC DO ')) return `Do enable the ${opt} option`;
+  if (t.startsWith('IAC DONT')) return `Don't enable the ${opt} option`;
+  if (/SB TERMINAL-TYPE SEND/.test(t)) return 'Send me your terminal type';
+  let m = t.match(/SB TERMINAL-TYPE IS "(.*)"/); if (m) return `Set the terminal type to “${m[1]}”`;
+  m = t.match(/SB NAWS (\d+) x (\d+)/); if (m) return `My window is ${m[1]} columns × ${m[2]} rows`;
+  if (/TERMINAL-SPEED SEND/.test(t)) return 'Send me your terminal speed';
+  m = t.match(/TERMINAL-SPEED IS "(.*)"/); if (m) return `My line speed is ${m[1]} bps`;
+  if (t.startsWith('SB STATUS SEND')) return 'Tell me which options you think are on';
+  if (t.startsWith('SB STATUS IS')) return 'Here is what I believe is enabled';
+  if (t === 'IAC AYT') return 'Are you there?'; if (t === 'IAC EC') return 'Erase the last character'; if (t === 'IAC IP') return 'Interrupt the process';
+  return t;
+}
+function renderSeq(raw) {
+  const evs = [];
+  for (const e of raw) {
+    if ($('hideTm').checked && e.text.includes('TIMING-MARK')) continue;
+    const prev = evs[evs.length - 1];
+    if (e.dir === '--') { if (prev && prev.dir === 'S>C' && !prev.state) evs[evs.length - 1] = Object.assign({}, prev, { state: e.state, meaning: prev.meaning || e.meaning }); continue; }
+    evs.push(e);
+  }
+  const f = A.seqFilter;
+  const want = e => f === 'all' || (f === 'echo' && /\bECHO\b/.test(e.text)) || (f === 'sub' && /TERMINAL-TYPE/.test(e.text));
+  const pc = `<svg width="34" height="26" viewBox="0 0 34 26"><rect x="3" y="1" width="28" height="17" rx="2" fill="#c9d3e6"/><rect x="6" y="4" width="22" height="11" fill="#1c2c4c"/><rect x="1" y="20" width="32" height="5" rx="1" fill="#9aa6bd"/></svg>`;
+  const srv = `<svg width="26" height="30" viewBox="0 0 26 30"><rect x="2" y="1" width="22" height="28" rx="2" fill="#c9d3e6"/><path d="M6 8h14M6 13h14M6 18h14" stroke="#5a6680"/></svg>`;
+  let h = `<div class="seq-hd"><div>${pc}Client</div><div></div><div>${srv}Server</div></div>`;
+  const t0 = evs.length ? evs[0].t : 0;
+  const seen = A.seqSeen || 0; A.seqSeen = evs.length;
+  evs.forEach((e, idx) => {
+    const c2s = e.dir === 'C>S', isCmd = e.text.startsWith('IAC ') && !/WILL|WONT|DO|DONT/.test(e.text.split(' ')[1]);
+    const bl = blocksFor(e.text).map(b => `<span class="blk ${b.c}">${esc(b.t)}</span>`).join('');
+    const sc = e.state && e.state.includes('->') ? `<span class="sc">${esc(e.state)}</span>` : e.state ? esc(e.state) : '';
+    h += `<div class="msg ${c2s ? 'c2s' : 's2c'}${isCmd ? ' cmd' : ''}${want(e) ? '' : ' dim'}${idx >= seen ? ' new' : ''}" style="--fx:${c2s ? '-14px' : '14px'}"><span class="t">+${((e.t - t0) / 1000).toFixed(3)}</span><div></div><div class="mid">
+      <div class="say">${esc(sentence(e))}</div><div class="arrow"><div class="line"></div><div class="blocks">${bl}</div></div>
+      <div class="meta">${e.meaning ? `<span class="mn">${esc(e.meaning)}</span> · ` : ''}${sc}${e.note && !e.state ? esc(e.note) : ''}</div></div><div></div></div>`;
+  });
+  if (!evs.length) h += '<div style="padding:30px;text-align:center;color:var(--muted)">Connect a terminal: the opening negotiation appears here message by message.</div>';
+  const box = $('seq'); const keep = box.scrollTop; box.innerHTML = h;
+  if (f !== 'all') { const first = box.querySelector('.msg:not(.dim)'); if (first) box.scrollTop = first.offsetTop - 50; } else box.scrollTop = keep;
+}
+function updateMeanings(raw) {
+  const counts = {}, last = {};
+  raw.forEach(e => { if (!e.meaning || e.dir === '--') return; const v = e.text.split(' ')[1]; const k = mid(v, e.meaning); counts[k] = (counts[k] || 0) + 1; last[k] = (e.dir === 'C>S' ? 'client→server ' : 'server→client ') + e.text; });
+  for (const k in counts) {
+    const n = $(k + '-n'); if (!n) continue;
+    if ((A.meanings[k] || 0) !== counts[k]) { const it = $(k); it.classList.remove('flash'); void it.offsetWidth; it.classList.add('flash'); setTimeout(() => it.classList.remove('flash'), 80); }
+    A.meanings[k] = counts[k]; n.textContent = counts[k]; n.classList.add('nz'); $(k + '-ex').textContent = last[k];
+  }
+}
+async function pollNeg() {
+  const id = A.mySession || (A.lastState && A.lastState.sessions.length ? Math.max(...A.lastState.sessions.map(s => s.id)) : null);
+  if (id == null) return;
+  try {
+    const r = await api('/api/neg?session=' + id);
+    const vis = r.events.filter(e => !($('hideTm').checked && e.text.includes('TIMING-MARK')));
+    const sig = vis.length + ':' + (vis.length ? vis[vis.length - 1].seq : 0) + A.seqFilter + $('hideTm').checked;
+    if (sig !== A.negSig) { A.negSig = sig; renderSeq(r.events); updateMeanings(r.events); const st = r.events.filter(e => e.text.startsWith('SB STATUS IS')).pop(); if (st) $('statusRes').textContent = '← ' + st.text.replace('SB STATUS IS', 'IS'); }
+    if (r.info) { renderOpts(r.info); renderSpark(r.info); }
+  } catch (e) { }
+}
+setInterval(pollNeg, 1100);
+
+$('loopBtn').onclick = async () => {
+  const rs = await api('/api/loop');
+  $('loop').innerHTML = rs.map(r => `<div><b>${esc(r.name)}</b><span class="verdict ${r.looped ? 'bad' : 'good'}">${r.looped ? `LOOP · ${r.trace.length}+ messages, never ends` : `${r.trace.length} messages · converged`}</span>
+    <div class="ll">${r.trace.map((m, i) => `<div class="${m.from[0]}" style="animation-delay:${i * 45}ms">${i + 1}. ${m.from === 'Server' ? 'S→C' : 'C→S'} ${esc(m.text)}</div>`).join('')}</div><span class="mono" style="font-size:11px;color:var(--ink-2)">${esc(r.final)}</span></div>`).join('');
+};
+
+// ===================================================================== 06 sniffer + security
+function vis(s) { return s.replace(/\r\n/g, '↵\n').replace(/\r\x00/g, '↵').replace(/\r/g, '↵').replace(/\x00/g, '').replace(/\x1b/g, '^[').replace(/\x08/g, '^H').replace(/\t/g, '^I').replace(/[\x01-\x09\x0b-\x1f]/g, c => '^' + String.fromCharCode(c.charCodeAt(0) + 64)); }
+async function pollWire() {
+  try {
+    const r = await api('/api/wire?since=' + A.wseq);
+    const box = $('frames'), atB = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+    if (r.frames.length && A.firstFrame) { box.innerHTML = ''; A.firstFrame = false; }
+    for (const f of r.frames) {
+      A.wseq = f.seq; A.segs++; $('segCount').textContent = A.segs;
+      const c2s = f.dir === 'C>S';
+      for (const t of f.tokens) {
+        if (t.hex && !f.tls) pushBytes(t.hex, c2s);
+        if (t.k === 'iac') { const p = t.txt.split(' '); bumpCtl('IAC'); bumpCtl(p[1]); }
+        if (t.k === 'sb') { bumpCtl('IAC', 2); bumpCtl('SB'); bumpCtl('SE'); }
+        if (f.tls && t.k === 'tls') $('cmpTls').innerHTML = `<b style="color:#7dff8a">${esc(t.txt)}</b><br>${esc(t.hex)}`;
+        if (t.k === 'secret' && t.txt.trim()) $('cmpPlain').innerHTML = `password keystroke on the wire: <b style="color:#ff8a75">${esc(vis(t.txt))}</b> &nbsp;(${esc(t.hex)})`;
+      }
+      const toks = f.tokens.filter(t => t.txt !== '' || t.hex);
+      if ($('onlyCmd').checked && !toks.some(t => t.k !== 'data' && t.k !== 'secret')) continue;
+      const d = document.createElement('div'); d.className = 'fr';
+      const tm = new Date(f.t); const ts = tm.toTimeString().slice(3, 8) + '.' + String(f.t % 1000).padStart(3, '0');
+      d.innerHTML = `<span class="tm">${ts}</span><span class="cn">#${f.conn} ${f.len}B</span><span class="dir ${c2s ? 'c' : 's'}">${c2s ? 'C→S' : 'S→C'}</span><span class="tks">${toks.map(t => `<span class="tk ${t.k}" title="${esc(t.hex)}">${esc(t.k === 'secret' ? vis(t.txt) : t.k === 'data' ? vis(t.txt) : t.txt)}${$('hex').checked && t.hex ? `<span class="hx">${esc(t.hex)}</span>` : ''}</span>`).join('')}</span>`;
+      box.appendChild(d);
+    }
+    while (box.children.length > 1200) box.removeChild(box.firstChild);
+    if (atB) box.scrollTop = box.scrollHeight;
+  } catch (e) { }
+  setTimeout(pollWire, 450);
+}
+$('wclear').onclick = () => { $('frames').innerHTML = ''; fetch('/api/action?name=clearcaptures', { method: 'POST' }); };
+$('bf').onclick = () => fetch('/api/action?name=bruteforce', { method: 'POST' });
+$('unb').onclick = () => fetch('/api/action?name=unblock', { method: 'POST' });
+
+let toastT;
+function flashMsg(m) { $('tstat').textContent = '! ' + m; clearTimeout(toastT); toastT = setTimeout(() => $('tstat').textContent = A.tid ? 'connected' : 'offline', 2500); }
+
+// ===================================================================== state poll
+const fmt = t => (t >= 3600 ? Math.floor(t / 3600) + 'h ' : '') + Math.floor(t / 60) % 60 + 'm ' + String(t % 60).padStart(2, '0') + 's';
+async function pollState() {
+  try {
+    const s = await api('/api/state'); A.lastState = s;
+    $('hostTag').textContent = s.hostname.toUpperCase() + ' · LINE VTY 0 ' + (s.vtyMax - 1);
+    const q = s.security.quietLeft;
+    $('stat').innerHTML = `<span class="chipst">VTY <b>${s.sessions.length}/${s.vtyMax}</b></span>` +
+      (s.captures.length ? `<span class="chipst hot">sniffed <b>${s.captures.length}</b></span>` : '') +
+      (q > 0 ? `<span class="chipst bad">QUIET <b>${q}s</b></span>` : `<span class="chipst">up <b>${fmt(s.uptime)}</b></span>`);
+    renderSecurity(s); renderLines(s); renderAlert(s); renderLogs(s); renderRecSel(s);
+  } catch (e) { $('stat').innerHTML = '<span class="chipst bad">server offline</span>'; }
+  setTimeout(pollState, 1000);
+}
+function renderSecurity(s) {
+  const g = s.security, q = g.quietLeft, arc = $('ringArc');
+  $('blockCfg').textContent = `${g.blockFor} attempts ${g.attempts} within ${g.within}`;
+  if (q > 0) { arc.setAttribute('stroke', '#ff5f45'); arc.setAttribute('stroke-dashoffset', 251.3 * (1 - q / g.blockFor)); $('ringTxt').textContent = q + 's'; $('ringSub').textContent = 'QUIET MODE'; }
+  else { arc.setAttribute('stroke', g.window ? '#ffb340' : '#7dff8a'); arc.setAttribute('stroke-dashoffset', 251.3 * (g.window / g.attempts)); $('ringTxt').textContent = 'OPEN'; $('ringSub').textContent = `${g.window}/${g.attempts} failures`; }
+  $('secTiles').innerHTML = [['success', g.success], ['failed', g.failures], ['refused', g.refused]].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  $('secLog').innerHTML = g.history.slice(-10).map(x => `<div class="sec">${esc(x)}</div>`).concat(s.bot.log.slice(-10).map(x => `<div class="bot">[BOT] ${esc(x)}</div>`)).join('') || '<span style="color:var(--muted)">no login events yet</span>';
+  $('secLog').scrollTop = 1e6;
+  $('bf').disabled = s.bot.running; $('bf').textContent = s.bot.running ? 'attacking…' : 'Run dictionary attack';
+}
+function renderAlert(s) {
+  const a = $('alert');
+  if (s.captures.length) { const c = s.captures[s.captures.length - 1]; a.className = 'alert bad'; a.innerHTML = `<b style="background:none;padding:0">Sniffed off the wire</b> on connection #${c.conn}: user <b>${esc(c.user)}</b> password <b>${esc(c.pass)}</b>. Anyone on the path can read this.`; }
+  else if (A.mode === 'tls' && A.tid) { a.className = 'alert ok'; a.textContent = 'TLS session: the tap sees only encrypted records. Nothing to recover.'; }
+  else a.className = 'alert';
+}
+function renderLines(s) {
+  const by = {}; s.sessions.forEach(x => by[x.line] = x);
+  let h = '<tr><th>Line</th><th>User</th><th>From</th><th>Term</th><th>Size</th><th>Mode</th><th>RTT</th></tr>';
+  for (let i = 0; i < s.vtyMax; i++) {
+    const x = by[i];
+    if (!x) { h += `<tr><td class="m">vty ${i}</td><td colspan="6" class="free">free</td></tr>`; continue; }
+    const col = x.mode === 'EXEC' || x.mode === 'CONFIG' ? 'var(--good)' : x.mode.startsWith('LOGIN') ? 'var(--warn)' : 'var(--cyan)';
+    h += `<tr${x.id === A.mySession ? ' style="background:rgba(255,216,74,.28)"' : ''}><td class="m"><span class="dot" style="background:${col};box-shadow:0 0 8px ${col}"></span>vty ${i}</td><td>${esc(x.user || '—')}${x.priv >= 15 ? ' <span class="st YES">15</span>' : ''}${x.transport === 'telnets' ? ' <span class="st TLS">TLS</span>' : ''}</td><td class="m">${esc(x.from)}</td><td class="m">${esc(x.ttype)}</td><td class="m">${x.cols}×${x.rows}</td><td class="m">${esc(x.mode)}${x.debug ? ' ·dbg' : ''}${x.shadowedBy ? ' ·shadowed' : ''}</td><td class="m">${x.rtt < 0 ? '—' : x.rtt.toFixed(2) + 'ms'}</td></tr>`;
+  }
+  $('lines').innerHTML = h + `<tr><td colspan="7" class="mono" style="font-size:11px;color:var(--muted)">refused (all lines busy): ${s.refusedBusy}</td></tr>`;
+}
+function renderLogs(s) {
+  const b = $('logs'), atB = b.scrollTop + b.clientHeight >= b.scrollHeight - 30;
+  b.innerHTML = s.logs.slice(-80).map(l => `<div class="${l.includes('[SECURITY]') ? 'sec' : l.includes('[TAP]') ? 'tap' : l.includes('[BOT]') ? 'bot' : ''}">${esc(l)}</div>`).join('');
+  if (atB) b.scrollTop = b.scrollHeight;
+}
+function renderSpark(info) {
+  const r = info.rtts, svg = $('spark');
+  if (r.length < 2) { $('sparkTxt').textContent = r.length ? r[0].toFixed(3) + ' ms' : 'measured every 5 s · run tmping'; return; }
+  const mx = Math.max(...r) * 1.2 || 1, pts = r.map((v, i) => [(i / (r.length - 1)) * 296 + 2, 56 - (v / mx) * 50]);
+  svg.innerHTML = `<defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1f5ea8" stop-opacity=".35"/><stop offset="1" stop-color="#1f5ea8" stop-opacity="0"/></linearGradient></defs>
+    <path d="M${pts.map(p => p.join(' ')).join('L')}L298 60L2 60z" fill="url(#sg)"/><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#1f5ea8" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+  const avg = r.reduce((a, b) => a + b, 0) / r.length;
+  $('sparkTxt').textContent = `session ${info.id} · last ${r[r.length - 1].toFixed(3)} ms · avg ${avg.toFixed(3)} ms · ${r.length} TIMING-MARK probes`;
+}
+
+// ===================================================================== 07 replay
+rterm = new Term($('rterm'), 96, 16);
+let rec = null, recT = null;
+function renderRecSel(s) {
+  const el = $('recSel'), h = s.recordings.slice().sort((a, b) => b.id - a.id).map(r => `<option value="${r.id}">#${r.id} ${esc(r.user)}${r.live ? ' (live)' : ''}</option>`).join('');
+  if (el.dataset.h !== h) { const v = el.value; el.innerHTML = h || '<option>none yet</option>'; el.dataset.h = h; if (v) el.value = v; }
+}
+$('recPlay').onclick = async () => {
+  clearTimeout(recT);
+  const r = await api('/api/recording?id=' + $('recSel').value); if (r.error) return;
+  rec = r.events; let i = 0; rterm.resize(96, 16); const sp = +$('recSpeed').value;
+  const tick = () => { if (i >= rec.length) return; rterm.write(rec[i][1]); $('recPos').value = Math.round(1000 * (i + 1) / rec.length); const dt = i + 1 < rec.length ? Math.min(1200, (rec[i + 1][0] - rec[i][0]) / sp) : 0; i++; recT = setTimeout(tick, dt); };
+  tick();
+};
+$('recPos').oninput = () => { if (!rec) return; clearTimeout(recT); rterm.resize(96, 16); const k = Math.round(+$('recPos').value / 1000 * rec.length); for (let i = 0; i < k; i++) rterm.write(rec[i][1]); };
+
+// ===================================================================== scrollspy
+const links = [...document.querySelectorAll('#nav a')];
+const spy = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+}), { rootMargin: '-35% 0px -60% 0px' });
+document.querySelectorAll('section.ch').forEach(s => spy.observe(s));
+
+(function frame() { term.render(); rterm.render(); animate(); requestAnimationFrame(frame); })();
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('section.ch > :not(.ch-head)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+}
+document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a) return; const t = document.querySelector(a.getAttribute('href')); if (t) t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); });
+setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { const r = x.getBoundingClientRect(); if (r.top < innerHeight * 1.2) x.classList.add('in'); }), 400);
+pollState(); pollWire(); pollNeg();
+</script>
+</body>
+</html>
