@@ -6,6 +6,54 @@ A production-inspired, highly available **RFC 2131 DHCP Server Cluster** built f
 
 ## 1. High-Level Architecture & 6-Container Topology
 
+### A. Visual System Architecture Diagram
+
+```mermaid
+flowchart TD
+    subgraph Clients["Client Layer (Broadcast Ingress)"]
+        Client1["Physical Workstations and PCs"]
+        Client2["Alpine Linux Container (udhcpc)"]
+        Client3["Simulated Clients (Multi-Threaded Simulator)"]
+    end
+
+    subgraph LB["Layer-4 Load Balancer and Ingress Router (dhcp-load-balancer)"]
+        LB_VIP["Virtual IP: 192.168.10.200 | Ports: UDP 67/6700, TCP 8080"]
+        LB_RL["Dual Rate Limiter: Token-Bucket and Sliding Window Counter"]
+        LB_CH["Consistent Hash Router: MD5 32-bit Ring with 32 Virtual Nodes"]
+        LB_HB["Heartbeat Health Monitor: 700ms Ping / 1.8s Failover Eviction"]
+        LB_UI["Zero-Dependency Web Dashboard and REST API"]
+    end
+
+    subgraph Cluster["Distributed DHCP Server Nodes (Active-Active Gossip Mesh)"]
+        Node1["dhcp-node-1 (192.168.10.201:6701) | WAL: leases_node1.db"]
+        Node2["dhcp-node-2 (192.168.10.202:6702) | WAL: leases_node2.db"]
+        Node3["dhcp-node-3 (192.168.10.203:6703) | WAL: leases_node3.db"]
+    end
+
+    subgraph Infrastructure["Infrastructure and Production Persistence Tier"]
+        Gateway["gateway-admin-vip (192.168.10.5:8085) | NGINX Gateway Router"]
+        DB["prod-db-primary (192.168.10.6:5432) | PostgreSQL 15 Database"]
+    end
+
+    Clients -->|"DHCPDISCOVER / DHCPREQUEST (Broadcast 255.255.255.255:67)"| LB_VIP
+    LB_VIP --> LB_RL
+    LB_RL --> LB_CH
+    LB_CH --> LB_HB
+
+    LB_HB -->|"UDP Port 6701 (giaddr = 192.168.10.254)"| Node1
+    LB_HB -->|"UDP Port 6702 (giaddr = 192.168.10.254)"| Node2
+    LB_HB -->|"UDP Port 6703 (giaddr = 192.168.10.254)"| Node3
+
+    Node1 <-->|"Peer Gossip State Sync (UDP)"| Node2
+    Node2 <-->|"Peer Gossip State Sync (UDP)"| Node3
+    Node1 <-->|"Peer Gossip State Sync (UDP)"| Node3
+
+    Gateway -->|"Reverse Proxy /cluster/ to Port 8080"| LB_UI
+    DB -.->|"Continuous State Sync Daemon (psql upsert)"| LB_UI
+```
+
+### B. ASCII Network Subnet & Container Topology Map
+
 ```
                                   +------------------------------------+
                                   |   Client Devices / Docker Alpine   |
