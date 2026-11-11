@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JU Bootstrap Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=Overpass+Mono:wght@400;600&display=swap">
+<style>
+/* ==========================================================================
+   JU BOOTSTRAP LAB — art direction: "the 1984 engineering blueprint"
+   RARP and BOOTP belong to the era of diskless Sun workstations, drawn up on
+   cyanotype sheets. Each section is a drawing sheet with a border, zone
+   letters and a title block. Messages are drawn as redline and yellow
+   annotations over white linework.
+   ========================================================================== */
+:root {
+  --bp: #123a6b; --bp-2: #0f3260; --bp-3: #0b2a52; --line: #e9f1ff; --line-2: rgba(233,241,255,.72); --faint: rgba(233,241,255,.38); --grid: rgba(233,241,255,.07); --grid-2: rgba(233,241,255,.14);
+  --yel: #ffd257; --red: #ff7d6b; --grn: #7ff0b0;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --text: "Barlow", "Segoe UI", sans-serif; --mono: "Overpass Mono", Consolas, monospace;
+  --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: var(--line); font: 400 16px/1.55 var(--text); -webkit-font-smoothing: antialiased; background: var(--bp); }
+/* the blueprint grid lives in one fixed, screen-sized layer (painting it across the whole tall page made every frame slow) */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 20px 20px, linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 20px,
+              linear-gradient(var(--grid-2) 1px, transparent 1px) 0 0 / 100px 100px, linear-gradient(90deg, var(--grid-2) 1px, transparent 1px) 0 0 / 100px 100px; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 700; letter-spacing: .02em; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+code { border-bottom: 1px dashed var(--faint); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--yel); outline-offset: 2px; }
+.wrap { max-width: 1380px; margin: 0 auto; padding: 0 var(--s6); }
+
+/* ------------------------------------------------------------ top strip */
+.strip { display: flex; gap: var(--s5); align-items: center; padding: 14px 0; border-bottom: 1.5px solid var(--line); font: 600 13px/1 var(--display); letter-spacing: .2em; text-transform: uppercase; flex-wrap: wrap; }
+.strip nav { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
+.strip nav a { color: var(--line-2); text-decoration: none; padding: 6px 10px; border: 1px solid transparent; }
+.strip nav a:hover, .strip nav a.on { border-color: var(--line); color: var(--line); }
+.strip nav a.on { background: var(--line); color: var(--bp); }
+
+/* ------------------------------------------------------------ sheet: border, zone letters, title block */
+.sheet { position: relative; border: 1.5px solid var(--line); outline: 1px solid var(--faint); outline-offset: 6px; margin: var(--s8) 0; padding: var(--s7) var(--s6) var(--s6); }
+.sheet::before, .sheet::after { position: absolute; font: 600 11px var(--mono); color: var(--faint); letter-spacing: 3.2em; white-space: nowrap; }
+.sheet::before { content: "A B C D E F G H"; top: -24px; left: 40px; }
+.sheet::after { content: "1 2 3 4"; left: -22px; top: 40px; writing-mode: vertical-rl; letter-spacing: 6em; }
+.tb { position: absolute; right: -1.5px; bottom: -1.5px; display: grid; grid-template-columns: auto auto auto; border: 1.5px solid var(--line); background: var(--bp-2); font: 400 10.5px/1.3 var(--mono); }
+.tb div { padding: 5px 9px; border-left: 1px solid var(--line); } .tb div:first-child { border-left: 0; }
+.tb b { display: block; font: 700 14px/1.1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+.sh { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s5); align-items: end; margin-bottom: var(--s4); }
+.sh .no { font: 800 96px/.8 var(--display); color: transparent; -webkit-text-stroke: 1.5px var(--line); }
+.sh h2 { font-size: 40px; line-height: 1; text-transform: uppercase; }
+.sh h2 span { color: var(--yel); }
+.sh .rfc { font: 400 12px var(--mono); color: var(--line-2); margin-top: 6px; display: block; letter-spacing: .04em; }
+.lede { max-width: 78ch; color: var(--line-2); margin-bottom: var(--s5); font-size: 17px; }
+.lede b { color: var(--line); font-weight: 600; }
+.note { font: italic 400 15px/1.5 var(--text); color: var(--yel); }
+
+/* ------------------------------------------------------------ masthead */
+.mast { padding: var(--s7) 0 var(--s4); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--s7); align-items: end; }
+.mast h1 { font: 800 clamp(64px, 9.5vw, 150px)/.82 var(--display); text-transform: uppercase; letter-spacing: -.01em; }
+.mast h1 .o { color: transparent; -webkit-text-stroke: 2px var(--line); }
+.mast h1 .y { color: var(--yel); }
+.mast .dek { font-size: 19px; color: var(--line-2); max-width: 46ch; margin-top: var(--s5); }
+.mast .dek b { color: var(--line); }
+.spec { border: 1.5px solid var(--line); font: 400 12.5px/1.4 var(--mono); }
+.spec .r { display: grid; grid-template-columns: 120px 1fr; border-top: 1px solid var(--faint); } .spec .r:first-child { border-top: 0; }
+.spec .r > * { padding: 8px 12px; } .spec .r > :first-child { border-right: 1px solid var(--faint); color: var(--line-2); text-transform: uppercase; font-size: 11px; letter-spacing: .1em; }
+.spec .hd { font: 700 13px var(--display); letter-spacing: .2em; text-transform: uppercase; padding: 8px 12px; background: var(--line); color: var(--bp); }
+
+/* ------------------------------------------------------------ network drawing */
+.ctl { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; margin-bottom: var(--s4); }
+.btn { border: 1.5px solid var(--line); background: transparent; padding: 8px 14px 7px; font: 700 14px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; }
+.btn:hover { background: var(--line); color: var(--bp); }
+.btn.y { border-color: var(--yel); color: var(--yel); } .btn.y:hover { background: var(--yel); color: var(--bp); }
+.btn.on { background: var(--line); color: var(--bp); }
+.btn:disabled { opacity: .4; cursor: progress; }
+.lbl { font: 600 12px var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--line-2); }
+.chk { font: 400 12px var(--mono); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; color: var(--line-2); }
+.net { width: 100%; height: auto; display: block; border: 1px dashed var(--faint); background: rgba(11,42,82,.35); }
+.net .bus { stroke: var(--line); stroke-width: 3; }
+.net .tap { stroke: var(--line-2); stroke-width: 1.5; }
+.net .term { fill: var(--line); }
+.net .seg { font: 600 13px var(--display); letter-spacing: .14em; fill: var(--line-2); text-transform: uppercase; }
+.net .st rect { fill: var(--bp-2); stroke: var(--line); stroke-width: 1.5; transition: fill .25s; }
+.net .st text { font: 700 15px var(--display); fill: var(--line); letter-spacing: .04em; }
+.net .st .sub { font: 400 9.5px var(--mono); fill: var(--line-2); letter-spacing: 0; }
+.net .st.ws { cursor: pointer; }
+.net .st.ws:hover rect { fill: #1d4c86; }
+.net .st.hear rect { fill: #546565; stroke: var(--yel); }
+.net .st.me rect { stroke: var(--yel); stroke-width: 2.5; }
+.net .st.ok rect { fill: #2a6670; stroke: var(--grn); }
+.net .st.bad rect { stroke: var(--red); stroke-dasharray: 5 4; }
+.net .st .ipl { font: 600 11px var(--mono); fill: var(--grn); }
+.net .router rect { fill: var(--bp-3); }
+.net .dim { font: 400 10px var(--mono); fill: var(--faint); }
+.net .xmark { stroke: var(--red); stroke-width: 4; }
+.net .pk { fill: var(--yel); stroke: var(--bp); stroke-width: 1.5; }
+.net .pk.uni { fill: var(--grn); }
+.cols { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--s6); margin-top: var(--s5); align-items: start; }
+.events { counter-reset: e; border-top: 1.5px solid var(--line); max-height: 470px; overflow: auto; }
+.ev { display: grid; grid-template-columns: 32px 66px minmax(0, 1fr); gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--faint); cursor: pointer; align-items: baseline; transition: background .2s; }
+.ev:hover { background: rgba(233,241,255,.06); }
+.ev.on { background: rgba(255,210,87,.12); box-shadow: inset 3px 0 0 var(--yel); }
+.ev::before { counter-increment: e; content: counter(e, decimal-leading-zero); font: 700 15px var(--display); color: var(--line-2); }
+.ev .k { font: 700 12px var(--display); letter-spacing: .12em; text-transform: uppercase; }
+.ev .k.broadcast, .ev .k.forward { color: var(--yel); } .ev .k.unicast, .ev .k.reply, .ev .k.deliver, .ev .k.done, .ev .k.configured { color: var(--grn); } .ev .k.blocked, .ev .k.fail, .ev .k.timeout, .ev .k.silent, .ev .k.dropped { color: var(--red); }
+.ev .n { font-size: 14.5px; color: var(--line-2); } .ev .n b { color: var(--line); font-weight: 600; }
+.ev .pkt { font: 400 10.5px var(--mono); color: var(--yel); }
+.hex { font: 400 12px/1 var(--mono); border: 1.5px solid var(--line); padding: 10px 12px; overflow-x: auto; background: rgba(11,42,82,.5); }
+.hr { display: grid; grid-template-columns: 40px repeat(16, 24px); align-items: center; height: 21px; }
+.hr .o { color: var(--faint); font-size: 10px; }
+.b { text-align: center; height: 19px; line-height: 19px; cursor: default; transition: background .15s, color .15s; }
+.b.ethernet, .b.header { background: rgba(233,241,255,.12); } .b.rarp, .b.addresses { background: rgba(255,210,87,.22); } .b.names { background: rgba(127,240,176,.14); } .b.vend { background: rgba(255,125,107,.22); } .b.pad { color: var(--faint); }
+.b.hl { background: var(--yel) !important; color: var(--bp); }
+.legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font: 400 11px var(--mono); margin: 8px 0; color: var(--line-2); }
+.legend i { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 5px; }
+.tip { min-height: 44px; border: 1.5px solid var(--yel); color: var(--yel); padding: 8px 12px; font: 400 12px/1.5 var(--mono); }
+.ft { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: var(--s3); }
+.ft td { padding: 4px 6px; border-bottom: 1px solid var(--faint); vertical-align: top; }
+.ft td:first-child { font: 400 10.5px var(--mono); color: var(--faint); white-space: nowrap; width: 52px; }
+.ft td:nth-child(2) { font: 700 13px var(--display); letter-spacing: .04em; white-space: nowrap; }
+.ft td:nth-child(3) { font: 400 11.5px/1.4 var(--mono); color: var(--line-2); word-break: break-word; }
+.ft tr.hl td { background: rgba(255,210,87,.18); color: var(--line); }
+.blank { border: 1.5px dashed var(--faint); padding: var(--s6); text-align: center; color: var(--line-2); font-style: italic; }
+.result { border: 1.5px solid var(--grn); padding: 12px 14px; margin-bottom: var(--s4); display: none; }
+.result.bad { border-color: var(--red); }
+.result h3 { font-size: 22px; text-transform: uppercase; color: var(--grn); margin-bottom: 6px; } .result.bad h3 { color: var(--red); }
+.kv { display: grid; grid-template-columns: auto 1fr auto; gap: 0 8px; font: 400 13px/1.8 var(--mono); }
+.kv .d { border-bottom: 1px dotted var(--faint); transform: translateY(-6px); }
+.table { width: 100%; border-collapse: collapse; font: 400 12.5px var(--mono); margin-top: var(--s3); }
+.table th { text-align: left; font: 700 12px var(--display); letter-spacing: .14em; text-transform: uppercase; padding: 6px; border-bottom: 1.5px solid var(--line); }
+.table td { padding: 6px; border-bottom: 1px solid var(--faint); }
+.table .mini { border: 1px solid var(--line-2); background: transparent; padding: 2px 7px; font: 600 11px var(--display); letter-spacing: .1em; cursor: pointer; text-transform: uppercase; }
+.table .mini:hover { background: var(--line); color: var(--bp); }
+
+/* ------------------------------------------------------------ lineage */
+.timeline { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); margin: var(--s5) 0 var(--s7); border-top: 1.5px solid var(--line); }
+.tl { padding: 14px 10px 0 0; position: relative; }
+.tl::before { content: ""; position: absolute; top: -7px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--bp); border: 2px solid var(--line); }
+.tl.here::before { background: var(--yel); border-color: var(--yel); }
+.tl b { display: block; font: 800 40px/1 var(--display); }
+.tl.here b { color: var(--yel); }
+.tl span { font: 700 15px var(--display); letter-spacing: .08em; text-transform: uppercase; } .tl small { display: block; font: 400 12px/1.4 var(--mono); color: var(--line-2); margin-top: 4px; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 15px; }
+.cmp th { text-align: left; font: 800 26px/1 var(--display); text-transform: uppercase; padding: 0 10px 10px; border-bottom: 1.5px solid var(--line); }
+.cmp th:nth-child(2) { color: var(--red); } .cmp th:nth-child(3) { color: var(--yel); } .cmp th:nth-child(4) { color: var(--grn); }
+.cmp td { padding: 9px 10px; border-bottom: 1px solid var(--faint); vertical-align: top; color: var(--line-2); }
+.cmp td:first-child { font: 600 12px/1.4 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--line); width: 20%; }
+.log { font: 400 11.5px/1.55 var(--mono); height: 320px; overflow: auto; border: 1.5px solid var(--line); padding: 8px 12px; background: rgba(11,42,82,.5); }
+.log .l { display: grid; grid-template-columns: 150px 22px minmax(0, 1fr); gap: 8px; }
+.log .l .s { color: var(--line-2); } .log .l .w { color: var(--yel); } .log .l .t { word-break: break-word; } .log .l .t i { color: var(--faint); font-style: normal; display: block; }
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1); } .reveal.in { opacity: 1; transform: none; }
+
+/* ------------------------------------------------------------ simulation player (video-style) */
+.player { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 0; background: var(--bp-3); border: 1.5px solid var(--line); box-shadow: 6px 6px 0 rgba(0,0,0,.35); }
+.pbtn { border: 0; border-right: 1.5px solid var(--line); background: transparent; padding: 11px 16px 10px; font: 700 15px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+.pbtn.play { background: var(--yel); color: var(--bp); min-width: 150px; }
+.pbtn.play.wait { animation: nudge 1.2s ease-in-out infinite; }
+@keyframes nudge { 50% { background: #fff1c2; box-shadow: inset 0 0 0 3px var(--bp); } }
+.pbtn[aria-pressed="true"] { background: var(--line); color: var(--bp); }
+.pbtn:hover:not(:disabled) { background: var(--line); color: var(--bp); }
+.pbtn:disabled { opacity: .45; cursor: default; }
+.pspeed { padding: 0 12px; font: 600 12px var(--display); letter-spacing: .14em; text-transform: uppercase; border-right: 1.5px solid var(--line); align-self: stretch; display: flex; align-items: center; gap: 6px; }
+.pspeed select { background: var(--bp-3); border: 1px solid var(--faint); padding: 3px 4px; font: 400 12px var(--mono); }
+.pscene { padding: 0 14px; font: 400 12px var(--mono); color: var(--line-2); white-space: nowrap; }
+.caption { position: fixed; left: 50%; bottom: 82px; transform: translate(-50%, 20px); width: min(980px, calc(100vw - 40px)); z-index: 49; background: rgba(11,42,82,.96); border: 1.5px solid var(--yel); padding: 14px 20px 16px; opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; box-shadow: 6px 6px 0 rgba(0,0,0,.35); }
+.caption.on { opacity: 1; transform: translate(-50%, 0); }
+.caption .ck { font: 600 12px var(--mono); letter-spacing: .14em; color: var(--yel); text-transform: uppercase; }
+.caption .ct { font: 800 30px/1.05 var(--display); text-transform: uppercase; margin: 4px 0 6px; }
+.caption .cn { font: 400 16px/1.5 var(--text); color: var(--line-2); min-height: 24px; }
+@media (max-height: 760px), (max-width: 900px) { .caption { padding: 10px 14px 12px; } .caption .ct { font-size: 20px; margin: 2px 0 4px; } .caption .cn { font-size: 14px; } }
+body.story .strip nav, body.story .ctl { pointer-events: none; opacity: .6; }
+@media (max-width: 700px) { .pscene { display: none; } .caption .ct { font-size: 22px; } }
+
+@media (max-width: 1100px) { .mast, .cols { grid-template-columns: minmax(0, 1fr); } .timeline { grid-template-columns: repeat(2, 1fr); row-gap: 24px; } }
+@media (max-width: 700px) {
+  .wrap { padding: 0 var(--s4); } .sheet { padding: var(--s6) var(--s3) var(--s7); outline: 0; } .sheet::before, .sheet::after { display: none; }
+  .sh { grid-template-columns: minmax(0, 1fr); } .sh .no { font-size: 64px; } .sh h2 { font-size: 30px; }
+  .hr { grid-template-columns: 34px repeat(16, 18px); } .hex { font-size: 10px; }
+  .tb { position: static; margin-top: var(--s4); } .cmp-wrap { overflow-x: auto; } .cmp { min-width: 620px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } .reveal { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="strip"><span>JU · CSE · Computer Networks Lab</span><span class="mono" style="letter-spacing:0;text-transform:none;color:var(--line-2)">drawing JU-CN-BOOT · rev C</span>
+    <nav aria-label="Sheets"><a href="#rarp">01 RARP</a><a href="#bootp">02 BOOTP</a><a href="#lineage">03 Lineage</a><a href="#log">04 Log</a></nav></div>
+
+  <header class="mast">
+    <div>
+      <h1><span class="o">Before</span><br>DHCP<span class="y">.</span></h1>
+      <p class="dek">A diskless workstation powers on knowing one thing: the <b>MAC address</b> burned into its network card. <b>RARP</b> (1984) and <b>BOOTP</b> (1985) were the first answers to "what is my IP address?" Both are obsolete now, and both are built here from their RFCs.</p>
+    </div>
+    <div class="spec">
+      <div class="hd">Specification</div>
+      <div class="r"><span>RARP</span><span>RFC 903 · layer 2 · EtherType 0x8035 · 28-byte payload</span></div>
+      <div class="r"><span>BOOTP</span><span>RFC 951 · RFC 1542 (relay) · RFC 1497 (options) · UDP 67/68 · 300 bytes</span></div>
+      <div class="r"><span>Lab ports</span><span>BOOTP server 1067 · relay 2067 · client 1068 · dashboard 8085</span></div>
+      <div class="r"><span>Network</span><span>LAN A 10.0.1.0/24 · LAN B 10.0.2.0/24 · one router between them</span></div>
+    </div>
+  </header>
+
+  <!-- ================================================================ 01 RARP -->
+  <section class="sheet" id="rarp">
+    <div class="sh"><div class="no">01</div><div><h2>RARP: <span>"What is my IP?"</span> shouted on the wire</h2><span class="rfc">RFC 903 · Reverse Address Resolution Protocol · Finlayson, Mann, Mogul, Theimer · June 1984</span></div></div>
+    <p class="lede">ARP asks "which MAC owns this IP?" RARP asks the opposite, "which IP belongs to <b>my</b> MAC?" It uses the same 28-byte packet with <b>opcode 3/4</b> and its own <b>EtherType 0x8035</b>. It runs directly on Ethernet with no IP and no UDP, so its frames travel on the simulated LAN below, byte for byte. <b>Click a workstation to boot it.</b></p>
+    <div class="ctl"><span class="lbl">Boot</span><button class="btn" data-rarp="WS-1">WS-1</button><button class="btn" data-rarp="WS-2">WS-2</button><button class="btn" data-rarp="WS-3">WS-3 (unknown MAC)</button><button class="btn y" data-rarp="WS-4">WS-4 (behind the router)</button><span class="note" id="rNote"></span></div>
+    <svg class="net" id="rNet" viewBox="0 0 1000 330" role="img" aria-label="LAN drawing for RARP"></svg>
+    <div class="cols">
+      <div><div class="events" id="rEv"><div class="blank">Boot a workstation. Each frame and decision appears here; click a row to see that frame byte by byte.</div></div></div>
+      <div>
+        <div class="lbl" id="rFrameH">Frame</div>
+        <div id="rHex"><div class="blank">No frame selected.</div></div>
+        <div class="lbl" style="margin-top:var(--s5)">/etc/ethers on the RARP server (MAC → IP)</div>
+        <table class="table" id="ethers"></table>
+      </div>
+    </div>
+    <div class="tb"><div><b>RARP</b>sheet 1 of 4</div><div>scale<br>1 frame = 60 B</div><div>EtherType<br>0x8035</div></div>
+  </section>
+
+  <!-- ================================================================ 02 BOOTP -->
+  <section class="sheet" id="bootp">
+    <div class="sh"><div class="no">02</div><div><h2>BOOTP: <span>everything to boot</span>, across routers</h2><span class="rfc">RFC 951 · Bootstrap Protocol · Croft &amp; Gilmore · September 1985 · relay RFC 1542 · vendor extensions RFC 1497</span></div></div>
+    <p class="lede">BOOTP moves up to <b>UDP</b> (client port 68 to server port 67) and replies with far more than an address: the <b>IP</b> (yiaddr), the <b>boot server</b> (siaddr), the <b>boot file</b> to fetch with TFTP, and a mask, router, DNS server and host name in the vendor area. Its key improvement is the <b>relay agent</b>: a router that catches the broadcast, writes its own address into <b>giaddr</b> and forwards it to a server on another LAN. Every packet here is a real 300-byte BOOTP message over a real UDP socket.</p>
+    <div class="ctl"><span class="lbl">Boot</span><button class="btn" data-bootp="WS-1">WS-1</button><button class="btn" data-bootp="WS-2">WS-2</button><button class="btn" data-bootp="WS-3">WS-3 (unknown MAC)</button><button class="btn y" data-bootp="WS-4">WS-4 (via the relay)</button>
+      <label class="chk"><input type="checkbox" id="relayOn" checked> router runs a BOOTP relay agent</label></div>
+    <svg class="net" id="bNet" viewBox="0 0 1000 330" role="img" aria-label="LAN drawing for BOOTP"></svg>
+    <div class="cols">
+      <div>
+        <div class="result" id="bRes"></div>
+        <div class="events" id="bEv"><div class="blank">Boot a workstation. Click a row to see that packet.</div></div>
+      </div>
+      <div>
+        <div class="lbl" id="bPktH">Packet</div>
+        <div id="bHex"><div class="blank">No packet selected.</div></div>
+        <div class="lbl" style="margin-top:var(--s5)">/etc/bootptab on the server</div>
+        <table class="table" id="bootptab"></table>
+      </div>
+    </div>
+    <div class="tb"><div><b>BOOTP</b>sheet 2 of 4</div><div>scale<br>1 message = 300 B</div><div>UDP<br>67 / 68</div></div>
+  </section>
+
+  <!-- ================================================================ 03 LINEAGE -->
+  <section class="sheet" id="lineage">
+    <div class="sh"><div class="no">03</div><div><h2>Lineage: <span>RARP → BOOTP → DHCP</span></h2><span class="rfc">each one fixes what the one before could not do</span></div></div>
+    <div class="timeline">
+      <div class="tl"><b>1982</b><span>ARP</span><small>RFC 826: IP → MAC</small></div>
+      <div class="tl here"><b>1984</b><span>RARP</span><small>RFC 903: MAC → IP, layer 2 only</small></div>
+      <div class="tl here"><b>1985</b><span>BOOTP</span><small>RFC 951: UDP, boot file, relay</small></div>
+      <div class="tl"><b>1993</b><span>DHCP</span><small>RFC 1541 → 2131 (1997): leases, pools</small></div>
+      <div class="tl"><b>today</b><span>DHCP / PXE</span><small>still the BOOTP packet layout + options</small></div>
+    </div>
+    <div class="cmp-wrap"><table class="cmp">
+      <tr><th></th><th>RARP</th><th>BOOTP</th><th>DHCP</th></tr>
+      <tr><td>Layer</td><td>link layer (Ethernet, 0x8035)</td><td>application layer over UDP 67/68</td><td>application layer over UDP 67/68</td></tr>
+      <tr><td>Gives the client</td><td>an IP address only</td><td>IP, boot server, boot file, mask, router, DNS, host name</td><td>everything BOOTP gives, plus lease time and many more options</td></tr>
+      <tr><td>Crosses routers</td><td>no: broadcasts stop at the router, so every LAN needs its own server</td><td>yes, via a relay agent (giaddr, hops)</td><td>yes, the same relay agents</td></tr>
+      <tr><td>Address assignment</td><td>static table (/etc/ethers)</td><td>static table (/etc/bootptab)</td><td>static <i>or</i> dynamic from a pool</td></tr>
+      <tr><td>Address lifetime</td><td>permanent</td><td>permanent (no leases)</td><td>a lease that must be renewed</td></tr>
+      <tr><td>Unknown machine</td><td>silence</td><td>silence</td><td>gets an address from the pool</td></tr>
+      <tr><td>Needs a hardware-level API</td><td>yes: a server must send and receive raw Ethernet frames</td><td>no: ordinary UDP sockets</td><td>no</td></tr>
+      <tr><td>Status</td><td>obsolete</td><td>obsolete, but DHCP servers still answer BOOTP clients</td><td>in use everywhere</td></tr>
+    </table></div>
+    <div class="tb"><div><b>Lineage</b>sheet 3 of 4</div><div>1982<br>→ today</div><div>JU-CN<br>BOOT</div></div>
+  </section>
+
+  <!-- ================================================================ 04 LOG -->
+  <section class="sheet" id="log">
+    <div class="sh"><div class="no">04</div><div><h2>Wire log</h2><span class="rfc">every RARP frame and BOOTP packet the lab has handled</span></div></div>
+    <div class="log" id="logBox"><div class="blank">Nothing on the wire yet.</div></div>
+    <div class="tb"><div><b>Log</b>sheet 4 of 4</div><div>live</div><div>8085</div></div>
+  </section>
+</div>
+
+<div class="player" id="player" aria-label="Simulation player">
+  <button class="pbtn" id="pRestart" title="Start the story again from the beginning">⟲ Restart</button>
+  <button class="pbtn play" id="pFwd" title="Next step (→ or space)">Forward ▶</button>
+  <button class="pbtn" id="pAuto" aria-pressed="false" title="Play the remaining steps by themselves">Auto-play ▶▶</button>
+  <label class="pspeed">speed <select id="pSpeed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+  <span class="pscene" id="pScene">press Forward to start the story</span>
+</div>
+<div class="caption" id="caption" aria-live="polite"><div class="ck" id="capK"></div><div class="ct" id="capT"></div><div class="cn" id="capN"></div></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async p => (await fetch(p, { cache: 'no-store' })).json();
+const PLAY = { speed: 1, paused: false, waiters: [], story: false, auto: false, fwd: null, step: 0 };
+async function gate() { while (PLAY.paused) await new Promise(r => PLAY.waiters.push(r)); }
+const W = async ms => { await gate(); await new Promise(r => setTimeout(r, ms / PLAY.speed)); await gate(); };
+/** One step boundary: in step mode, wait here until Forward is clicked; with Auto-play, wait `ms`. */
+async function beat(ms) {
+  if (PLAY.auto) { await W(ms); return; }
+  $('pFwd').classList.add('wait');
+  await new Promise(r => { PLAY.fwd = r; });
+  $('pFwd').classList.remove('wait');
+}
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+
+// ================================================================ the network drawing (shared by both sheets)
+const BUS = 165, POS = { 'WS-1': [110, 'up'], 'WS-2': [270, 'up'], 'WS-3': [430, 'up'], SERVER: [250, 'down'], ROUTER: [640, 'mid'], 'WS-4': [850, 'up'] };
+const Y = { up: 75, down: 260, mid: BUS };
+let topo = null;
+function drawNet(svg, mode) {
+  svg.innerHTML = '';
+  const g = sv('g', {}, svg);
+  sv('line', { class: 'bus', x1: 40, y1: BUS, x2: 590, y2: BUS }, g); sv('line', { class: 'bus', x1: 690, y1: BUS, x2: 960, y2: BUS }, g);
+  [40, 590, 690, 960].forEach(x => sv('rect', { class: 'term', x: x - 4, y: BUS - 9, width: 8, height: 18 }, g));
+  const t1 = sv('text', { class: 'seg', x: 44, y: BUS + 30 }, g); t1.textContent = 'LAN A · 10.0.1.0/24';
+  const t2 = sv('text', { class: 'seg', x: 700, y: BUS + 30 }, g); t2.textContent = 'LAN B · 10.0.2.0/24';
+  sv('line', { class: 'tap', x1: 585, y1: BUS, x2: 695, y2: BUS, 'stroke-dasharray': '3 5' }, g);
+  const nodes = {};
+  topo.stations.forEach(s => {
+    const key = s.name === 'ROUTER-B' ? null : s.name; if (!key) return;
+    const [x, pos] = POS[key], y = Y[pos];
+    if (pos !== 'mid') sv('line', { class: 'tap', x1: x, y1: pos === 'up' ? y + 26 : y - 26, x2: x, y2: BUS }, g);
+    const n = sv('g', { class: 'st' + (s.ip ? '' : ' ws') + (key === 'ROUTER' ? ' router' : ''), 'data-ws': key }, g);
+    const w = key === 'ROUTER' ? 110 : 132;
+    sv('rect', { x: x - w / 2, y: y - 26, width: w, height: 52 }, n);
+    const a = sv('text', { x: x - w / 2 + 10, y: y - 6 }, n); a.textContent = key === 'ROUTER' ? (mode === 'bootp' ? 'ROUTER + RELAY' : 'ROUTER') : key === 'SERVER' ? 'BOOT SERVER' : key;
+    const b = sv('text', { x: x - w / 2 + 10, y: y + 8, class: 'sub' }, n); b.textContent = key === 'ROUTER' ? 'eth0 10.0.1.1' : s.mac;
+    const c = sv('text', { x: x - w / 2 + 10, y: y + 20, class: s.ip ? 'sub' : 'ipl', 'data-ip': key }, n); c.textContent = key === 'ROUTER' ? 'eth1 10.0.2.1' : s.ip ? s.ip : 'IP = ?';
+    nodes[key] = { g: n, x, y, pos };
+  });
+  const d = sv('text', { class: 'dim', x: 40, y: 318 }, g); d.textContent = mode === 'rarp' ? 'RARP frames are layer-2 broadcasts: they reach every station on one LAN and stop at the router.' : 'BOOTP rides UDP: the relay agent on the router carries requests across to LAN A (giaddr = 10.0.2.1).';
+  svg.layer = sv('g', {}, svg);
+  svg.nodes = nodes;
+  svg.querySelectorAll('.st.ws').forEach(n => n.onclick = () => (mode === 'rarp' ? rarp : bootp)(n.dataset.ws));
+}
+function reset(svg) { Object.values(svg.nodes).forEach(n => n.g.classList.remove('hear', 'me', 'ok', 'bad')); svg.layer.innerHTML = ''; }
+function setIp(svg, ws, ip) { const t = svg.querySelector(`[data-ip="${ws}"]`); if (t) t.textContent = ip; }
+function tapPoint(n) { return n.pos === 'mid' ? [n.x, BUS] : [n.x, n.pos === 'up' ? n.y + 26 : n.y - 26]; }
+// move a packet along a polyline
+function travel(svg, pts, uni) {
+  if (REDUCED) return Promise.resolve();
+  return new Promise(res => {
+    const p = sv('rect', { class: 'pk' + (uni ? ' uni' : ''), width: 18, height: 12, rx: 2 }, svg.layer);
+    const L = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); L.push(d); tot += d; }
+    const t0 = performance.now(), dur = Math.max(500, tot * 1.6) / PLAY.speed;
+    let done = false;
+    const finish = () => { if (done) return; done = true; p.remove(); res(); };
+    setTimeout(function guard() { if (PLAY.paused) { setTimeout(guard, 200); return; } finish(); }, dur + 250);   // background tabs pause requestAnimationFrame: never let the animation block the run
+    (function f() {
+      if (done) return;
+      let k = Math.min(1, (performance.now() - t0) / dur), want = k * tot, i = 0;
+      while (i < L.length - 1 && want > L[i]) { want -= L[i]; i++; }
+      const r = L[i] ? want / L[i] : 1, x = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * r, y = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * r;
+      p.setAttribute('x', x - 9); p.setAttribute('y', y - 6);
+      if (k < 1) requestAnimationFrame(f); else finish();
+    })();
+  });
+}
+function path(svg, from, to) {
+  const a = svg.nodes[from], b = svg.nodes[to];
+  return [[a.x, a.y], tapPoint(a), [a.x, BUS], [b.x, BUS], tapPoint(b), [b.x, b.y]];
+}
+async function broadcast(svg, from, hear) {
+  const a = svg.nodes[from], left = a.x < 600 ? 40 : 690, right = a.x < 600 ? 590 : 960;
+  await Promise.all([travel(svg, [[a.x, a.y], tapPoint(a), [a.x, BUS], [left, BUS]]), travel(svg, [[a.x, a.y], tapPoint(a), [a.x, BUS], [right, BUS]])]);
+  hear.forEach(h => { const n = svg.nodes[h === 'ROUTER-B' ? 'ROUTER' : h]; if (n) n.g.classList.add('hear'); });
+}
+function blocked(svg) { const x = 640, y = BUS - 52; sv('line', { class: 'xmark', x1: x - 13, y1: y - 13, x2: x + 13, y2: y + 13 }, svg.layer); sv('line', { class: 'xmark', x1: x + 13, y1: y - 13, x2: x - 13, y2: y + 13 }, svg.layer); const t = sv('text', { x: x + 20, y: y + 4, class: 'dim' }, svg.layer); t.textContent = 'broadcast not forwarded'; t.style.fill = '#ff7d6b'; }
+
+// ================================================================ hex + fields
+function hexView(box, hex, fields, title, titleEl) {
+  const bytes = []; for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substr(i, 2), 16));
+  const own = new Array(bytes.length).fill(-1); fields.forEach((f, i) => { for (let k = f.off; k < f.off + f.len; k++) own[k] = i; });
+  let h = '<div class="hex">';
+  for (let r = 0; r < bytes.length; r += 16) { h += `<div class="hr"><span class="o">${r.toString(16).padStart(4, '0')}</span>`; for (let c = 0; c < 16 && r + c < bytes.length; c++) { const f = fields[own[r + c]]; h += `<span class="b ${f ? f.part : ''}" data-f="${own[r + c]}">${bytes[r + c].toString(16).padStart(2, '0')}</span>`; } h += '</div>'; }
+  h += '</div>';
+  const parts = [...new Set(fields.map(f => f.part))];
+  h += `<div class="legend">${parts.map(p => `<span><i class="b ${p}" style="display:inline-block"></i>${p}</span>`).join('')}</div><div class="tip">Point at a byte or a field.</div>`;
+  h += `<table class="ft">${fields.map((f, i) => `<tr data-f="${i}"><td>${f.off}+${f.len}</td><td>${esc(f.label)}</td><td>${esc(f.value)}</td></tr>`).join('')}</table>`;
+  box.innerHTML = h; titleEl.textContent = title + ` · ${bytes.length} bytes`;
+  const hl = i => { box.querySelectorAll('.hl').forEach(x => x.classList.remove('hl')); if (i < 0) return; box.querySelectorAll(`.b[data-f="${i}"]`).forEach(x => x.classList.add('hl')); const tr = box.querySelector(`tr[data-f="${i}"]`); tr && tr.classList.add('hl'); box.querySelector('.tip').textContent = `${fields[i].label} · bytes ${fields[i].off}–${fields[i].off + fields[i].len - 1}: ${fields[i].value}`; };
+  box.onmouseover = e => { const t = e.target.closest('[data-f]'); if (t) hl(+t.dataset.f); };
+}
+
+// ================================================================ 01 RARP
+let rBusy = false;
+document.querySelectorAll('[data-rarp]').forEach(b => b.onclick = () => rarp(b.dataset.rarp));
+async function rarp(ws) {
+  if (rBusy || bBusy) { $('pScene').textContent = 'finish the current run first: press Forward'; return; } rBusy = true;
+  const svg = $('rNet'); reset(svg); setIp(svg, ws, 'IP = ?');
+  svg.nodes[ws].g.classList.add('me');
+  PLAY.step = 0;
+  const r = await api('/api/rarp?ws=' + ws), box = $('rEv');
+  box.innerHTML = ''; $('rNote').textContent = '';
+  for (const [i, e] of r.events.entries()) {
+    const d = document.createElement('div'); d.className = 'ev';
+    d.innerHTML = `<span class="k ${e.kind}">${esc(e.kind)}</span><span class="n">${esc(e.note)}${e.hex ? `<span class="pkt"> · ${e.hex.length / 2}-byte frame</span>` : ''}</span>`;
+    d.onclick = () => { box.querySelectorAll('.ev').forEach(x => x.classList.remove('on')); d.classList.add('on'); if (e.hex) hexView($('rHex'), e.hex, e.fields, `${e.kind} frame from ${e.from}`, $('rFrameH')); };
+    box.appendChild(d); box.scrollTop = 1e9;
+    box.querySelectorAll('.ev').forEach(x => x.classList.remove('on')); d.classList.add('on');
+    if (e.hex) hexView($('rHex'), e.hex, e.fields, `${e.kind} frame from ${e.from}`, $('rFrameH'));
+    say(e.note);
+    if (e.kind === 'broadcast') { Object.values(svg.nodes).forEach(n => n.g.classList.remove('hear')); await broadcast(svg, e.from, e.to); }
+    else if (e.kind === 'blocked') blocked(svg);
+    else if (e.kind === 'unicast') await travel(svg, path(svg, e.from, e.to[0]), true);
+    else if (e.kind === 'done') { svg.nodes[ws].g.classList.add('ok'); setIp(svg, ws, (e.note.match(/IP: (\d+\.\d+\.\d+\.\d+)/) || [, ''])[1]); }
+    else if (e.kind === 'fail') { svg.nodes[ws].g.classList.add('bad'); setIp(svg, ws, 'no answer'); }
+    PLAY.step++; $('pScene').textContent = (PLAY.story ? PLAY.sceneLabel + ' · ' : '') + 'step ' + PLAY.step;
+    await beat(REDUCED ? 50 : PLAY.story ? 2600 : e.kind === 'timeout' ? 500 : 650);
+  }
+  rBusy = false;
+}
+
+// ================================================================ 02 BOOTP
+let bBusy = false;
+document.querySelectorAll('[data-bootp]').forEach(b => b.onclick = () => bootp(b.dataset.bootp));
+$('relayOn').onchange = () => api('/api/relay?on=' + ($('relayOn').checked ? 1 : 0));
+const NODE = { CLIENT: null, SERVER: 'SERVER', RELAY: 'ROUTER' };
+async function bootp(ws) {
+  if (bBusy || rBusy) { $('pScene').textContent = 'finish the current run first: press Forward'; return; } bBusy = true;
+  const svg = $('bNet'); reset(svg); setIp(svg, ws, 'IP = ?');
+  svg.nodes[ws].g.classList.add('me');
+  $('bRes').style.display = 'none'; $('bEv').innerHTML = '<div class="blank">Booting…</div>';
+  PLAY.step = 0;
+  const r = await api('/api/bootp?ws=' + ws), box = $('bEv');
+  box.innerHTML = '';
+  for (const s of r.steps) {
+    const d = document.createElement('div'); d.className = 'ev';
+    d.innerHTML = `<span class="k ${s.kind}">${esc(s.kind)}</span><span class="n"><b>${esc(s.from)}${s.to !== '-' ? ' → ' + esc(s.to) : ''}</b> · ${esc(s.note)}</span>`;
+    const show = () => { if (s.hex) hexView($('bHex'), s.hex, s.fields, `${s.from} → ${s.to}`, $('bPktH')); };
+    d.onclick = () => { box.querySelectorAll('.ev').forEach(x => x.classList.remove('on')); d.classList.add('on'); show(); };
+    box.appendChild(d); box.scrollTop = 1e9;
+    box.querySelectorAll('.ev').forEach(x => x.classList.remove('on')); d.classList.add('on'); show();
+    say(s.note);
+    const from = s.from === 'CLIENT' ? ws : NODE[s.from], to = s.to === 'CLIENT' ? ws : NODE[s.to];
+    if (s.kind === 'broadcast') {
+      const hear = topo.stations.filter(x => x.segment === topo.stations.find(y => y.name === ws).segment && x.name !== ws).map(x => x.name);
+      Object.values(svg.nodes).forEach(n => n.g.classList.remove('hear'));
+      await broadcast(svg, ws, hear);
+    } else if (from && to && from !== to) await travel(svg, path(svg, from, to), true);
+    if (s.kind === 'dropped') blocked(svg);
+    PLAY.step++; $('pScene').textContent = (PLAY.story ? PLAY.sceneLabel + ' · ' : '') + 'step ' + PLAY.step;
+    await beat(REDUCED ? 50 : PLAY.story ? 3200 : 600);
+  }
+  const res = $('bRes'); res.style.display = 'block'; res.className = 'result' + (r.ok ? '' : ' bad');
+  if (r.ok) {
+    svg.nodes[ws].g.classList.add('ok'); setIp(svg, ws, r.ip);
+    const kv = [['IP address (yiaddr)', r.ip], ['subnet mask', r.mask], ['router', r.router], ['DNS server', r.dns], ['host name', r.host], ['boot server (siaddr)', r.server], ['boot file', r.file], ['round trip', r.ms + ' ms, ' + r.attempts + ' try']];
+    res.innerHTML = `<h3>${esc(ws)} configured</h3><div class="kv">${kv.map(([k, v]) => `<span>${k}</span><span class="d"></span><span>${esc(v)}</span>`).join('')}</div>`;
+  } else { svg.nodes[ws].g.classList.add('bad'); setIp(svg, ws, 'no answer'); res.innerHTML = `<h3>${esc(ws)}: no BOOTREPLY</h3><span class="mono">${r.attempts} tries, then gave up</span>`; }
+  bBusy = false; loadState();
+}
+
+// ================================================================ tables, log, state
+async function register(ws, on) { await api(`/api/register?ws=${ws}&on=${on ? 1 : 0}&ip=10.0.1.23`); loadState(); }
+function tables() {
+  const reg = new Set(topo.table.map(t => t.mac));
+  const rows = topo.stations.filter(s => !s.ip);
+  $('ethers').innerHTML = '<tr><th>Station</th><th>MAC</th><th>IP</th><th></th></tr>' + rows.map(s => { const t = topo.table.find(x => x.mac === s.mac); return `<tr><td>${s.name}</td><td>${s.mac}</td><td>${t ? t.ip : '—'}</td><td><button class="mini" data-reg="${s.name}" data-on="${t ? 0 : 1}">${t ? 'remove' : 'register'}</button></td></tr>`; }).join('');
+  $('bootptab').innerHTML = '<tr><th>Host</th><th>MAC</th><th>IP</th><th>Boot file</th></tr>' + topo.table.map(t => `<tr><td>${t.host}</td><td>${t.mac}</td><td>${t.ip}</td><td>${t.file}</td></tr>`).join('');
+  document.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => register(b.dataset.reg, b.dataset.on === '1'));
+}
+async function loadState(first) {
+  const s = await api('/api/state'); topo = s.topology;
+  if (first) { drawNet($('rNet'), 'rarp'); drawNet($('bNet'), 'bootp'); }
+  $('relayOn').checked = s.relay; tables();
+}
+let lseq = 0, hasLog = false;
+async function pollLines() {
+  try {
+    const r = await api('/api/lines?since=' + lseq), box = $('logBox');
+    for (const l of r.lines) {
+      lseq = l.seq; if (!hasLog) { box.innerHTML = ''; hasLog = true; }
+      const d = document.createElement('div'); d.className = 'l';
+      d.innerHTML = `<span class="s">${esc(l.session)}</span><span class="w">${l.dir === 'C' ? '→' : '←'}</span><span class="t">${esc(l.text)}${l.note ? `<i>${esc(l.note)}</i>` : ''}</span>`;
+      box.appendChild(d);
+    }
+    box.scrollTop = 1e9;
+  } catch (e) { }
+  setTimeout(pollLines, 800);
+}
+const links = [...document.querySelectorAll('.strip nav a')];
+const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-40% 0px -55% 0px' });
+document.querySelectorAll('.sheet').forEach(s => spy.observe(s));
+if (!REDUCED) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('.sheet > :not(.sh):not(.tb)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+  setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { if (x.getBoundingClientRect().top < innerHeight * 1.2) x.classList.add('in'); }), 400);
+  document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (a) { const t = document.querySelector(a.getAttribute('href')); t && t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); } });
+}
+// ================================================================ the story: the whole simulation, hands-free, like a video
+const SCENES = [
+  { k: 'Scene 1 of 6 · RARP', t: 'WS-1 asks: "what is my IP?"', at: '#rarp', run: () => rarp('WS-1') },
+  { k: 'Scene 2 of 6 · RARP', t: 'WS-4 is behind the router', at: '#rarp', run: () => rarp('WS-4') },
+  { k: 'Scene 3 of 6 · BOOTP', t: 'WS-1 boots with BOOTP over UDP', at: '#bootp', run: () => bootp('WS-1') },
+  { k: 'Scene 4 of 6 · BOOTP', t: 'WS-4 again, now through the relay agent', at: '#bootp', run: () => bootp('WS-4') },
+  { k: 'Scene 5 of 6 · BOOTP', t: 'Switch the relay agent off', at: '#bootp', run: async () => { await api('/api/relay?on=0'); $('relayOn').checked = false; await bootp('WS-4'); await api('/api/relay?on=1'); $('relayOn').checked = true; } },
+  { k: 'Scene 6 of 6 · Lineage', t: 'RARP → BOOTP → DHCP', at: '#lineage', run: async () => { say('RARP gave only an IP and could not cross routers. BOOTP added the boot file, options and relay agents, but every machine still had to be typed into a table. DHCP (1993) kept the BOOTP packet and added address pools and leases.'); await beat(9000); } },
+];
+function say(n) { if (PLAY.story) $('capN').textContent = n || ''; }
+function caption(k, t, n) { $('capK').textContent = k; $('capT').textContent = t; $('capN').textContent = n || ''; $('caption').classList.add('on'); }
+async function story() {
+  if (PLAY.story) return;
+  PLAY.story = true; PLAY.paused = false; document.body.classList.add('story');
+  document.documentElement.style.scrollBehavior = 'auto';
+  document.querySelectorAll('.reveal').forEach(x => x.classList.add('in'));
+  PLAY.sceneLabel = 'intro'; $('pScene').textContent = 'intro';
+  caption('JU Bootstrap Lab', 'Before DHCP: RARP and BOOTP', 'How a diskless workstation learns its IP address. Everything you see runs live: real RARP frames on a simulated Ethernet, real BOOTP packets over UDP. Press Forward for each step.');
+  window.scrollTo({ top: 0 }); await beat(5000);
+  for (const [i, sc] of SCENES.entries()) {
+    PLAY.sceneLabel = `scene ${i + 1} / ${SCENES.length}`; $('pScene').textContent = PLAY.sceneLabel;
+    const el = document.querySelector(sc.at === '#rarp' ? '#rNet' : sc.at === '#bootp' ? '#bNet' : sc.at);
+    window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (sc.at === '#lineage' ? 20 : 64) });   // the drawing sits at the top, the caption below it
+    caption(sc.k, sc.t, 'Press Forward to start this scene.'); await beat(2200);
+    await sc.run();
+  }
+  PLAY.sceneLabel = 'end'; $('pScene').textContent = 'end';
+  caption('The end', 'Thank you', 'RARP (RFC 903, 1984) · BOOTP (RFC 951, 1985) · built from the RFCs in pure Java.');
+  await beat(4000);
+  $('caption').classList.remove('on'); document.body.classList.remove('story');
+  PLAY.story = false; $('pScene').textContent = 'press Forward to start the story again';
+  document.documentElement.style.scrollBehavior = '';
+  window.__storyDone = true;
+}
+/** Forward: release the step that is waiting; if nothing is running, start the story at its first step. */
+function forward() {
+  if (PLAY.fwd) { const f = PLAY.fwd; PLAY.fwd = null; f(); return; }
+  if (!PLAY.story && !rBusy && !bBusy) { window.__storyDone = false; story(); }
+}
+$('pFwd').onclick = forward;
+$('pAuto').onclick = () => {
+  PLAY.auto = !PLAY.auto; $('pAuto').setAttribute('aria-pressed', PLAY.auto); $('pAuto').textContent = PLAY.auto ? 'Auto-play: on' : 'Auto-play ▶▶';
+  if (PLAY.auto) { if (PLAY.fwd) forward(); else if (!PLAY.story && !rBusy && !bBusy) forward(); }
+};
+$('pRestart').onclick = () => { location.hash = ''; location.reload(); };
+$('pSpeed').onchange = () => { PLAY.speed = +$('pSpeed').value; };
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,select,textarea')) return;
+  if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); forward(); }
+});
+
+loadState(true); pollLines();
+</script>
+</body>
+</html>
