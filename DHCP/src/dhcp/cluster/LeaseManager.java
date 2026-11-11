@@ -19,29 +19,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Thread-safe IP Address Pool, Static VIP Reservation, and Lease Lifecycle Manager.
- * Supports:
- * - Dynamic range allocation (e.g. 192.168.10.10 to 192.168.10.150)
- * - Static MAC-to-IP reservations
- * - Automatic Lease Expiration Reaper background task
- * - Disk persistence (leases_cluster.db)
- * - Active-Active peer replication state merge
- */
 public class LeaseManager {
 
-    private final String subnetPrefix; // e.g., "192.168.10."
+    private final String subnetPrefix;
     private final int startHost;
     private final int endHost;
     private final int defaultLeaseSeconds;
     private final File persistenceFile;
 
     private final List<String> ipPool = new ArrayList<>();
-    // IP -> LeaseRecord
     private final ConcurrentHashMap<String, LeaseRecord> leasesByIp = new ConcurrentHashMap<>();
-    // MAC -> IP
     private final ConcurrentHashMap<String, String> ipByMac = new ConcurrentHashMap<>();
-    // MAC -> Static Reserved IP
     private final ConcurrentHashMap<String, String> staticReservations = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService reaperExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -61,13 +49,11 @@ public class LeaseManager {
             ipPool.add(this.subnetPrefix + i);
         }
 
-        // Seed default static VIP reservations for demonstration
         addStaticReservation("00:1A:2B:3C:4D:01", this.subnetPrefix + "5", "gateway-admin-vip");
         addStaticReservation("00:1A:2B:3C:4D:02", this.subnetPrefix + "6", "prod-db-primary");
 
         loadFromDisk();
 
-        // Start background reaper every 2 seconds
         reaperExecutor.scheduleAtFixedRate(this::reapExpiredLeases, 2, 2, TimeUnit.SECONDS);
     }
 
@@ -87,13 +73,9 @@ public class LeaseManager {
         ipByMac.put(normalizedMac, ip);
     }
 
-    /**
-     * Step 1 of DORA: Create or reuse an IP offer for a client MAC.
-     */
     public synchronized LeaseRecord offerLease(String mac, String hostname, String requestedIp, String nodeId) {
         String normalizedMac = mac.toUpperCase();
 
-        // 1. Check static reservation first
         if (staticReservations.containsKey(normalizedMac)) {
             String staticIp = staticReservations.get(normalizedMac);
             LeaseRecord record = new LeaseRecord(
@@ -106,7 +88,6 @@ public class LeaseManager {
             return record;
         }
 
-        // 2. Check if client already has an existing active/offered lease
         String existingIp = ipByMac.get(normalizedMac);
         if (existingIp != null) {
             LeaseRecord existing = leasesByIp.get(existingIp);
@@ -114,7 +95,7 @@ public class LeaseManager {
                 LeaseRecord refreshed = new LeaseRecord(
                         existingIp, normalizedMac, hostname,
                         LeaseRecord.State.OFFERED, nodeId,
-                        System.currentTimeMillis() + 30_000L, // 30s offer window
+                        System.currentTimeMillis() + 30_000L,
                         false
                 );
                 leasesByIp.put(existingIp, refreshed);
@@ -122,7 +103,6 @@ public class LeaseManager {
             }
         }
 
-        // 3. Honor requested IP if available in pool
         if (requestedIp != null && ipPool.contains(requestedIp)) {
             LeaseRecord current = leasesByIp.get(requestedIp);
             if (current == null || current.isExpired()) {
@@ -130,7 +110,6 @@ public class LeaseManager {
             }
         }
 
-        // 4. Allocate first free or expired IP from the pool
         for (String candidateIp : ipPool) {
             if (staticReservations.containsValue(candidateIp)) continue;
             LeaseRecord current = leasesByIp.get(candidateIp);
@@ -139,7 +118,7 @@ public class LeaseManager {
             }
         }
 
-        return null; // Pool exhausted
+        return null;
     }
 
     private LeaseRecord createOffer(String ip, String mac, String hostname, String nodeId) {
@@ -154,9 +133,6 @@ public class LeaseManager {
         return offer;
     }
 
-    /**
-     * Step 3 of DORA: Confirm DHCPREQUEST and transition lease to ACTIVE.
-     */
     public synchronized LeaseRecord commitLease(String mac, String requestedIp, String hostname, String nodeId, int leaseTimeSec) {
         String normalizedMac = mac.toUpperCase();
         int durationSec = leaseTimeSec > 0 ? leaseTimeSec : defaultLeaseSeconds;
@@ -165,16 +141,15 @@ public class LeaseManager {
         if (targetIp == null || targetIp.equals("0.0.0.0")) {
             targetIp = ipByMac.get(normalizedMac);
         }
-        if (targetIp == null) {
+        if (targetIp == null || !targetIp.startsWith(subnetPrefix)) {
             return null;
         }
 
-        // Verify no other active MAC owns this IP
         LeaseRecord existing = leasesByIp.get(targetIp);
         if (existing != null && !existing.isExpired()
                 && existing.getState() != LeaseRecord.State.EXPIRED
                 && !existing.getMacAddress().equalsIgnoreCase(normalizedMac)) {
-            return null; // Conflict -> Server will reply DHCPNAK
+            return null;
         }
 
         boolean isStatic = staticReservations.containsKey(normalizedMac);
@@ -194,9 +169,6 @@ public class LeaseManager {
         return active;
     }
 
-    /**
-     * Handle DHCPRELEASE from client.
-     */
     public synchronized boolean releaseLease(String mac, String nodeId) {
         String normalizedMac = mac.toUpperCase();
         String ip = ipByMac.remove(normalizedMac);
@@ -211,9 +183,6 @@ public class LeaseManager {
         return false;
     }
 
-    /**
-     * Handle DHCPDECLINE (IP conflict detected by client ARP probe).
-     */
     public synchronized LeaseRecord declineLease(String mac, String declinedIp, String nodeId) {
         String normalizedMac = mac.toUpperCase();
         ipByMac.remove(normalizedMac);
@@ -230,9 +199,6 @@ public class LeaseManager {
         return null;
     }
 
-    /**
-     * Active-Active Cluster Gossip Sync: Applies a replicated LeaseRecord from a peer DHCP node.
-     */
     public synchronized void applyPeerSync(LeaseRecord incoming) {
         if (incoming.getState() == LeaseRecord.State.EXPIRED) {
             leasesByIp.remove(incoming.getIpAddress());
@@ -243,9 +209,6 @@ public class LeaseManager {
         }
     }
 
-    /**
-     * Reclaims expired dynamic leases automatically.
-     */
     public synchronized int reapExpiredLeases() {
         int reaped = 0;
         for (Map.Entry<String, LeaseRecord> entry : leasesByIp.entrySet()) {
@@ -284,7 +247,7 @@ public class LeaseManager {
                 if (line.isEmpty()) continue;
                 try {
                     LeaseRecord rec = LeaseRecord.deserialize(line);
-                    if (!rec.isExpired()) {
+                    if (!rec.isExpired() && rec.getIpAddress().startsWith(this.subnetPrefix)) {
                         leasesByIp.put(rec.getIpAddress(), rec);
                         ipByMac.put(rec.getMacAddress(), rec.getIpAddress());
                     }

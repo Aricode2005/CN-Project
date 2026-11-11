@@ -9,14 +9,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Full RFC 2131 Compliant DHCP Packet Parser & Serializer.
- *
- * Structure:
- * - Fixed 236-byte BOOTP header (op, htype, hlen, hops, xid, secs, flags, ciaddr, yiaddr, siaddr, giaddr, chaddr, sname, file)
- * - 4-byte Magic Cookie: 99.130.83.99 (0x63, 0x82, 0x53, 0x63)
- * - Variable-length TLV (Type-Length-Value) DHCP Options terminated by 0xFF (Option 255)
- */
 public class DhcpPacket {
 
     public static final byte BOOTREQUEST = 1;
@@ -26,7 +18,6 @@ public class DhcpPacket {
 
     public static final byte[] MAGIC_COOKIE = new byte[]{99, (byte) 130, 83, 99};
 
-    // Standard RFC 2132 DHCP Option Codes
     public static final byte OPT_SUBNET_MASK = 1;
     public static final byte OPT_ROUTER = 3;
     public static final byte OPT_DNS_SERVER = 6;
@@ -38,8 +29,8 @@ public class DhcpPacket {
     public static final byte OPT_SERVER_ID = 54;
     public static final byte OPT_PARAM_REQ_LIST = 55;
     public static final byte OPT_MESSAGE = 56;
-    public static final byte OPT_CLIENT_PORT = (byte) 224; // Private option for simulated client return port on single host
-    public static final byte OPT_SYNC_PAYLOAD = (byte) 225; // Private option for cluster state replication payload
+    public static final byte OPT_CLIENT_PORT = (byte) 224;
+    public static final byte OPT_SYNC_PAYLOAD = (byte) 225;
     public static final byte OPT_END = (byte) 255;
 
     private byte op = BOOTREQUEST;
@@ -48,14 +39,13 @@ public class DhcpPacket {
     private byte hops = 0;
     private int xid;
     private short secs = 0;
-    private short flags = (short) 0x8000; // Broadcast flag
+    private short flags = (short) 0x8000;
 
-    private String ciaddr = "0.0.0.0"; // Client IP
-    private String yiaddr = "0.0.0.0"; // 'Your' (Client) offered/assigned IP
-    private String siaddr = "0.0.0.0"; // Next Server IP
-    private String giaddr = "0.0.0.0"; // Relay Agent / Load Balancer IP
-
-    private String chaddr = "00:00:00:00:00:00"; // Client MAC address
+    private String ciaddr = "0.0.0.0";
+    private String yiaddr = "0.0.0.0";
+    private String siaddr = "0.0.0.0";
+    private String giaddr = "0.0.0.0";
+    private String chaddr = "00:00:00:00:00:00";
 
     private final Map<Byte, byte[]> options = new LinkedHashMap<>();
 
@@ -77,20 +67,16 @@ public class DhcpPacket {
         buffer.put(ipToBytes(siaddr));
         buffer.put(ipToBytes(giaddr));
 
-        // 16-byte chaddr field
         byte[] macBytes = macToBytes(chaddr);
         byte[] chaddrField = new byte[16];
         System.arraycopy(macBytes, 0, chaddrField, 0, Math.min(macBytes.length, 16));
         buffer.put(chaddrField);
 
-        // 64-byte sname + 128-byte file (zeros)
         buffer.put(new byte[64]);
         buffer.put(new byte[128]);
 
-        // 4-byte Magic Cookie
         buffer.put(MAGIC_COOKIE);
 
-        // TLV Options
         for (Map.Entry<Byte, byte[]> entry : options.entrySet()) {
             byte code = entry.getKey();
             byte[] val = entry.getValue();
@@ -100,8 +86,11 @@ public class DhcpPacket {
             buffer.put(val);
         }
 
-        // End Option (255)
         buffer.put(OPT_END);
+
+        while (buffer.position() < 300) {
+            buffer.put((byte) 0);
+        }
 
         byte[] result = new byte[buffer.position()];
         buffer.flip();
@@ -138,21 +127,18 @@ public class DhcpPacket {
         buffer.get(chaddrField);
         packet.chaddr = bytesToMac(Arrays.copyOf(chaddrField, 6));
 
-        // Skip sname (64) and file (128)
         buffer.position(buffer.position() + 192);
 
-        // Verify Magic Cookie
         byte[] cookie = new byte[4];
         buffer.get(cookie);
         if (!Arrays.equals(cookie, MAGIC_COOKIE)) {
             throw new IllegalArgumentException("Invalid DHCP Magic Cookie");
         }
 
-        // Parse TLV Options
         while (buffer.hasRemaining()) {
             byte code = buffer.get();
             if (code == 0) {
-                continue; // Pad option
+                continue;
             }
             if (code == OPT_END) {
                 break;
@@ -168,7 +154,6 @@ public class DhcpPacket {
         return packet;
     }
 
-    // Convenience Option Getters/Setters
     public void setMessageType(DhcpMessageType type) {
         options.put(OPT_MESSAGE_TYPE, new byte[]{type.getCode()});
     }
@@ -209,6 +194,10 @@ public class DhcpPacket {
     public String getOptionString(byte code) {
         byte[] val = options.get(code);
         return val != null ? new String(val, StandardCharsets.UTF_8) : null;
+    }
+
+    public void removeOption(byte code) {
+        options.remove(code);
     }
 
     public static byte[] ipToBytes(String ip) {

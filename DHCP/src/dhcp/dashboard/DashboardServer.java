@@ -6,6 +6,7 @@ import dhcp.client.DhcpClientSimulator;
 import dhcp.cluster.DhcpServerNode;
 import dhcp.lb.ConsistentHashRouter;
 import dhcp.lb.DhcpLoadBalancer;
+import dhcp.lb.RateLimiter;
 import dhcp.model.LeaseRecord;
 
 import java.io.IOException;
@@ -15,13 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Built-in Zero-Dependency HTTP Dashboard & REST Control Server (Port 8080).
- * Provides:
- * - GET /            -> Real-time Distributed Systems UI Dashboard
- * - GET /api/state   -> JSON telemetry (Node health, load distribution, active leases, logs, rate limiter stats)
- * - POST /api/action -> Interactive controls (Simulate clients, toggle LB strategy, crash/recover nodes, test starvation attack)
- */
 public class DashboardServer {
 
     private final int httpPort;
@@ -67,10 +61,10 @@ public class DashboardServer {
         StringBuilder json = new StringBuilder();
         json.append("{");
         json.append("\"strategy\":\"").append(loadBalancer.getRouter().getStrategy().name()).append("\",");
+        json.append("\"rateAlgorithm\":\"").append(loadBalancer.getRateLimiter().getAlgorithm().name()).append("\",");
         json.append("\"rateAllowed\":").append(loadBalancer.getRateLimiter().getTotalAllowed()).append(",");
         json.append("\"rateDropped\":").append(loadBalancer.getRateLimiter().getTotalDropped()).append(",");
 
-        // Nodes array
         json.append("\"nodes\":[");
         Map<Integer, Boolean> healthMap = loadBalancer.getNodeHealthStatus();
         Map<Integer, Long> loadMap = loadBalancer.getRouter().getNodeLoadCounters();
@@ -93,7 +87,6 @@ public class DashboardServer {
         }
         json.append("],");
 
-        // Leases from first online node (or Node-1 since state is replicated)
         DhcpServerNode primaryView = nodes.get(0);
         for (DhcpServerNode n : nodes) {
             if (!n.isSimulatedDown()) {
@@ -119,7 +112,6 @@ public class DashboardServer {
         }
         json.append("],");
 
-        // Recent Event Logs
         json.append("\"logs\":[");
         synchronized (recentLogs) {
             int start = Math.max(0, recentLogs.size() - 35);
@@ -173,6 +165,12 @@ public class DashboardServer {
             } else if (query.contains("cmd=strategy_ll")) {
                 loadBalancer.getRouter().setStrategy(ConsistentHashRouter.Strategy.LEAST_LOADED);
                 resultMsg = "Switched to LEAST_LOADED";
+            } else if (query.contains("cmd=rate_tb")) {
+                loadBalancer.getRateLimiter().setAlgorithm(RateLimiter.Algorithm.TOKEN_BUCKET);
+                resultMsg = "Switched to TOKEN_BUCKET Rate Limiter";
+            } else if (query.contains("cmd=rate_sw")) {
+                loadBalancer.getRateLimiter().setAlgorithm(RateLimiter.Algorithm.SLIDING_WINDOW_COUNTER);
+                resultMsg = "Switched to SLIDING_WINDOW_COUNTER Rate Limiter";
             } else if (query.startsWith("cmd=toggle_node_")) {
                 int idx = Integer.parseInt(query.substring("cmd=toggle_node_".length()));
                 if (idx >= 0 && idx < nodes.size()) {
@@ -252,6 +250,9 @@ public class DashboardServer {
                "    <button class='btn secondary' onclick=\"act('strategy_ch')\">Consistent Hashing</button>\n" +
                "    <button class='btn secondary' onclick=\"act('strategy_rr')\">Round Robin</button>\n" +
                "    <button class='btn secondary' onclick=\"act('strategy_ll')\">Least Loaded</button>\n" +
+               "    <span style='margin-left:16px;color:var(--muted);font-size:13px;'>Rate Limiter:</span>\n" +
+               "    <button class='btn secondary' onclick=\"act('rate_tb')\">Token Bucket</button>\n" +
+               "    <button class='btn secondary' onclick=\"act('rate_sw')\">Sliding Window Counter</button>\n" +
                "    <div id='rateStats' style='margin-top:6px;font-size:13px;color:var(--muted);'></div>\n" +
                "  </div>\n" +
                "  <div class='grid' id='nodesGrid'></div>\n" +
@@ -277,8 +278,8 @@ public class DashboardServer {
                "      try {\n" +
                "        const res = await fetch('/api/state');\n" +
                "        const data = await res.json();\n" +
-               "        document.getElementById('lbBadge').innerText = 'LB Strategy: ' + data.strategy;\n" +
-               "        document.getElementById('rateStats').innerHTML = `Token-Bucket Rate Limiter &mdash; Allowed Packets: <strong style='color:#22c55e'>${data.rateAllowed}</strong> | Dropped Flood Packets: <strong style='color:#ef4444'>${data.rateDropped}</strong>`;\n" +
+               "        document.getElementById('lbBadge').innerText = 'LB Strategy: ' + data.strategy + ' | Limiter: ' + data.rateAlgorithm;\n" +
+               "        document.getElementById('rateStats').innerHTML = `Rate Limiter (<strong>${data.rateAlgorithm}</strong>) &mdash; Allowed Packets: <strong style='color:#22c55e'>${data.rateAllowed}</strong> | Dropped Flood Packets: <strong style='color:#ef4444'>${data.rateDropped}</strong>`;\n" +
                "        document.getElementById('poolCount').innerText = `(${data.leases.length} / ${data.poolTotal} IPs in use)`;\n" +
                "        const ng = document.getElementById('nodesGrid');\n" +
                "        ng.innerHTML = data.nodes.map((n, idx) => `\n" +

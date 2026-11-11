@@ -1,8 +1,5 @@
 package dhcp.protocol;
 
-/**
- * RFC 2131 DHCP Message Types (Option 53) plus internal distributed cluster control message types.
- */
 public enum DhcpMessageType {
     DHCPDISCOVER((byte) 1),
     DHCPOFFER((byte) 2),
@@ -13,10 +10,10 @@ public enum DhcpMessageType {
     DHCPRELEASE((byte) 7),
     DHCPINFORM((byte) 8),
 
-    // Distributed Systems / Internal Cluster Control Messages
     CLUSTER_PEER_SYNC((byte) 101),
     CLUSTER_HEALTH_PING((byte) 102),
-    CLUSTER_HEALTH_PONG((byte) 103);
+    CLUSTER_HEALTH_PONG((byte) 103),
+    CLUSTER_CHAOS_TOGGLE((byte) 104);
 
     private final byte code;
 

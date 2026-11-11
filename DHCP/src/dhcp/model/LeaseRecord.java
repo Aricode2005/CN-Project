@@ -1,15 +1,12 @@
 package dhcp.model;
 
-/**
- * Represents a single IP Address Lease or Offer in the Distributed DHCP Cluster.
- */
 public class LeaseRecord {
 
     public enum State {
-        OFFERED,    // Temporarily offered during DORA (awaiting DHCPREQUEST)
-        ACTIVE,     // Bound and acknowledged (DHCPACK sent)
-        EXPIRED,    // Lease TTL elapsed
-        DECLINED    // Marked conflicted via DHCPDECLINE
+        OFFERED,
+        ACTIVE,
+        EXPIRED,
+        DECLINED
     }
 
     private final String ipAddress;
@@ -57,9 +54,6 @@ public class LeaseRecord {
         return !staticReservation && System.currentTimeMillis() > expiresAtEpochMs;
     }
 
-    /**
-     * Serializes LeaseRecord into a compact pipe-delimited string for Peer Gossip Sync and Disk WAL.
-     */
     public String serialize() {
         return String.join("|",
                 ipAddress,

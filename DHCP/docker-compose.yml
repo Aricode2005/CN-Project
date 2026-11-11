@@ -1,0 +1,78 @@
+services:
+  gateway-admin-vip:
+    image: nginx:alpine
+    container_name: gateway-admin-vip
+    mac_address: "00:1a:2b:3c:4d:01"
+    ports:
+      - "8085:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/html:/usr/share/nginx/html:ro
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.5
+
+  prod-db-primary:
+    build:
+      context: ./database
+    container_name: prod-db-primary
+    mac_address: "00:1a:2b:3c:4d:02"
+    environment:
+      POSTGRES_DB: dhcp_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.6
+
+  dhcp-node-1:
+    build: .
+    container_name: dhcp-node-1
+    command: ["--role", "node", "--id", "DHCP-Node-1", "--ip", "192.168.10.201", "--port", "6701", "--peers", "192.168.10.202:6702,192.168.10.203:6703,192.168.10.200:67"]
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.201
+
+  dhcp-node-2:
+    build: .
+    container_name: dhcp-node-2
+    command: ["--role", "node", "--id", "DHCP-Node-2", "--ip", "192.168.10.202", "--port", "6702", "--peers", "192.168.10.201:6701,192.168.10.203:6703,192.168.10.200:67"]
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.202
+
+  dhcp-node-3:
+    build: .
+    container_name: dhcp-node-3
+    command: ["--role", "node", "--id", "DHCP-Node-3", "--ip", "192.168.10.203", "--port", "6703", "--peers", "192.168.10.201:6701,192.168.10.202:6702,192.168.10.200:67"]
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.203
+
+  dhcp-load-balancer:
+    build: .
+    container_name: dhcp-load-balancer
+    stdin_open: true
+    tty: true
+    depends_on:
+      - dhcp-node-1
+      - dhcp-node-2
+      - dhcp-node-3
+      - gateway-admin-vip
+      - prod-db-primary
+    ports:
+      - "6700:67/udp"
+      - "8080:8080/tcp"
+    command: ["--lan", "--nodes", "192.168.10.201:6701,192.168.10.202:6702,192.168.10.203:6703"]
+    networks:
+      dhcp_lan:
+        ipv4_address: 192.168.10.200
+
+networks:
+  dhcp_lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24

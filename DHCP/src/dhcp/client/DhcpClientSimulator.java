@@ -12,14 +12,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-/**
- * Multi-Client DHCP Simulator for testing:
- * - Full RFC 2131 DORA (DISCOVER -> OFFER -> REQUEST -> ACK)
- * - Static VIP MAC requests
- * - DHCPRELEASE & DHCPDECLINE
- * - Concurrent Multi-Client Load Balancing distribution
- * - Simulated DHCP Starvation Attack (Rogue MAC flood)
- */
 public class DhcpClientSimulator {
 
     private final int loadBalancerPort;
@@ -32,16 +24,12 @@ public class DhcpClientSimulator {
         this.eventLogger = eventLogger;
     }
 
-    /**
-     * Executes a complete 4-way DORA handshake for a single simulated client over UDP.
-     */
     public String runSingleClientDora(String macAddress, String hostname) {
         try (DatagramSocket clientSocket = new DatagramSocket()) {
             clientSocket.setSoTimeout(2500);
             int xid = random.nextInt(0x7FFFFFFF);
             InetAddress lbAddr = InetAddress.getByName("127.0.0.1");
 
-            // Step 1: Send DHCPDISCOVER
             DhcpPacket discover = new DhcpPacket();
             discover.setOp(DhcpPacket.BOOTREQUEST);
             discover.setXid(xid);
@@ -53,7 +41,6 @@ public class DhcpClientSimulator {
             clientSocket.send(new DatagramPacket(discBytes, discBytes.length, lbAddr, loadBalancerPort));
             log("[" + hostname + " | " + macAddress + "] Sent DHCPDISCOVER (xid=0x" + Integer.toHexString(xid) + ")");
 
-            // Step 2: Receive DHCPOFFER
             byte[] buf = new byte[1500];
             DatagramPacket offerRaw = new DatagramPacket(buf, buf.length);
             clientSocket.receive(offerRaw);
@@ -68,7 +55,6 @@ public class DhcpClientSimulator {
             String serverId = offer.getOptionIp(DhcpPacket.OPT_SERVER_ID);
             log("[" + hostname + "] Received DHCPOFFER: IP=" + offeredIp + " from Server=" + serverId);
 
-            // Step 3: Send DHCPREQUEST for the offered IP
             DhcpPacket request = new DhcpPacket();
             request.setOp(DhcpPacket.BOOTREQUEST);
             request.setXid(xid);
@@ -82,8 +68,8 @@ public class DhcpClientSimulator {
 
             byte[] reqBytes = request.toBytes();
             clientSocket.send(new DatagramPacket(reqBytes, reqBytes.length, lbAddr, loadBalancerPort));
+            log("[" + hostname + "] Sent DHCPREQUEST for IP=" + offeredIp + " (serverId=" + serverId + ")");
 
-            // Step 4: Receive DHCPACK or DHCPNAK
             DatagramPacket ackRaw = new DatagramPacket(buf, buf.length);
             clientSocket.receive(ackRaw);
             DhcpPacket ack = DhcpPacket.fromBytes(ackRaw.getData(), ackRaw.getLength());
@@ -106,9 +92,6 @@ public class DhcpClientSimulator {
         }
     }
 
-    /**
-     * Spawns N concurrent clients to demonstrate Load Balancing & Consistent Hashing across nodes.
-     */
     public void simulateConcurrentClients(int count) {
         ExecutorService pool = Executors.newFixedThreadPool(Math.min(count, 8));
         for (int i = 0; i < count; i++) {
@@ -120,9 +103,6 @@ public class DhcpClientSimulator {
         pool.shutdown();
     }
 
-    /**
-     * Sends a DHCPRELEASE for a given MAC and IP.
-     */
     public void sendRelease(String macAddress, String assignedIp) {
         try (DatagramSocket clientSocket = new DatagramSocket()) {
             DhcpPacket release = new DhcpPacket();
@@ -139,9 +119,6 @@ public class DhcpClientSimulator {
         }
     }
 
-    /**
-     * Sends a DHCPINFORM from a client that already has an IP and wants local configuration options (DNS, Router, Domain).
-     */
     public void sendInform(String macAddress, String clientIp, String hostname) {
         try (DatagramSocket clientSocket = new DatagramSocket()) {
             clientSocket.setSoTimeout(2000);
@@ -172,9 +149,6 @@ public class DhcpClientSimulator {
         }
     }
 
-    /**
-     * Sends a DHCPDECLINE indicating the offered IP was detected as already in use (ARP conflict).
-     */
     public void sendDecline(String macAddress, String conflictedIp) {
         try (DatagramSocket clientSocket = new DatagramSocket()) {
             DhcpPacket decline = new DhcpPacket();
@@ -191,9 +165,6 @@ public class DhcpClientSimulator {
         }
     }
 
-    /**
-     * Simulates a Rogue Client launching a DHCP Starvation Flood to trigger Token-Bucket Rate Limiting.
-     */
     public void simulateStarvationAttack(int packetBurstCount) {
         log("[SECURITY-SIM] Launching simulated DHCP Starvation flood (" + packetBurstCount + " rapid DISCOVER packets)...");
         try (DatagramSocket attackSocket = new DatagramSocket()) {

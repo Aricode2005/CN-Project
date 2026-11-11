@@ -3,12 +3,14 @@ package dhcp.lb;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Token-Bucket Rate Limiter to defend the DHCP Cluster against:
- * 1. Per-MAC rapid flooding
- * 2. Global DHCP Starvation Attacks (spoofed MAC floods attempting to exhaust the IP pool)
- */
 public class RateLimiter {
+
+    public enum Algorithm {
+        TOKEN_BUCKET,
+        SLIDING_WINDOW_COUNTER
+    }
+
+    private volatile Algorithm currentAlgorithm = Algorithm.TOKEN_BUCKET;
 
     private static class Bucket {
         double tokens;
@@ -28,6 +30,23 @@ public class RateLimiter {
     private final double globalRefillPerSecond;
 
     private final ConcurrentHashMap<String, Bucket> macBuckets = new ConcurrentHashMap<>();
+
+    private static class WindowCounter {
+        long currentWindowStartMs;
+        int previousCount;
+        int currentCount;
+
+        WindowCounter(long windowStartMs) {
+            this.currentWindowStartMs = windowStartMs;
+            this.previousCount = 0;
+            this.currentCount = 0;
+        }
+    }
+
+    private final long windowSizeMs = 1000L;
+    private final WindowCounter globalWindowCounter = new WindowCounter(0L);
+    private final ConcurrentHashMap<String, WindowCounter> macWindowCounters = new ConcurrentHashMap<>();
+
     private final AtomicLong totalAllowed = new AtomicLong(0);
     private final AtomicLong totalDropped = new AtomicLong(0);
 
@@ -40,9 +59,16 @@ public class RateLimiter {
     }
 
     public boolean allowRequest(String macAddress) {
+        if (currentAlgorithm == Algorithm.SLIDING_WINDOW_COUNTER) {
+            return allowRequestSlidingWindow(macAddress);
+        } else {
+            return allowRequestTokenBucket(macAddress);
+        }
+    }
+
+    private boolean allowRequestTokenBucket(String macAddress) {
         long now = System.currentTimeMillis();
 
-        // 1. Check Global Token Bucket (protects against spoofed MAC DHCP Starvation floods)
         synchronized (globalBucket) {
             double elapsedSec = (now - globalBucket.lastRefillMs) / 1000.0;
             if (elapsedSec > 0) {
@@ -56,7 +82,6 @@ public class RateLimiter {
             globalBucket.tokens -= 1.0;
         }
 
-        // 2. Check Per-MAC Token Bucket
         Bucket macBucket = macBuckets.computeIfAbsent(macAddress.toUpperCase(), k -> new Bucket(maxTokensPerMac));
         synchronized (macBucket) {
             double elapsedSec = (now - macBucket.lastRefillMs) / 1000.0;
@@ -75,6 +100,50 @@ public class RateLimiter {
         return true;
     }
 
+    private boolean allowRequestSlidingWindow(String macAddress) {
+        long now = System.currentTimeMillis();
+        long currentWindowStart = now - (now % windowSizeMs);
+
+        synchronized (globalWindowCounter) {
+            if (currentWindowStart > globalWindowCounter.currentWindowStartMs) {
+                long elapsedWindows = (currentWindowStart - globalWindowCounter.currentWindowStartMs) / windowSizeMs;
+                globalWindowCounter.previousCount = (elapsedWindows == 1) ? globalWindowCounter.currentCount : 0;
+                globalWindowCounter.currentCount = 0;
+                globalWindowCounter.currentWindowStartMs = currentWindowStart;
+            }
+            double progress = (double) (now - globalWindowCounter.currentWindowStartMs) / windowSizeMs;
+            double estimatedCount = (globalWindowCounter.previousCount * (1.0 - progress)) + globalWindowCounter.currentCount;
+            if (estimatedCount >= maxGlobalTokens) {
+                totalDropped.incrementAndGet();
+                return false;
+            }
+            globalWindowCounter.currentCount++;
+        }
+
+        WindowCounter macCounter = macWindowCounters.computeIfAbsent(
+                macAddress.toUpperCase(), k -> new WindowCounter(currentWindowStart));
+        synchronized (macCounter) {
+            if (currentWindowStart > macCounter.currentWindowStartMs) {
+                long elapsedWindows = (currentWindowStart - macCounter.currentWindowStartMs) / windowSizeMs;
+                macCounter.previousCount = (elapsedWindows == 1) ? macCounter.currentCount : 0;
+                macCounter.currentCount = 0;
+                macCounter.currentWindowStartMs = currentWindowStart;
+            }
+            double progress = (double) (now - macCounter.currentWindowStartMs) / windowSizeMs;
+            double estimatedCount = (macCounter.previousCount * (1.0 - progress)) + macCounter.currentCount;
+            if (estimatedCount >= maxTokensPerMac) {
+                totalDropped.incrementAndGet();
+                return false;
+            }
+            macCounter.currentCount++;
+        }
+
+        totalAllowed.incrementAndGet();
+        return true;
+    }
+
+    public Algorithm getAlgorithm() { return currentAlgorithm; }
+    public void setAlgorithm(Algorithm algorithm) { this.currentAlgorithm = algorithm; }
     public long getTotalAllowed() { return totalAllowed.get(); }
     public long getTotalDropped() { return totalDropped.get(); }
 }

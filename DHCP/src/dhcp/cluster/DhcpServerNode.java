@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -18,30 +19,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-/**
- * A Distributed DHCP Server Worker Node.
- * - Listens on a dedicated UDP port (e.g. 6701, 6702, 6703)
- * - Processes full RFC 2131 DORA + RELEASE + INFORM + DECLINE packets
- * - Participates in Active-Active Peer State Replication (Gossip over UDP)
- * - Responds to Load Balancer Heartbeat Health Pings
- * - Supports simulated node crash / recovery (Chaos Engineering)
- */
 public class DhcpServerNode {
 
     private final String nodeId;
     private final String serverIp;
     private final int udpPort;
     private final LeaseManager leaseManager;
-    private final List<Integer> peerPorts = new CopyOnWriteArrayList<>();
+    private final List<InetSocketAddress> peerEndpoints = new CopyOnWriteArrayList<>();
 
-    private final String subnetMask = "255.255.255.0";
-    private final String routerGateway = "192.168.10.1";
-    private final String dnsServer = "8.8.8.8";
-    private final String domainName = "corp.distributed.local";
+    private String subnetMask = "255.255.255.0";
+    private String routerGateway = "192.168.10.1";
+    private String dnsServer = "8.8.8.8";
+    private String domainName = "corp.distributed.local";
 
     private DatagramSocket socket;
     private final AtomicBoolean running = new AtomicBoolean(false);
-    // Simulated crash flag for Chaos / Failover testing
     private final AtomicBoolean simulatedDown = new AtomicBoolean(false);
 
     private final ExecutorService workerPool;
@@ -54,11 +46,25 @@ public class DhcpServerNode {
     private Consumer<String> eventLogger;
 
     public DhcpServerNode(String nodeId, String serverIp, int udpPort, File persistenceFile, Consumer<String> eventLogger) {
+        this(nodeId, serverIp, udpPort, "192.168.10.", "192.168.10.1", "8.8.8.8", persistenceFile, eventLogger);
+    }
+
+    public DhcpServerNode(
+            String nodeId,
+            String serverIp,
+            int udpPort,
+            String subnetPrefix,
+            String routerGateway,
+            String dnsServer,
+            File persistenceFile,
+            Consumer<String> eventLogger) {
         this.nodeId = nodeId;
         this.serverIp = serverIp;
         this.udpPort = udpPort;
+        this.routerGateway = routerGateway;
+        this.dnsServer = dnsServer;
         this.eventLogger = eventLogger;
-        this.leaseManager = new LeaseManager("192.168.10.", 10, 150, 120, persistenceFile);
+        this.leaseManager = new LeaseManager(subnetPrefix, 10, 150, 120, persistenceFile);
         this.workerPool = Executors.newFixedThreadPool(4, r -> {
             Thread t = new Thread(r, nodeId + "-Worker");
             t.setDaemon(true);
@@ -67,8 +73,16 @@ public class DhcpServerNode {
     }
 
     public void registerPeerPort(int peerPort) {
-        if (peerPort != this.udpPort && !peerPorts.contains(peerPort)) {
-            peerPorts.add(peerPort);
+        registerPeerEndpoint("127.0.0.1", peerPort);
+    }
+
+    public void registerPeerEndpoint(String peerHost, int peerPort) {
+        if (peerPort == this.udpPort && (peerHost.equals("127.0.0.1") || peerHost.equals(this.serverIp))) {
+            return;
+        }
+        InetSocketAddress addr = new InetSocketAddress(peerHost, peerPort);
+        if (!peerEndpoints.contains(addr)) {
+            peerEndpoints.add(addr);
         }
     }
 
@@ -78,7 +92,7 @@ public class DhcpServerNode {
         Thread listenerThread = new Thread(this::listenLoop, nodeId + "-UDP-Listener");
         listenerThread.setDaemon(true);
         listenerThread.start();
-        log("Started on UDP port " + udpPort + " (Server ID: " + serverIp + ")");
+        log("Started on UDP port " + udpPort + " (Server ID: " + serverIp + ", Gateway: " + routerGateway + ")");
     }
 
     private void listenLoop() {
@@ -88,15 +102,25 @@ public class DhcpServerNode {
                 DatagramPacket rawPacket = new DatagramPacket(buf, buf.length);
                 socket.receive(rawPacket);
 
-                // If node is in simulated crash mode, drop all traffic (including health pings)
-                if (simulatedDown.get()) {
-                    continue;
-                }
-
                 byte[] copy = new byte[rawPacket.getLength()];
                 System.arraycopy(rawPacket.getData(), rawPacket.getOffset(), copy, 0, rawPacket.getLength());
                 InetAddress senderAddr = rawPacket.getAddress();
                 int senderPort = rawPacket.getPort();
+
+                try {
+                    DhcpPacket check = DhcpPacket.fromBytes(copy, copy.length);
+                    if (check.getMessageType() == DhcpMessageType.CLUSTER_CHAOS_TOGGLE) {
+                        boolean nextDown = !simulatedDown.get();
+                        simulatedDown.set(nextDown);
+                        log(nextDown ? "CHAOS ALERT: Node simulated CRASH (offline)" : "RECOVERY: Node restored ONLINE");
+                        continue;
+                    }
+                } catch (Exception ignored) {
+                }
+
+                if (simulatedDown.get()) {
+                    continue;
+                }
 
                 workerPool.submit(() -> handlePacket(copy, senderAddr, senderPort));
             } catch (IOException e) {
@@ -113,7 +137,6 @@ public class DhcpServerNode {
             DhcpMessageType type = request.getMessageType();
             if (type == null) return;
 
-            // 1. Handle Load Balancer Health Check Ping
             if (type == DhcpMessageType.CLUSTER_HEALTH_PING) {
                 DhcpPacket pong = new DhcpPacket();
                 pong.setOp(DhcpPacket.BOOTREPLY);
@@ -124,7 +147,6 @@ public class DhcpServerNode {
                 return;
             }
 
-            // 2. Handle Peer Gossip Replication Sync
             if (type == DhcpMessageType.CLUSTER_PEER_SYNC) {
                 String payload = request.getOptionString(DhcpPacket.OPT_SYNC_PAYLOAD);
                 if (payload != null) {
@@ -231,7 +253,6 @@ public class DhcpServerNode {
         reply.setOptionString(DhcpPacket.OPT_DOMAIN_NAME, domainName);
         reply.setOptionInt(DhcpPacket.OPT_LEASE_TIME, leaseManager.getDefaultLeaseSeconds());
 
-        // Preserve client return port option if forwarded through the UDP Relay/Load Balancer
         Integer clientPort = req.getOptionInt(DhcpPacket.OPT_CLIENT_PORT);
         if (clientPort != null) {
             reply.setOptionInt(DhcpPacket.OPT_CLIENT_PORT, clientPort);
@@ -239,9 +260,6 @@ public class DhcpServerNode {
         return reply;
     }
 
-    /**
-     * Asynchronously replicates lease state changes to all peer DHCP server nodes via UDP Gossip.
-     */
     private void replicateToPeers(LeaseRecord record) {
         DhcpPacket syncPacket = new DhcpPacket();
         syncPacket.setOp(DhcpPacket.BOOTREQUEST);
@@ -250,9 +268,9 @@ public class DhcpServerNode {
         syncPacket.setOptionString(DhcpPacket.OPT_SYNC_PAYLOAD, record.serialize());
         byte[] bytes = syncPacket.toBytes();
 
-        for (int peerPort : peerPorts) {
+        for (InetSocketAddress peer : peerEndpoints) {
             try {
-                DatagramPacket dp = new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), peerPort);
+                DatagramPacket dp = new DatagramPacket(bytes, bytes.length, peer.getAddress(), peer.getPort());
                 socket.send(dp);
             } catch (IOException ignored) {
             }
@@ -279,7 +297,23 @@ public class DhcpServerNode {
     public void setSimulatedDown(boolean down) {
         this.simulatedDown.set(down);
         log(down ? "CHAOS ALERT: Node simulated CRASH (offline)" : "RECOVERY: Node restored ONLINE");
+        if (!running.get()) {
+            try (DatagramSocket tmp = new DatagramSocket()) {
+                DhcpPacket toggle = new DhcpPacket();
+                toggle.setOp(DhcpPacket.BOOTREQUEST);
+                toggle.setXid((int) System.nanoTime());
+                toggle.setMessageType(DhcpMessageType.CLUSTER_CHAOS_TOGGLE);
+                byte[] bytes = toggle.toBytes();
+                DatagramPacket dp = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(serverIp), udpPort);
+                tmp.send(dp);
+            } catch (IOException ignored) {
+            }
+        }
     }
+
+    public void recordRemoteOffer() { offersSent.incrementAndGet(); }
+    public void recordRemoteAck() { acksSent.incrementAndGet(); }
+    public void recordRemotePeerSync() { peerSyncsReceived.incrementAndGet(); }
 
     public boolean isSimulatedDown() { return simulatedDown.get(); }
     public String getNodeId() { return nodeId; }

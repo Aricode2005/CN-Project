@@ -311,3 +311,43 @@ If you are demonstrating this project to an instructor or interviewer, follow th
 4. **Demonstrate DHCP Starvation Attack Defense**:
    - Click **"Launch DHCP Starvation Flood (40 pkts)"**.
    - Watch the **Dropped Flood Packets** counter jump in red and see `RATE LIMIT DROP: Blocked packet from MAC DE:AD:BE:EF:...` appear in the Real-Time Packet Event Stream.
+
+---
+
+## 8. Direct LAN Mode (`0.0.0.0:67`) & Multi-Machine / Docker Deployment
+
+We have implemented **Direct LAN Mode (`--lan`)** and **Multi-Host Backend Node Routing (`--nodes` & `--role node`)** directly into [`DhcpLoadBalancer.java`](file:///c:/Users/aritr/OneDrive/Desktop/CN%20Project/DHCP/src/dhcp/lb/DhcpLoadBalancer.java), [`DhcpServerNode.java`](file:///c:/Users/aritr/OneDrive/Desktop/CN%20Project/DHCP/src/dhcp/cluster/DhcpServerNode.java), and [`Main.java`](file:///c:/Users/aritr/OneDrive/Desktop/CN%20Project/DHCP/src/dhcp/Main.java).
+
+### Option A: Single Laptop Serving Real LAN Devices (`run_lan.bat`)
+Runs the Load Balancer on **`0.0.0.0:67`** (with `socket.setBroadcast(true)`) and broadcasts `DHCPOFFER` / `DHCPACK` replies to **`255.255.255.255:68`**:
+1. Disable the built-in DHCP server on your lab router/switch (or VirtualBox Host-Only / Internal network).
+2. Open PowerShell or Command Prompt **as Administrator** (required by the OS to bind to UDP port `67`) and run:
+   ```powershell
+   .\run_lan.bat --subnet 192.168.10. --gateway 192.168.10.1 --dns 8.8.8.8
+   ```
+
+### Option B: 4 Separate Laptops / Raspberry Pis / VMs on a Real LAN Switch
+If you have 4 machines connected to a switch on subnet `192.168.10.0/24`:
+- **On Machine 2 (`192.168.10.201` — `DHCP-Node-1`)**:
+  ```powershell
+  java -cp out dhcp.Main --role node --id DHCP-Node-1 --ip 192.168.10.201 --port 6701 --peers 192.168.10.202:6702,192.168.10.203:6703
+  ```
+- **On Machine 3 (`192.168.10.202` — `DHCP-Node-2`)**:
+  ```powershell
+  java -cp out dhcp.Main --role node --id DHCP-Node-2 --ip 192.168.10.202 --port 6702 --peers 192.168.10.201:6701,192.168.10.203:6703
+  ```
+- **On Machine 4 (`192.168.10.203` — `DHCP-Node-3`)**:
+  ```powershell
+  java -cp out dhcp.Main --role node --id DHCP-Node-3 --ip 192.168.10.203 --port 6703 --peers 192.168.10.201:6701,192.168.10.202:6702
+  ```
+- **On Machine 1 (`192.168.10.200` — Load Balancer on `0.0.0.0:67` + Web Dashboard on `:8080`)**:
+  ```powershell
+  java -cp out dhcp.Main --lan --nodes 192.168.10.201:6701,192.168.10.202:6702,192.168.10.203:6703
+  ```
+
+### Option C: 4-Container Docker LAN Cluster (`docker-compose.yml`)
+To spin up the Load Balancer (`192.168.10.200:67`) and the 3 Backend Nodes (`192.168.10.201`, `.202`, `.203`) as 4 isolated Linux containers on a `192.168.10.0/24` bridge network:
+```powershell
+docker compose up --build
+```
+

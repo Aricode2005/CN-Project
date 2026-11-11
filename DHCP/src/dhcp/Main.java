@@ -17,16 +17,6 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
-/**
- * Main Entry Point for the Distributed & Load-Balanced DHCP Server System in Java.
- *
- * Topology:
- * - UDP Load Balancer & Relay Agent (giaddr=192.168.10.254): Port 6700
- * - DHCP Server Node-1 (10.0.0.1): Port 6701
- * - DHCP Server Node-2 (10.0.0.2): Port 6702
- * - DHCP Server Node-3 (10.0.0.3): Port 6703
- * - Real-Time Web Dashboard & REST API: http://localhost:8080
- */
 public class Main {
 
     private static final int LB_PORT = 6700;
@@ -36,7 +26,16 @@ public class Main {
     private static final int DASHBOARD_PORT = 8080;
 
     public static void main(String[] args) throws Exception {
-        boolean verifyOnly = Arrays.asList(args).contains("--verify");
+        List<String> argList = Arrays.asList(args);
+        boolean verifyOnly = argList.contains("--verify");
+        boolean directLanMode = argList.contains("--lan");
+        String role = getArgValue(args, "--role", "all");
+        String subnetPrefix = getArgValue(args, "--subnet", "192.168.10.");
+        String gatewayIp = getArgValue(args, "--gateway", "192.168.10.1");
+        String dnsIp = getArgValue(args, "--dns", "8.8.8.8");
+        String remoteNodesArg = getArgValue(args, "--nodes", null);
+
+        int lbListenPort = directLanMode ? 67 : Integer.parseInt(getArgValue(args, "--lb-port", String.valueOf(LB_PORT)));
 
         List<String> recentLogs = Collections.synchronizedList(new ArrayList<>());
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss.SSS");
@@ -61,38 +60,104 @@ public class Main {
             dataDir.mkdirs();
         }
 
-        // 1. Instantiate 3 Distributed DHCP Server Worker Nodes
-        DhcpServerNode node1 = new DhcpServerNode("DHCP-Node-1", "10.0.0.1", NODE1_PORT, new File(dataDir, "leases_node1.db"), logger);
-        DhcpServerNode node2 = new DhcpServerNode("DHCP-Node-2", "10.0.0.2", NODE2_PORT, new File(dataDir, "leases_node2.db"), logger);
-        DhcpServerNode node3 = new DhcpServerNode("DHCP-Node-3", "10.0.0.3", NODE3_PORT, new File(dataDir, "leases_node3.db"), logger);
+        if (role.equalsIgnoreCase("node")) {
+            String nodeId = getArgValue(args, "--id", "DHCP-Node-1");
+            String serverIp = getArgValue(args, "--ip", "192.168.10.201");
+            int port = Integer.parseInt(getArgValue(args, "--port", "6701"));
+            String peersArg = getArgValue(args, "--peers", "");
+
+            DhcpServerNode standaloneNode = new DhcpServerNode(
+                    nodeId, serverIp, port, subnetPrefix, gatewayIp, dnsIp,
+                    new File(dataDir, "leases_" + nodeId + ".db"), logger);
+
+            if (!peersArg.isEmpty()) {
+                for (String peer : peersArg.split(",")) {
+                    String[] hp = peer.trim().split(":");
+                    if (hp.length == 2) {
+                        standaloneNode.registerPeerEndpoint(hp[0], Integer.parseInt(hp[1]));
+                    }
+                }
+            }
+            standaloneNode.start();
+            logger.accept("[STANDALONE-NODE] Running " + nodeId + " on " + serverIp + ":" + port + " (Press Ctrl+C to stop)");
+            Thread.currentThread().join();
+            return;
+        }
+
+        String n1Ip = "10.0.0.1";
+        String n2Ip = "10.0.0.2";
+        String n3Ip = "10.0.0.3";
+        if (remoteNodesArg != null) {
+            String[] endpoints = remoteNodesArg.split(",");
+            if (endpoints.length >= 1) n1Ip = endpoints[0].split(":")[0].trim();
+            if (endpoints.length >= 2) n2Ip = endpoints[1].split(":")[0].trim();
+            if (endpoints.length >= 3) n3Ip = endpoints[2].split(":")[0].trim();
+        }
+
+        DhcpServerNode node1 = new DhcpServerNode("DHCP-Node-1", n1Ip, NODE1_PORT, subnetPrefix, gatewayIp, dnsIp, new File(dataDir, "leases_node1.db"), logger);
+        DhcpServerNode node2 = new DhcpServerNode("DHCP-Node-2", n2Ip, NODE2_PORT, subnetPrefix, gatewayIp, dnsIp, new File(dataDir, "leases_node2.db"), logger);
+        DhcpServerNode node3 = new DhcpServerNode("DHCP-Node-3", n3Ip, NODE3_PORT, subnetPrefix, gatewayIp, dnsIp, new File(dataDir, "leases_node3.db"), logger);
         List<DhcpServerNode> nodes = Arrays.asList(node1, node2, node3);
 
-        // Wire Full-Mesh Peer Ports for Active-Active Gossip State Replication
         int[] allPorts = new int[]{NODE1_PORT, NODE2_PORT, NODE3_PORT};
-        for (DhcpServerNode node : nodes) {
-            for (int p : allPorts) {
-                node.registerPeerPort(p);
+        if (remoteNodesArg == null) {
+            for (DhcpServerNode node : nodes) {
+                for (int p : allPorts) {
+                    node.registerPeerPort(p);
+                }
+                node.start();
             }
-            node.start();
         }
 
-        // 2. Start Front-End L4 UDP Load Balancer & DHCP Relay Agent
-        DhcpLoadBalancer loadBalancer = new DhcpLoadBalancer(LB_PORT, logger);
-        for (int p : allPorts) {
-            loadBalancer.registerBackendNode(p);
+        DhcpLoadBalancer loadBalancer = new DhcpLoadBalancer(lbListenPort, logger);
+        loadBalancer.setDirectLanMode(directLanMode);
+        loadBalancer.setSubnetPrefix(subnetPrefix);
+        loadBalancer.setClusterNodes(nodes);
+
+        if (remoteNodesArg != null) {
+            for (String endpoint : remoteNodesArg.split(",")) {
+                String[] hp = endpoint.trim().split(":");
+                if (hp.length == 2) {
+                    loadBalancer.registerBackendNode(hp[0], Integer.parseInt(hp[1]));
+                }
+            }
+        } else {
+            for (int p : allPorts) {
+                loadBalancer.registerBackendNode("127.0.0.1", p);
+            }
         }
-        loadBalancer.start();
 
-        // 3. Create Client Simulator
-        DhcpClientSimulator simulator = new DhcpClientSimulator(LB_PORT, logger);
+        try {
+            loadBalancer.start();
+        } catch (java.net.SocketException se) {
+            if (lbListenPort == 67) {
+                logger.accept("[WARN] Could not bind to privileged port 0.0.0.0:67 (" + se.getMessage() + ").");
+                logger.accept("[WARN] To listen on port 67 for real LAN devices, run Command Prompt / PowerShell as Administrator!");
+                logger.accept("[WARN] Falling back to port " + LB_PORT + " so dashboard and simulator can still run...");
+                lbListenPort = LB_PORT;
+                loadBalancer = new DhcpLoadBalancer(lbListenPort, logger);
+                loadBalancer.setClusterNodes(nodes);
+                for (int p : allPorts) loadBalancer.registerBackendNode("127.0.0.1", p);
+                loadBalancer.start();
+            } else {
+                throw se;
+            }
+        }
 
-        // 4. Start Real-Time HTTP Dashboard on port 8080
+        DhcpClientSimulator simulator = new DhcpClientSimulator(lbListenPort, logger);
+
         DashboardServer dashboard = new DashboardServer(DASHBOARD_PORT, loadBalancer, nodes, simulator, recentLogs);
         dashboard.start();
         logger.accept("[DASHBOARD] Live Web UI started at http://localhost:" + DASHBOARD_PORT);
 
-        // 5. Run Initial Automated System Design Demonstration
-        runInitialDemoScenario(simulator, loadBalancer, nodes, logger);
+        if (!directLanMode || argList.contains("--demo")) {
+            if (remoteNodesArg != null) {
+                Thread.sleep(1500);
+            }
+            runInitialDemoScenario(simulator, loadBalancer, nodes, logger);
+        } else {
+            logger.accept("[DIRECT-LAN-MODE] Listening on 0.0.0.0:" + lbListenPort + " for real LAN DHCP broadcasts (255.255.255.255:67 -> :68)!");
+        }
 
         if (verifyOnly) {
             logger.accept("[VERIFY] All automated Distributed DHCP checks passed! Shutting down cleanly.");
@@ -102,7 +167,6 @@ public class Main {
             System.exit(0);
         }
 
-        // 6. Interactive CLI Menu
         printCliMenu();
         Scanner scanner = new Scanner(System.in);
         while (scanner.hasNextLine()) {
@@ -114,10 +178,23 @@ public class Main {
             printCliMenu();
         }
 
+        if (remoteNodesArg != null) {
+            Thread.currentThread().join();
+        }
+
         dashboard.shutdown();
         loadBalancer.shutdown();
         for (DhcpServerNode n : nodes) n.shutdown();
         System.exit(0);
+    }
+
+    private static String getArgValue(String[] args, String flag, String defaultValue) {
+        for (int i = 0; i < args.length - 1; i++) {
+            if (args[i].equalsIgnoreCase(flag)) {
+                return args[i + 1];
+            }
+        }
+        return defaultValue;
     }
 
     private static void runInitialDemoScenario(
@@ -141,14 +218,11 @@ public class Main {
 
         System.out.println("\n--- [SCENARIO 3] Chaos Engineering: Simulate DHCP-Node-1 Crash & Automatic Failover ---");
         nodes.get(0).setSimulatedDown(true);
-        // Wait for Load Balancer heartbeat detector to evict Node-1 from the Consistent Hash Ring
         Thread.sleep(3500);
 
         simulator.runSingleClientDora("AA:BB:CC:11:22:04", "failover-client-dave");
-        // Renew Alice's IP even while Node-1 is down (proving Active-Active Peer Gossip Replication)
         simulator.runSingleClientDora("AA:BB:CC:11:22:01", "laptop-alice");
 
-        // Recover Node-1
         nodes.get(0).setSimulatedDown(false);
         Thread.sleep(1800);
 

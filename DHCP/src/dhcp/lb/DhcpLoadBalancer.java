@@ -19,16 +19,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-/**
- * L4 UDP Load Balancer & RFC 2131 DHCP Relay Agent (giaddr).
- *
- * Responsibilities:
- * - Listens on front-end UDP port (6700) for DHCP Client packets
- * - Enforces Token-Bucket Rate Limiting to block DHCP Starvation floods
- * - Stamps giaddr (Gateway Relay IP) and client return port option
- * - Routes requests to healthy backend DHCP Server nodes via Consistent Hashing (or Round-Robin / Least-Loaded)
- * - Performs continuous Heartbeat Health Checks (PING/PONG) and automatic failover
- */
 public class DhcpLoadBalancer {
 
     private final int listenPort;
@@ -37,10 +27,16 @@ public class DhcpLoadBalancer {
     private final RateLimiter rateLimiter;
 
     private final List<Integer> allRegisteredBackendPorts = new CopyOnWriteArrayList<>();
+    private final Map<Integer, String> backendHostByPort = new ConcurrentHashMap<>();
     private final Map<Integer, Long> lastPongTimestamp = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> nodeHealthStatus = new ConcurrentHashMap<>();
 
     private DatagramSocket socket;
+    private DatagramSocket lanInterfaceSocket;
+    private boolean directLanMode = false;
+    private String lanServerIp = "192.168.1.41";
+    private String subnetPrefix = "192.168.1.";
+    private List<dhcp.cluster.DhcpServerNode> clusterNodes;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicInteger healthPingXid = new AtomicInteger(90000);
     private final Consumer<String> eventLogger;
@@ -53,14 +49,52 @@ public class DhcpLoadBalancer {
 
     public DhcpLoadBalancer(int listenPort, Consumer<String> eventLogger) {
         this.listenPort = listenPort;
+        this.directLanMode = (listenPort == 67);
         this.eventLogger = eventLogger;
-        this.router = new ConsistentHashRouter(32); // 32 virtual nodes per server on consistent hash ring
-        // Allow up to 8 burst packets per MAC (4/sec refill), and 25 global burst packets (15/sec refill)
-        this.rateLimiter = new RateLimiter(8.0, 4.0, 25.0, 15.0);
+        this.router = new ConsistentHashRouter(32);
+        this.rateLimiter = new RateLimiter(20.0, 10.0, 30.0, 15.0);
+    }
+
+    public void setClusterNodes(List<dhcp.cluster.DhcpServerNode> clusterNodes) {
+        this.clusterNodes = clusterNodes;
+    }
+
+    public void setDirectLanMode(boolean directLanMode) {
+        this.directLanMode = directLanMode;
+    }
+
+    public void setSubnetPrefix(String subnetPrefix) {
+        this.subnetPrefix = subnetPrefix.endsWith(".") ? subnetPrefix : subnetPrefix + ".";
+        detectLanServerIp();
+    }
+
+    private void detectLanServerIp() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface nif = interfaces.nextElement();
+                if (!nif.isUp() || nif.isLoopback()) continue;
+                java.util.Enumeration<InetAddress> addrs = nif.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress addr = addrs.nextElement();
+                    String ip = addr.getHostAddress();
+                    if (ip != null && ip.startsWith(subnetPrefix)) {
+                        this.lanServerIp = ip;
+                        return;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     public void registerBackendNode(int backendPort) {
+        registerBackendNode("127.0.0.1", backendPort);
+    }
+
+    public void registerBackendNode(String backendHost, int backendPort) {
         allRegisteredBackendPorts.add(backendPort);
+        backendHostByPort.put(backendPort, backendHost);
         lastPongTimestamp.put(backendPort, System.currentTimeMillis());
         nodeHealthStatus.put(backendPort, true);
         router.addNode(backendPort);
@@ -68,15 +102,30 @@ public class DhcpLoadBalancer {
 
     public void start() throws SocketException {
         if (running.getAndSet(true)) return;
-        socket = new DatagramSocket(listenPort);
+        detectLanServerIp();
+
+        socket = new DatagramSocket(null);
+        socket.setReuseAddress(true);
+        socket.setBroadcast(true);
+        socket.bind(new java.net.InetSocketAddress("0.0.0.0", listenPort));
+
+        if (directLanMode) {
+            try {
+                lanInterfaceSocket = new DatagramSocket(new java.net.InetSocketAddress(lanServerIp, 0));
+                lanInterfaceSocket.setBroadcast(true);
+                log("Bound dedicated Wi-Fi broadcast sender to LAN IP " + lanServerIp);
+            } catch (Exception e) {
+                log("Note: Could not bind dedicated sender to " + lanServerIp + " (" + e.getMessage() + "), using default socket.");
+            }
+        }
 
         Thread listenerThread = new Thread(this::listenLoop, "LB-UDP-Listener");
         listenerThread.setDaemon(true);
         listenerThread.start();
 
-        // Run heartbeat health check every 700 milliseconds
         healthCheckExecutor.scheduleAtFixedRate(this::runHealthChecks, 500, 700, TimeUnit.MILLISECONDS);
-        log("Started on UDP port " + listenPort + " [Relay giaddr=" + relayAgentIp + ", Strategy=" + router.getStrategy() + "]");
+        log("Started on 0.0.0.0:" + listenPort + " [DirectLANBroadcast=" + directLanMode
+                + ", LAN-Server-IP=" + lanServerIp + ", Strategy=" + router.getStrategy() + "]");
     }
 
     private void listenLoop() {
@@ -90,21 +139,39 @@ public class DhcpLoadBalancer {
                 DhcpMessageType type = packet.getMessageType();
                 if (type == null) continue;
 
-                // 1. Handle Health Check PONG from backend DHCP Node
                 if (type == DhcpMessageType.CLUSTER_HEALTH_PONG) {
                     int backendPort = raw.getPort();
                     lastPongTimestamp.put(backendPort, System.currentTimeMillis());
                     Boolean wasHealthy = nodeHealthStatus.put(backendPort, true);
                     if (wasHealthy != null && !wasHealthy) {
                         router.addNode(backendPort);
-                        log("HEALTH RECOVERED: Backend port " + backendPort + " rejoined the Consistent Hash Ring!");
+                        log("HEALTH RECOVERED: Backend " + backendHostByPort.getOrDefault(backendPort, "127.0.0.1")
+                                + ":" + backendPort + " rejoined the Consistent Hash Ring!");
                     }
                     continue;
                 }
 
-                // 2. If BOOTREQUEST from Client -> Rate limit, inject giaddr, route to Backend Node
+                if (type == DhcpMessageType.CLUSTER_PEER_SYNC) {
+                    String payload = packet.getOptionString(DhcpPacket.OPT_SYNC_PAYLOAD);
+                    if (payload != null && clusterNodes != null) {
+                        dhcp.model.LeaseRecord synced = dhcp.model.LeaseRecord.deserialize(payload);
+                        for (dhcp.cluster.DhcpServerNode n : clusterNodes) {
+                            n.getLeaseManager().applyPeerSync(synced);
+                            if (n.getUdpPort() != raw.getPort()) {
+                                n.recordRemotePeerSync();
+                            }
+                        }
+                    }
+                    continue;
+                }
+
                 if (packet.getOp() == DhcpPacket.BOOTREQUEST) {
                     String clientMac = packet.getChaddr();
+                    if (raw.getPort() == 68) {
+                        log("LAN PACKET IN -> Received " + type + " from MAC " + clientMac
+                                + " (src=" + raw.getAddress().getHostAddress() + ":" + raw.getPort() + ")");
+                    }
+
                     if (!rateLimiter.allowRequest(clientMac)) {
                         log("RATE LIMIT DROP: Blocked packet from MAC " + clientMac + " (DHCP Starvation Protection)");
                         continue;
@@ -116,33 +183,73 @@ public class DhcpLoadBalancer {
                         continue;
                     }
 
-                    // Populate Relay Agent IP (giaddr), increment hops, and record client port
                     packet.setGiaddr(relayAgentIp);
                     packet.setHops((byte) (packet.getHops() + 1));
                     if (packet.getOptionInt(DhcpPacket.OPT_CLIENT_PORT) == null) {
                         packet.setOptionInt(DhcpPacket.OPT_CLIENT_PORT, raw.getPort());
                     }
 
+                    String targetHost = backendHostByPort.getOrDefault(targetBackendPort, "127.0.0.1");
                     byte[] outBytes = packet.toBytes();
                     DatagramPacket forward = new DatagramPacket(
-                            outBytes, outBytes.length, InetAddress.getByName("127.0.0.1"), targetBackendPort);
+                            outBytes, outBytes.length, InetAddress.getByName(targetHost), targetBackendPort);
                     socket.send(forward);
-                }
-                // 3. If BOOTREPLY from Backend Node -> Forward back to Client port
-                else if (packet.getOp() == DhcpPacket.BOOTREPLY) {
+                } else if (packet.getOp() == DhcpPacket.BOOTREPLY) {
+                    if (clusterNodes != null) {
+                        for (dhcp.cluster.DhcpServerNode n : clusterNodes) {
+                            if (n.getUdpPort() == raw.getPort() && !n.getServerIp().startsWith("10.0.0.")) {
+                                if (type == DhcpMessageType.DHCPOFFER) n.recordRemoteOffer();
+                                else if (type == DhcpMessageType.DHCPACK) n.recordRemoteAck();
+                            }
+                        }
+                    }
                     Integer clientPort = packet.getOptionInt(DhcpPacket.OPT_CLIENT_PORT);
-                    if (clientPort != null) {
+                    int destPort = (clientPort != null) ? clientPort : 68;
+
+                    if (destPort == 68 || directLanMode && (clientPort == null || clientPort == 68)) {
+                        packet.removeOption(DhcpPacket.OPT_CLIENT_PORT);
+                        packet.setGiaddr("0.0.0.0");
+                        packet.setSiaddr(lanServerIp);
+                        packet.setOptionIp(DhcpPacket.OPT_SERVER_ID, lanServerIp);
+
                         byte[] outBytes = packet.toBytes();
-                        DatagramPacket toClient = new DatagramPacket(
+                        DatagramSocket outSock = (lanInterfaceSocket != null) ? lanInterfaceSocket : socket;
+
+                        boolean broadcastFlag = (packet.getFlags() & 0x8000) != 0;
+                        String ciaddr = packet.getCiaddr();
+                        boolean isNak = (packet.getMessageType() == DhcpMessageType.DHCPNAK);
+
+                        if (!isNak && !broadcastFlag && ciaddr != null && !ciaddr.equals("0.0.0.0")) {
+                            DatagramPacket toUnicastClient = new DatagramPacket(
+                                     outBytes, outBytes.length, InetAddress.getByName(ciaddr), 68);
+                            outSock.send(toUnicastClient);
+                            log("LAN UNICAST REPLY -> Sent " + packet.getMessageType() + " (yiaddr=" + packet.getYiaddr()
+                                    + ") to " + ciaddr + ":68 for MAC " + packet.getChaddr());
+                        } else {
+                            String subnetBroadcast = subnetPrefix + "255";
+                            DatagramPacket toSubnetBcast = new DatagramPacket(
+                                    outBytes, outBytes.length, InetAddress.getByName(subnetBroadcast), 68);
+                            outSock.send(toSubnetBcast);
+
+                            DatagramPacket toGlobalBcast = new DatagramPacket(
+                                    outBytes, outBytes.length, InetAddress.getByName("255.255.255.255"), 68);
+                            outSock.send(toGlobalBcast);
+                            log("LAN BROADCAST REPLY -> Sent " + packet.getMessageType() + " (yiaddr=" + packet.getYiaddr()
+                                    + ", ServerID=" + lanServerIp + ") to " + subnetBroadcast + ":68 & 255.255.255.255:68 for MAC " + packet.getChaddr());
+                        }
+                    } else if (clientPort != null) {
+                        byte[] outBytes = packet.toBytes();
+                        DatagramPacket toSimClient = new DatagramPacket(
                                 outBytes, outBytes.length, InetAddress.getByName("127.0.0.1"), clientPort);
-                        socket.send(toClient);
+                        socket.send(toSimClient);
                     }
                 }
             } catch (IOException e) {
                 if (running.get()) {
                     log("LB Socket error: " + e.getMessage());
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log("LB Packet parse warning: " + e.getMessage());
             }
         }
     }
@@ -150,17 +257,16 @@ public class DhcpLoadBalancer {
     private void runHealthChecks() {
         long now = System.currentTimeMillis();
         for (int backendPort : allRegisteredBackendPorts) {
-            // Check if node timed out (> 1.8 seconds since last PONG)
+            String host = backendHostByPort.getOrDefault(backendPort, "127.0.0.1");
             long lastSeen = lastPongTimestamp.getOrDefault(backendPort, 0L);
             if (now - lastSeen > 1800L) {
                 Boolean wasHealthy = nodeHealthStatus.put(backendPort, false);
                 if (wasHealthy == null || wasHealthy) {
                     router.removeNode(backendPort);
-                    log("FAILOVER TRIGGERED: Backend port " + backendPort + " missed heartbeats! Evicted from Hash Ring.");
+                    log("FAILOVER TRIGGERED: Backend " + host + ":" + backendPort + " missed heartbeats! Evicted from Hash Ring.");
                 }
             }
 
-            // Send fresh CLUSTER_HEALTH_PING
             try {
                 DhcpPacket ping = new DhcpPacket();
                 ping.setOp(DhcpPacket.BOOTREQUEST);
@@ -168,7 +274,7 @@ public class DhcpLoadBalancer {
                 ping.setMessageType(DhcpMessageType.CLUSTER_HEALTH_PING);
                 byte[] bytes = ping.toBytes();
                 DatagramPacket dp = new DatagramPacket(
-                        bytes, bytes.length, InetAddress.getByName("127.0.0.1"), backendPort);
+                        bytes, bytes.length, InetAddress.getByName(host), backendPort);
                 socket.send(dp);
             } catch (IOException ignored) {
             }

@@ -10,15 +10,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Distributed Systems Load Balancing Router for DHCP Traffic.
- * Supports 3 switchable algorithms:
- * 1. CONSISTENT_HASHING (Default): Hashes client MAC (chaddr) onto a 32-bit ring with Virtual Nodes
- *    so that all packets of a client's DORA handshake deterministically land on the same node,
- *    with minimal key remapping when a node crashes or recovers.
- * 2. ROUND_ROBIN: Cycles evenly across healthy nodes.
- * 3. LEAST_LOADED: Routes to the healthy node with the lowest active traffic counter.
- */
 public class ConsistentHashRouter {
 
     public enum Strategy {
@@ -59,9 +50,6 @@ public class ConsistentHashRouter {
         }
     }
 
-    /**
-     * Selects a healthy backend DHCP Server UDP port based on the active Load Balancing strategy.
-     */
     public synchronized Integer selectBackendPort(String clientMac) {
         if (healthyBackendPorts.isEmpty()) {
             return null;
