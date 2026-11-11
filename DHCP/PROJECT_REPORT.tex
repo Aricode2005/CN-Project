@@ -475,7 +475,148 @@ public DhcpServerNode route(String clientMac) {
 \end{lstlisting}
 
 % ==============================================================================
-% SECTION 6: EXPERIMENTAL EVALUATION
+% SECTION 6: SYSTEM DEPLOYMENT, STARTUP PROCEDURES, AND VERIFICATION
+% ==============================================================================
+\section{System Deployment, Operational Commands, and Verification Guide}
+
+\subsection{Quick Reference Command Matrix}
+Table~\ref{tab:command_matrix} provides a comprehensive operational summary of all administrative commands utilized to build, launch, verify, query, and inspect the distributed DHCP cluster.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}llp{6.8cm}@{}}
+\toprule
+\textbf{Operational Task} & \textbf{Command / Execution Path} & \textbf{Description \& Verification Target} \\ \midrule
+\textbf{Start Cluster (Docker)} & \texttt{docker compose up -d} & Launches all 6 microservice containers in detached background mode on \texttt{192.168.10.0/24}. \\
+\textbf{Rebuild \& Start} & \texttt{docker compose up -{}-build -d} & Recompiles Java code inside Alpine JDK and starts refreshed container images. \\
+\textbf{Check Status} & \texttt{docker compose ps} & Inspects health, uptime, and port forwardings for all 6 microservices. \\
+\textbf{Live Log Stream} & \texttt{docker compose logs -f dhcp-load-balancer} & Follows real-time D-O-R-A handshakes, rate limiter drops, and heartbeat logs. \\
+\textbf{Node Log Stream} & \texttt{docker compose logs -f dhcp-node-1} & Streams peer gossip sync, local allocation logs, and WAL transactions. \\
+\textbf{Web UI Dashboard} & \texttt{http://localhost:8080} & Browser portal for real-time node metrics, active leases, and chaos controls. \\
+\textbf{Gateway VIP Portal} & \texttt{http://localhost:8085} & Core Nginx Gateway router portal on static VIP \texttt{192.168.10.5}. \\
+\textbf{REST Telemetry API} & \texttt{curl http://localhost:8080/api/state} & Retrieves JSON state of lease pool, active nodes, and rate limiter metrics. \\
+\textbf{Query SQL Database} & \texttt{docker exec prod-db-primary psql ...} & Inspects synchronized SQL rows inside PostgreSQL \texttt{dhcp\_leases} table. \\
+\textbf{Real OS Client Test} & \texttt{docker run ... alpine} $\rightarrow$ \texttt{udhcpc} & Verifies real Linux kernel DHCP negotiation over Docker LAN bridge. \\
+\textbf{Native Compilation} & \texttt{javac -d out src/dhcp/.../*.java} & Compiles zero-dependency Java source files natively on host. \\
+\textbf{Native Run (Host)} & \texttt{java -cp out dhcp.Main} & Runs cluster in simulation mode on UDP 6700 and HTTP 8080. \\
+\textbf{Automated Test Suite} & \texttt{java -cp out dhcp.Main -{}-verify} & Executes headless end-to-end integration and chaos verification test suite. \\
+\textbf{Stop Cluster} & \texttt{docker compose down} & Gracefully shuts down and purges container network resources. \\ \bottomrule
+\end{tabular}
+\caption{Operational Command Matrix for Cluster Deployment and Administration.}
+\label{tab:command_matrix}
+\end{table}
+
+\subsection{Method A: Production 6-Container Microservices Deployment (Docker Compose)}
+
+\subsubsection{Step 1: Starting the Server Cluster}
+To instantiate the 6-container cluster on the isolated subnet \texttt{192.168.10.0/24}:
+\begin{lstlisting}[language=bash]
+$ cd "c:\Users\aritr\OneDrive\Desktop\CN Project\DHCP"
+$ docker compose up -d
+\end{lstlisting}
+\textit{Note: When Java source code modifications are made, append the \texttt{-{}-build} flag to trigger layer re-compilation:}
+\begin{lstlisting}[language=bash]
+$ docker compose up --build -d
+\end{lstlisting}
+
+\subsubsection{Step 2: Checking Container Health and Status}
+Verify that all six services report operational status:
+\begin{lstlisting}[language=bash]
+$ docker compose ps
+
+NAME                 IMAGE                     STATUS          PORTS
+dhcp-load-balancer   dhcp-dhcp-load-balancer   Up (healthy)    0.0.0.0:8080->8080/tcp, 0.0.0.0:6700->67/udp
+dhcp-node-1          dhcp-dhcp-node-1          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
+dhcp-node-2          dhcp-dhcp-node-2          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
+dhcp-node-3          dhcp-dhcp-node-3          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
+gateway-admin-vip    nginx:alpine              Up              0.0.0.0:8085->80/tcp
+prod-db-primary      dhcp-prod-db-primary      Up (healthy)    0.0.0.0:5432->5432/tcp
+\end{lstlisting}
+
+\subsubsection{Step 3: Checking Live Packet and Cluster Event Logs}
+To stream the real-time ingress packet transactions, rate limiter audits, and heartbeat checks:
+\begin{lstlisting}[language=bash]
+# Follow central Load Balancer event stream
+$ docker compose logs -f dhcp-load-balancer
+
+# Follow specific worker node gossip and allocations
+$ docker compose logs -f dhcp-node-1
+\end{lstlisting}
+
+\subsubsection{Step 4: Checking Active SQL Leases in PostgreSQL}
+The background synchronization daemon continuously polls active leases and upserts them into PostgreSQL. Query the production database directly:
+\begin{lstlisting}[language=bash]
+$ docker exec prod-db-primary psql -U postgres -d dhcp_db -c \
+  "SELECT ip, mac, hostname, state, lease_duration FROM dhcp_leases;"
+\end{lstlisting}
+
+\subsubsection{Step 5: Testing with a Real Linux Operating System Client}
+An independent container running unmodified Alpine Linux can be attached to the cluster network to verify end-to-end RFC 2131 interoperability:
+\begin{lstlisting}[language=bash]
+$ docker run --rm -it --network dhcp_dhcp_lan alpine sh
+# udhcpc -i eth0 -n -q
+udhcpc: started, v1.36.1
+udhcpc: broadcasting discover
+udhcpc: broadcasting select for 192.168.10.10, server 192.168.10.200
+udhcpc: lease of 192.168.10.10 obtained from 192.168.10.200, lease time 120
+\end{lstlisting}
+
+\subsubsection{Step 6: Graceful Teardown}
+When testing is complete, terminate the cluster cleanly:
+\begin{lstlisting}[language=bash]
+$ docker compose down
+\end{lstlisting}
+
+\subsection{Method B: Native Host Execution (Without Docker)}
+For environments lacking Docker virtualization, the system can be compiled and executed natively using the standard Java Development Kit (JDK 11+):
+
+\subsubsection{Step 1: Native Compilation}
+\begin{lstlisting}[language=bash]
+$ javac -d out src/dhcp/protocol/*.java src/dhcp/model/*.java \
+               src/dhcp/cluster/*.java src/dhcp/lb/*.java \
+               src/dhcp/client/*.java src/dhcp/dashboard/*.java \
+               src/dhcp/Main.java
+\end{lstlisting}
+
+\subsubsection{Step 2: Starting the Server on Port 8080}
+\begin{lstlisting}[language=bash]
+$ java -cp out dhcp.Main
+\end{lstlisting}
+The console confirms initialization of all worker nodes, the Consistent Hash Ring, and the embedded HTTP dashboard:
+\begin{lstlisting}[language=text]
+================================================================================
+   DISTRIBUTED & LOAD-BALANCED DHCP SERVER CLUSTER (RFC 2131 + SYSTEM DESIGN)   
+================================================================================
+[DHCP-Node-1] Started on UDP port 6701 (Server ID: 10.0.0.1, Gateway: 192.168.10.1)
+[DHCP-Node-2] Started on UDP port 6702 (Server ID: 10.0.0.2, Gateway: 192.168.10.1)
+[DHCP-Node-3] Started on UDP port 6703 (Server ID: 10.0.0.3, Gateway: 192.168.10.1)
+[LOAD-BALANCER] Started on 0.0.0.0:6700 [Strategy=CONSISTENT_HASHING]
+[DASHBOARD] Live Web UI started at http://localhost:8080
+\end{lstlisting}
+
+\subsubsection{Step 3: Checking Active Network Socket Bindings}
+In a separate terminal, verify that the HTTP management port is listening:
+\begin{lstlisting}[language=bash]
+$ netstat -ano | findstr 8080
+  TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       14920
+\end{lstlisting}
+
+\subsection{Method C: Automated Verification Test Suite}
+The system includes an automated headless verification engine to perform continuous integration tests:
+\begin{lstlisting}[language=bash]
+$ java -cp out dhcp.Main --verify
+\end{lstlisting}
+The verification routine exercises four sequential scenarios:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Scenario 1:} Concurrent multi-client 4-way D-O-R-A handshake across the Consistent Hash Ring.
+    \item \textbf{Scenario 2:} Static VIP MAC address reservation matching and extended RFC 2131 operations (\texttt{DHCPINFORM}, \texttt{DHCPDECLINE}, \texttt{DHCPRELEASE}).
+    \item \textbf{Scenario 3:} Chaos injection terminating Node 1, verifying 1.8-second failover eviction and lease preservation via peer gossip.
+    \item \textbf{Scenario 4:} Simulated 40-packet starvation attack verifying burst quota enforcement and packet drops by the rate limiter.
+\end{enumerate}
+
+% ==============================================================================
+% SECTION 7: EXPERIMENTAL EVALUATION
 % ==============================================================================
 \section{Experimental Evaluation and Test Results}
 
@@ -583,7 +724,7 @@ postgres=# SELECT ip, mac, hostname, state, lease_duration FROM dhcp_leases;
 \end{lstlisting}
 
 % ==============================================================================
-% SECTION 7: VIVA VOCE DEFENSE AND ARCHITECTURAL Q&A
+% SECTION 8: VIVA VOCE DEFENSE AND ARCHITECTURAL Q&A
 % ==============================================================================
 \section{Oral Defense (Viva Voce) Preparation Guide}
 
@@ -611,7 +752,7 @@ This section details the critical theoretical and practical questions typically 
 \end{description}
 
 % ==============================================================================
-% SECTION 8: CONCLUSION AND FUTURE DIRECTIONS
+% SECTION 9: CONCLUSION AND FUTURE DIRECTIONS
 % ==============================================================================
 \section{Conclusion and Future Directions}
 
