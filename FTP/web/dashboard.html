@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JU FTP Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Chivo+Mono:wght@400;600&family=Work+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* ==========================================================================
+   JU FTP LAB — art direction: "the freight terminal"
+   FTP moves files between two depots over two separate lines: a signal wire
+   (the CONTROL connection, port 21) that stays up the whole time, and a
+   track (the DATA connection) that is laid for one shipment and lifted
+   after it. The page uses industrial signage: concrete, black placards,
+   safety orange, hazard stripes for firewalls, and a departure board for
+   transfers.
+   ========================================================================== */
+:root {
+  --concrete: #e8e5de; --slab: #f3f1ec; --ink: #16171a; --ink-2: #44464c; --muted: #6c6e74; --rule: #c9c5bb;
+  --signal: #ff5f1f; --signal-2: #c94508; --steel: #8a939c; --track: #3d4048; --go: #1f8a4c; --stop: #c62828; --blue: #1e5aa8;
+  --board: #121316; --amber: #ffb000;
+  --display: "Chivo", "Arial Black", sans-serif; --text: "Work Sans", "Segoe UI", sans-serif; --mono: "Chivo Mono", Consolas, monospace;
+  --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  --hazard: repeating-linear-gradient(-45deg, var(--signal) 0 14px, var(--ink) 14px 28px);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--concrete); color: var(--ink); font: 400 16px/1.55 var(--text); -webkit-font-smoothing: antialiased; padding-bottom: 90px; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 900; letter-spacing: -.01em; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+code { background: rgba(22,23,26,.07); padding: 1px 5px; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 0 var(--s6); }
+
+/* ------------------------------------------------------------ signage nav */
+.top { position: sticky; top: 0; z-index: 30; background: var(--ink); color: #fff; }
+.top .wrap { display: flex; align-items: stretch; gap: 0; }
+.top .id { display: flex; align-items: center; gap: 10px; padding: 10px 18px 10px 0; font: 900 18px/1 var(--display); letter-spacing: .04em; }
+.top .id i { width: 26px; height: 26px; background: var(--signal); display: grid; place-items: center; font: 900 14px var(--display); color: var(--ink); font-style: normal; }
+.top nav { display: flex; overflow-x: auto; margin-left: auto; scrollbar-width: none; }
+.top nav a { color: #c9cbd0; text-decoration: none; padding: 13px 13px 11px; font: 700 12.5px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; border-bottom: 3px solid transparent; }
+.top nav a b { color: var(--signal); margin-right: 5px; }
+.top nav a:hover { color: #fff; } .top nav a.on { color: #fff; border-bottom-color: var(--signal); }
+.hz { height: 10px; background: var(--hazard); }
+
+/* ------------------------------------------------------------ masthead */
+.mast { padding: var(--s7) 0 var(--s6); display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s7); align-items: end; }
+.mast h1 { font-size: clamp(56px, 8.6vw, 132px); line-height: .84; text-transform: uppercase; }
+.mast h1 span { color: var(--signal); }
+.mast .dek { font-size: 19px; color: var(--ink-2); max-width: 48ch; margin-top: var(--s5); }
+.mast .dek b { color: var(--ink); }
+.plates { display: grid; gap: 8px; }
+.plate { display: grid; grid-template-columns: 96px 1fr; background: var(--ink); color: #fff; }
+.plate b { background: var(--signal); color: var(--ink); font: 900 34px/1 var(--display); display: grid; place-items: center; padding: 12px 0; }
+.plate span { padding: 10px 14px; font: 700 14px/1.25 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+.plate span small { display: block; font: 400 12px/1.4 var(--mono); letter-spacing: 0; text-transform: none; color: #b8bbc2; margin-top: 3px; }
+.plate.d b { background: #fff; } .plate.p b { background: var(--steel); color: #fff; }
+
+/* ------------------------------------------------------------ sections */
+.sec { padding: var(--s8) 0 var(--s7); border-top: 4px solid var(--ink); position: relative; }
+.sec-h { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s5); align-items: center; margin-bottom: var(--s4); }
+.bay { background: var(--ink); color: #fff; padding: 8px 12px 6px; font: 900 15px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; display: flex; gap: 10px; align-items: center; }
+.bay b { background: var(--signal); color: var(--ink); padding: 4px 7px 3px; font-size: 22px; }
+.sec-h h2 { font-size: clamp(28px, 3.2vw, 42px); line-height: 1; text-transform: uppercase; }
+.sec-h .rfc { font: 400 12px/1.4 var(--mono); color: var(--muted); text-align: right; }
+.lede { font-size: 17px; color: var(--ink-2); max-width: 76ch; margin-bottom: var(--s5); }
+.lede b { color: var(--ink); font-weight: 600; }
+.slab { background: var(--slab); border: 2px solid var(--ink); }
+.lab { font: 700 11.5px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ctl { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; margin-bottom: var(--s4); }
+.btn { border: 2px solid var(--ink); background: var(--slab); padding: 9px 14px 8px; font: 700 13.5px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s, transform .1s; }
+.btn:hover { background: var(--ink); color: #fff; }
+.btn:active { transform: translateY(1px); }
+.btn.go { background: var(--signal); border-color: var(--signal); color: var(--ink); } .btn.go:hover { background: var(--ink); border-color: var(--ink); color: var(--signal); }
+.btn:disabled { opacity: .45; cursor: progress; }
+.seg { display: inline-flex; border: 2px solid var(--ink); }
+.seg button { border: 0; background: var(--slab); padding: 8px 12px 7px; font: 700 12px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button.on { background: var(--ink); color: #fff; }
+.chk { font: 400 12.5px var(--mono); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.inp { border: 0; border-bottom: 2px solid var(--ink); background: transparent; padding: 7px 4px; font: 400 14px var(--mono); min-width: 0; }
+.note { border-left: 4px solid var(--signal); padding: 4px 0 4px 12px; font-size: 14.5px; color: var(--ink-2); margin-top: var(--s4); max-width: 82ch; }
+.note b { color: var(--ink); }
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .55s, transform .55s cubic-bezier(.2,.7,.2,1); } .reveal.in { opacity: 1; transform: none; }
+
+/* ------------------------------------------------------------ the yard (track diagram) */
+.yard { width: 100%; height: auto; display: block; background: var(--slab); border: 2px solid var(--ink); }
+.yard .depot rect { fill: var(--ink); } .yard .depot text { fill: #fff; font: 900 17px var(--display); letter-spacing: .06em; }
+.yard .depot .sub { fill: #b8bbc2; font: 400 10.5px var(--mono); letter-spacing: 0; }
+.yard .wire { stroke: var(--rule); stroke-width: 3; stroke-dasharray: 2 7; fill: none; }
+.yard .wire.up { stroke: var(--signal); stroke-dasharray: none; }
+.yard .wire.tls { stroke: var(--go); }
+.yard .lbl { font: 700 11px var(--display); letter-spacing: .14em; fill: var(--muted); text-transform: uppercase; }
+.yard .rail { stroke: var(--track); stroke-width: 3; }
+.yard .sleeper { stroke: var(--steel); stroke-width: 6; }
+.yard .flag rect { stroke: var(--ink); stroke-width: 1.5; }
+.yard .flag text { font: 600 11px var(--mono); }
+.yard .wagon { fill: var(--signal); stroke: var(--ink); stroke-width: 1.5; }
+.yard .wagon.tls { fill: var(--go); }
+.yard .xm { stroke: var(--stop); stroke-width: 5; }
+.yard .port { font: 600 11px var(--mono); fill: var(--ink-2); }
+.cap { background: var(--ink); color: #fff; padding: 10px 14px; font: 400 14px/1.45 var(--text); min-height: 66px; }
+.cap .t { font: 600 13px/1.4 var(--mono); color: var(--amber); display: block; margin-bottom: 3px; word-break: break-word; }
+.cap .k { font: 700 11px var(--display); letter-spacing: .14em; color: var(--signal); margin-right: 8px; text-transform: uppercase; }
+.out { font: 400 12.5px/1.5 var(--mono); white-space: pre-wrap; background: var(--slab); border: 2px solid var(--ink); border-top: 0; padding: 10px 12px; max-height: 190px; overflow: auto; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
+.mh { display: flex; align-items: baseline; gap: 10px; padding: 10px 0 8px; flex-wrap: wrap; }
+.mh h3 { font-size: 28px; text-transform: uppercase; } .mh .mono { color: var(--muted); }
+.verdict { font: 900 22px/1.1 var(--display); text-transform: uppercase; padding: 10px 14px; border: 2px solid var(--ink); border-top: 0; }
+.verdict.ok { background: var(--go); color: #fff; border-color: var(--go); } .verdict.bad { background: var(--stop); color: #fff; border-color: var(--stop); }
+.verdict:empty { display: none; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: var(--s5); }
+.tbl th { text-align: left; font: 700 12px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; padding: 10px 8px; border-bottom: 3px solid var(--ink); }
+.tbl td { padding: 9px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl td:first-child { font: 700 12px/1.4 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); width: 22%; }
+
+/* ------------------------------------------------------------ ASCII vs binary */
+.imgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
+.imgc { border: 2px solid var(--ink); background: var(--slab); }
+.imgc .hd { background: var(--ink); color: #fff; padding: 8px 12px 6px; font: 900 15px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; display: flex; justify-content: space-between; }
+.imgc .hd span { font: 400 11px var(--mono); color: #b8bbc2; letter-spacing: 0; text-transform: none; }
+.imgc .ph { aspect-ratio: 9 / 5; display: grid; place-items: center; background: repeating-conic-gradient(#dcd8cf 0 25%, #eceae4 0 50%) 0 0 / 16px 16px; overflow: hidden; }
+.imgc .ph img { max-width: 100%; display: block; }
+.imgc .ph .broken { font: 900 22px var(--display); color: var(--stop); text-transform: uppercase; text-align: center; padding: 20px; }
+.imgc .meta { padding: 8px 12px; font: 400 12px/1.6 var(--mono); }
+.imgc.bad { border-color: var(--stop); } .imgc.bad .hd { background: var(--stop); }
+.imgc.good { border-color: var(--go); } .imgc.good .hd { background: var(--go); }
+.hexrow { font: 400 13px/1.9 var(--mono); }
+.hexrow .x { background: var(--stop); color: #fff; padding: 0 2px; } .hexrow .c { background: var(--signal); color: var(--ink); padding: 0 2px; }
+
+/* ------------------------------------------------------------ REST */
+.rbar { position: relative; height: 54px; border: 2px solid var(--ink); background: var(--slab); margin: var(--s4) 0 8px; overflow: hidden; }
+.rbar .a { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--steel); }
+.rbar .b { position: absolute; top: 0; bottom: 0; width: 0; background: var(--go); }
+.rbar .cut { position: absolute; top: -2px; bottom: -2px; width: 8px; background: var(--hazard); display: none; }
+.rbar .lbl2 { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 900 18px var(--display); mix-blend-mode: difference; color: #fff; letter-spacing: .06em; }
+.rlog { font: 400 13px/1.7 var(--mono); }
+.rlog .c { color: var(--blue); } .rlog .s { color: var(--ink); } .rlog .s.e { color: var(--stop); }
+
+/* ------------------------------------------------------------ file manager + departure board */
+.fm { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1.4fr); gap: var(--s3); align-items: stretch; }
+.pane { border: 2px solid var(--ink); background: var(--slab); display: flex; flex-direction: column; min-height: 320px; }
+.pane .hd { background: var(--ink); color: #fff; padding: 9px 12px 7px; font: 900 14px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
+.pane .hd input { background: #2a2c31; color: #fff; border: 0; padding: 4px 6px; font: 400 12px var(--mono); flex: 1; min-width: 0; }
+.rows { flex: 1; overflow: auto; font: 400 12.5px var(--mono); }
+.rowf { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.rowf:hover { background: #fff; } .rowf.on { background: var(--signal); }
+.rowf .ic { font-weight: 600; color: var(--muted); }
+.mid { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.mid .btn { padding: 10px 6px; font-size: 12px; }
+.pane .ft { border-top: 2px solid var(--ink); padding: 6px 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.pane .ft .btn { padding: 5px 8px 4px; font-size: 11px; }
+.fmmsg { font: 400 12.5px var(--mono); margin-top: 8px; min-height: 18px; }
+.board { background: var(--board); color: var(--amber); margin-top: var(--s5); border: 4px solid #000; }
+.board .bh { display: grid; grid-template-columns: 80px 80px 70px minmax(0, 1fr) 60px 110px 100px; gap: 10px; padding: 10px 14px 8px; border-bottom: 2px solid #2c2d31; font: 700 11px var(--display); letter-spacing: .16em; color: #8d8f96; text-transform: uppercase; }
+.board .br { display: grid; grid-template-columns: 80px 80px 70px minmax(0, 1fr) 60px 110px 100px; gap: 10px; padding: 7px 14px; border-bottom: 1px solid #222327; font: 600 14px var(--mono); letter-spacing: .04em; text-transform: uppercase; animation: flap .5s steps(4); }
+@keyframes flap { from { opacity: .2; transform: scaleY(.6); } }
+.board .br .st.done { color: #6ee09a; } .board .br .st.aborted, .board .br .st.failed { color: #ff6b5e; }
+.board .br span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .empty { padding: 18px 14px; font: 600 14px var(--mono); color: #6b6d73; }
+.prog { height: 6px; background: #2c2d31; margin: 0 14px 10px; display: none; } .prog i { display: block; height: 100%; background: var(--amber); width: 0; transition: width .4s linear; }
+
+/* ------------------------------------------------------------ console */
+.cons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; border: 2px solid var(--ink); }
+.cons .col { display: flex; flex-direction: column; min-width: 0; }
+.cons .col + .col { border-left: 2px solid var(--ink); }
+.cons .hd { background: var(--ink); color: #fff; padding: 8px 12px 6px; font: 900 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; display: flex; justify-content: space-between; }
+.cons .hd span { font: 400 11px var(--mono); color: #b8bbc2; letter-spacing: 0; text-transform: none; }
+.term { background: var(--board); color: #e6e7ea; font: 400 12.5px/1.5 var(--mono); height: 360px; overflow: auto; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+.term .me { color: var(--amber); }
+.term.data { color: #9fd8ff; }
+.prompt { display: flex; border-top: 2px solid var(--ink); }
+.prompt input { flex: 1; border: 0; padding: 11px 12px; font: 400 14px var(--mono); background: var(--slab); min-width: 0; }
+.prompt button { border: 0; border-left: 2px solid var(--ink); background: var(--signal); font: 900 13px var(--display); letter-spacing: .1em; padding: 0 16px; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--s3) 0; }
+.chips button { border: 1.5px solid var(--ink); background: var(--slab); padding: 5px 8px 4px; font: 400 12px var(--mono); cursor: pointer; }
+.chips button:hover { background: var(--ink); color: #fff; }
+
+/* ------------------------------------------------------------ security */
+.tapv { border: 2px solid var(--ink); background: var(--board); color: #d9dbe0; font: 400 12.5px/1.55 var(--mono); max-height: 380px; overflow: auto; }
+.tapv .f { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 4px 12px; border-bottom: 1px solid #222327; }
+.tapv .d { color: #8d8f96; } .tapv .f.secret { background: var(--stop); color: #fff; } .tapv .f.secret .d { color: #fff; }
+.tapv .f.tls { color: #6ee09a; } .tapv .f.tls .hx { color: #4c8f69; display: block; font-size: 11px; }
+.tapv .hdr { padding: 10px 12px; font: 900 14px var(--display); letter-spacing: .1em; text-transform: uppercase; background: #000; display: flex; justify-content: space-between; }
+.tapv .hdr.bad { color: #ff6b5e; } .tapv .hdr.good { color: #6ee09a; }
+
+/* ------------------------------------------------------------ reply codes */
+.dec { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s5); align-items: center; }
+.digits { display: flex; gap: 6px; }
+.digits input { width: 64px; height: 84px; border: 3px solid var(--ink); background: var(--slab); text-align: center; font: 900 52px var(--display); }
+.dmean { display: grid; gap: 8px; }
+.dmean div { border-left: 6px solid var(--signal); padding: 4px 12px; font-size: 15.5px; } .dmean div b { font-family: var(--display); }
+.ledger { border: 2px solid var(--ink); background: var(--slab); height: 380px; overflow: auto; font: 400 12px/1.45 var(--mono); }
+.ln { display: grid; grid-template-columns: 110px 54px 22px minmax(0, 1fr); gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--rule); }
+.ln .sid { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ln .ch { font-weight: 600; } .ln .ch.DATA { color: var(--signal-2); } .ln .ch.CTRL { color: var(--blue); }
+.ln .w { text-align: center; border: 1px solid var(--ink); height: 17px; line-height: 15px; font-size: 10px; font-weight: 600; } .ln .w.C { background: var(--ink); color: #fff; }
+.ln .t { white-space: pre-wrap; word-break: break-word; } .ln .n { display: block; font: italic 400 12px var(--text); color: var(--muted); }
+.ln .code { font-weight: 600; padding: 0 3px; } .code.c1 { background: #dfe8f6; } .code.c2 { background: #d7efdf; } .code.c3 { background: #fbe7c8; } .code.c4, .code.c5 { background: #f6d5d1; }
+.ln.fresh { animation: ink 1.2s ease-out; } @keyframes ink { from { background: #ffe1cf; } }
+
+/* ------------------------------------------------------------ real servers + footer */
+.real { display: grid; grid-template-columns: repeat(7, auto); gap: var(--s3); align-items: end; }
+.real label { display: grid; gap: 4px; } .real select { border: 2px solid var(--ink); background: var(--slab); padding: 6px; font: 400 13px var(--mono); }
+.foot { background: var(--ink); color: #d0d2d7; padding: var(--s6) 0 var(--s7); }
+.foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--s6); }
+.foot .lab { color: #8d8f96; }
+.sess { width: 100%; border-collapse: collapse; font: 400 12px var(--mono); margin-top: 8px; }
+.sess th { text-align: left; font: 700 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #8d8f96; padding: 5px; border-bottom: 1px solid #333; }
+.sess td { padding: 5px; border-bottom: 1px solid #26272b; }
+.logs { font: 400 11px/1.6 var(--mono); height: 220px; overflow: auto; white-space: pre-wrap; margin-top: 8px; color: #b0b3ba; }
+.foot .chk { color: #d0d2d7; margin-right: 14px; }
+
+/* ------------------------------------------------------------ player (step control) */
+.player { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 50; display: flex; align-items: stretch; background: var(--ink); color: #fff; border: 2px solid var(--ink); box-shadow: 6px 6px 0 rgba(0,0,0,.25); }
+.pbtn { border: 0; border-right: 2px solid #33353a; background: transparent; padding: 12px 16px 10px; font: 900 14px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; color: #fff; }
+.pbtn.fwd { background: var(--signal); color: var(--ink); min-width: 160px; }
+.pbtn.fwd.wait { animation: nudge 1.1s ease-in-out infinite; }
+@keyframes nudge { 50% { background: #ffc3a6; } }
+.pbtn[aria-pressed="true"] { background: #fff; color: var(--ink); }
+.pbtn:hover:not(.fwd) { background: #2a2c31; }
+.pspeed { padding: 0 12px; font: 700 11px var(--display); letter-spacing: .14em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; border-right: 2px solid #33353a; }
+.pspeed select { background: var(--ink); color: #fff; border: 1px solid #555; padding: 3px; font: 400 12px var(--mono); }
+.pstat { padding: 0 14px; font: 400 12px var(--mono); color: #b8bbc2; display: flex; align-items: center; white-space: nowrap; }
+
+@media (max-width: 1100px) { .mast, .two, .foot-grid, .cons { grid-template-columns: minmax(0, 1fr); } .cons .col + .col { border-left: 0; border-top: 2px solid var(--ink); } .fm { grid-template-columns: minmax(0, 1fr); } .mid { flex-direction: row; } .real { grid-template-columns: repeat(2, minmax(0, 1fr)); } .imgs { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) {
+  .wrap { padding: 0 var(--s4); } .sec-h { grid-template-columns: minmax(0, 1fr); } .sec-h .rfc { text-align: left; }
+  .board .bh, .board .br { grid-template-columns: 60px minmax(0, 1fr) 70px 90px; } .board .bh :nth-child(2), .board .br :nth-child(2), .board .bh :nth-child(3), .board .br :nth-child(3), .board .bh :nth-child(5), .board .br :nth-child(5) { display: none; }
+  .pstat { display: none; } .pbtn { padding: 12px 10px 10px; font-size: 12px; } .pbtn.fwd { min-width: 120px; }
+  .dec { grid-template-columns: minmax(0, 1fr); } .ln { grid-template-columns: 70px 44px 22px minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } .reveal { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap"><div class="id"><i>21</i>JU FTP LAB</div>
+    <nav aria-label="Sections"><a href="#two"><b>01</b>Two lines</a><a href="#modes"><b>02</b>Active · Passive</a><a href="#ascii"><b>03</b>ASCII · Binary</a><a href="#rest"><b>04</b>Resume</a><a href="#fm"><b>05</b>Files</a><a href="#console"><b>06</b>Console</a><a href="#sec"><b>07</b>Security</a><a href="#codes"><b>08</b>Replies</a><a href="#real"><b>09</b>Real servers</a></nav></div>
+</header>
+<div class="hz"></div>
+
+<main class="wrap">
+  <section class="mast">
+    <div>
+      <h1>File<br>Transfer<br><span>Protocol.</span></h1>
+      <p class="dek">RFC 959 (1985). FTP runs <b>two TCP connections</b>: a <b>control</b> connection for commands and replies, open for the whole session, and a separate <b>data</b> connection laid down for every listing and every file, then closed. Our own server and client, built from the RFC.</p>
+    </div>
+    <div class="plates">
+      <div class="plate"><b>21</b><span>Control connection<small>commands + 3-digit replies · lab 2121 (and 21)</small></span></div>
+      <div class="plate d"><b>20</b><span>Data · active mode<small>server connects from control−1 · lab 2120</small></span></div>
+      <div class="plate p"><b style="font-size:24px">50000+</b><span>Data · passive mode<small>client connects to a port the server opens · 50000–50100</small></span></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 01 two connections -->
+  <section class="sec" id="two">
+    <div class="sec-h"><div class="bay"><b>01</b>Bay</div><h2>Two lines between the depots</h2><div class="rfc">RFC 959 §2.3 · out-of-band control</div></div>
+    <p class="lede">The <b>signal wire</b> on top is the control connection: <code>USER</code>, <code>PASV</code>, <code>RETR</code> go one way, and replies like <code>227</code> and <code>150</code> come back. The <b>track</b> below is the data connection: it is laid for a single shipment, the file rolls across, and the track is lifted. Pick an operation and step through it with <b>Forward ▶</b>.</p>
+    <div class="ctl">
+      <span class="lab">Operation</span><div class="seg" id="oOp"><button data-v="list" class="on">LIST /pub</button><button data-v="retr">RETR a file</button><button data-v="stor">STOR a file</button></div>
+      <span class="lab">Mode</span><div class="seg" id="oMode"><button data-v="passive" class="on">Passive</button><button data-v="active">Active</button></div>
+      <label class="chk"><input type="checkbox" id="oTls"> FTPS (AUTH TLS)</label>
+      <button class="btn go" id="oRun">Run it</button>
+    </div>
+    <svg class="yard" id="yOne" viewBox="0 0 900 270" role="img" aria-label="Control and data connections"></svg>
+    <div class="cap" id="cOne"><span class="k">ready</span>Press Run it, then Forward ▶ for each step.</div>
+    <div class="out" id="outOne">The listing or file arrives here.</div>
+  </section>
+
+  <!-- ================================================================ 02 active vs passive -->
+  <section class="sec" id="modes">
+    <div class="sec-h"><div class="bay"><b>02</b>Bay</div><h2>Active vs passive: who lays the track?</h2><div class="rfc">PORT / EPRT · PASV / EPSV</div></div>
+    <p class="lede">In <b>active</b> mode the client says <code>PORT</code> ("connect to me here") and the <b>server</b> opens the data connection back to the client. In <b>passive</b> mode the client says <code>PASV</code>, the server answers <code>227</code> with a port, and the <b>client</b> opens the data connection. Turn on the client's firewall and see which mode survives. Both runs are real; press <b>Forward ▶</b> to advance them side by side.</p>
+    <div class="ctl"><label class="chk" style="font-size:14px"><input type="checkbox" id="mFw"> client behind a firewall / NAT (blocks incoming connections)</label><button class="btn go" id="mRun">Run both</button></div>
+    <div class="two">
+      <div><div class="mh"><h3>Active</h3><span class="mono">PORT · server → client</span></div>
+        <svg class="yard" id="yAct" viewBox="0 0 900 270" role="img" aria-label="Active mode"></svg>
+        <div class="cap" id="cAct"><span class="k">active</span>waiting</div><div class="verdict" id="vAct"></div></div>
+      <div><div class="mh"><h3>Passive</h3><span class="mono">PASV · client → server</span></div>
+        <svg class="yard" id="yPas" viewBox="0 0 900 270" role="img" aria-label="Passive mode"></svg>
+        <div class="cap" id="cPas"><span class="k">passive</span>waiting</div><div class="verdict" id="vPas"></div></div>
+    </div>
+    <table class="tbl">
+      <tr><th></th><th>Active (PORT)</th><th>Passive (PASV)</th></tr>
+      <tr><td>Client says</td><td><code>PORT 127,0,0,1,p1,p2</code>: "connect to me at port p1×256+p2"</td><td><code>PASV</code>, and the server replies <code>227 (h1,h2,h3,h4,p1,p2)</code></td></tr>
+      <tr><td>Data connection opened by</td><td>the server, from port 20 (control − 1)</td><td>the client, to a high port the server picked</td></tr>
+      <tr><td>Client firewall / NAT</td><td>breaks it: the incoming connection is blocked → <code>425</code></td><td>works: the client only makes outgoing connections</td></tr>
+      <tr><td>Server firewall</td><td>easy: only port 21 needs to be open, plus outgoing connections</td><td>harder: a range of passive ports must be open</td></tr>
+      <tr><td>Who uses it</td><td>Windows <code>ftp.exe</code> (active only), old clients</td><td>browsers, FileZilla, Python <code>ftplib</code> (default)</td></tr>
+    </table>
+  </section>
+
+  <!-- ================================================================ 03 ASCII vs binary -->
+  <section class="sec" id="ascii">
+    <div class="sec-h"><div class="bay"><b>03</b>Bay</div><h2>ASCII vs binary: TYPE A vs TYPE I</h2><div class="rfc">RFC 959 §3.1.1 · NVT-ASCII line endings</div></div>
+    <p class="lede"><code>TYPE A</code> (ASCII) treats the file as text and rewrites line endings: CR LF on the wire, the server's own ending on disk. <code>TYPE I</code> (image, binary) sends the bytes exactly as stored. Upload the same PNG both ways and download it back: binary is identical, ASCII breaks the image.</p>
+    <div class="ctl"><button class="btn go" id="aRun">Upload the image both ways</button><span class="mono" id="aMsg"></span></div>
+    <div class="imgs" id="aImgs">
+      <div class="imgc"><div class="hd">Original<span>/pub/logo.png</span></div><div class="ph"></div><div class="meta">–</div></div>
+      <div class="imgc"><div class="hd">TYPE I · binary<span>logo-binary.png</span></div><div class="ph"></div><div class="meta">–</div></div>
+      <div class="imgc"><div class="hd">TYPE A · ASCII<span>logo-ascii.png</span></div><div class="ph"></div><div class="meta">–</div></div>
+    </div>
+    <div class="two" style="margin-top:var(--s5)">
+      <div><div class="lab">Where the image first changes</div><div class="hexrow" id="aHex">–</div></div>
+      <div><div class="lab">A text file (readme.txt): LF on disk, CR LF in ASCII mode</div><div class="hexrow" id="tHex">–</div></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 04 REST -->
+  <section class="sec" id="rest">
+    <div class="sec-h"><div class="bay"><b>04</b>Bay</div><h2>Resume a broken download: REST</h2><div class="rfc">RFC 959 §4.1.3 (REST) · RFC 3659 (SIZE, REST STREAM)</div></div>
+    <p class="lede">A 3 MB download breaks part-way (we send <code>ABOR</code> and the server replies <code>426</code>, then <code>226</code>). Instead of starting again, the client asks <code>SIZE</code>, sends <code>REST &lt;bytes we already have&gt;</code> (<code>350</code>), then <code>RETR</code> again, and the server continues from that byte. The two halves are joined and checked against the server's copy.</p>
+    <div class="ctl"><span class="lab">Break at</span><input type="range" id="rCut" min="10" max="90" value="40" style="accent-color:var(--signal)"><span class="mono" id="rCutV">40 %</span><button class="btn go" id="rRun">Download big.bin</button><span class="mono" id="rMsg"></span></div>
+    <div class="rbar" id="rBar"><div class="a"></div><div class="cut"></div><div class="b"></div><div class="lbl2" id="rLbl">0 / 3 145 728 bytes</div></div>
+    <div class="rlog" id="rLog"></div>
+  </section>
+
+  <!-- ================================================================ 05 file manager -->
+  <section class="sec" id="fm">
+    <div class="sec-h"><div class="bay"><b>05</b>Bay</div><h2>The file manager</h2><div class="rfc">every button is one FTP session · logged in as alice</div></div>
+    <p class="lede">A FileZilla-style client built on our FTP client. The left pane is the client's own folder, the right pane the server. Each transfer shows on the departure board.</p>
+    <div class="ctl"><span class="lab">Data connections</span><div class="seg" id="fMode"><button data-v="passive" class="on">Passive</button><button data-v="active">Active</button></div></div>
+    <div class="fm">
+      <div class="pane"><div class="hd">Local · client-files</div><div class="rows" id="fLocal"></div>
+        <div class="ft"><button class="btn" id="fLdel">Delete locally</button></div></div>
+      <div class="mid"><button class="btn go" id="fPut" title="Upload (STOR)">STOR →</button><button class="btn go" id="fGet" title="Download (RETR)">← RETR</button></div>
+      <div class="pane"><div class="hd">Server <input id="fPath" value="/home/alice" aria-label="Server path"><button class="btn" id="fGo" style="padding:3px 8px;font-size:11px">Go</button></div><div class="rows" id="fRemote"></div>
+        <div class="ft"><button class="btn" id="fUp">Up</button><button class="btn" id="fMkd">MKD</button><button class="btn" id="fRen">Rename</button><button class="btn" id="fDel">DELE</button><button class="btn" id="fRmd">RMD</button></div></div>
+    </div>
+    <div class="fmmsg" id="fMsg"></div>
+    <div class="board"><div class="bh"><span>Time</span><span>User</span><span>Cmd</span><span>File</span><span>Mode</span><span>Bytes</span><span>Status</span></div><div class="prog" id="bProg"><i></i></div><div id="bRows"><div class="empty">NO TRANSFERS YET</div></div></div>
+  </section>
+
+  <!-- ================================================================ 06 console -->
+  <section class="sec" id="console">
+    <div class="sec-h"><div class="bay"><b>06</b>Bay</div><h2>Drive it by hand</h2><div class="rfc">like telnet 127.0.0.1 21</div></div>
+    <p class="lede">Type FTP commands on the control connection. When the server answers <code>227</code>/<code>229</code>, the console opens the data connection for you, and whatever arrives on it appears in the right-hand pane. That shows the two channels side by side. Type <code>PORT auto</code> to try active mode: the console listens and sends a real PORT.</p>
+    <div class="ctl"><button class="btn go" id="kOpen">Connect to 127.0.0.1:2121</button><span class="mono" id="kStat">not connected</span></div>
+    <div class="chips" id="kChips"></div>
+    <div class="cons">
+      <div class="col"><div class="hd">Control connection<span>port 2121</span></div><div class="term" id="kCtrl"></div>
+        <div class="prompt"><input id="kIn" placeholder="type a command, Enter to send" disabled aria-label="FTP command"><button id="kSend" disabled>SEND</button></div></div>
+      <div class="col"><div class="hd">Data connection<span>opened per transfer</span></div><div class="term data" id="kData"></div></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 07 security -->
+  <section class="sec" id="sec">
+    <div class="sec-h"><div class="bay"><b>07</b>Bay</div><h2>Security: what a sniffer sees</h2><div class="rfc">RFC 4217 (FTPS) · RFC 2577 (FTP security)</div></div>
+    <p class="lede">Plain FTP sends the password as text on the control connection. Our <b>wire tap</b> (port 2122) sits on the path like an attacker. Log in through it with plain FTP, then with <b>FTPS</b>: <code>AUTH TLS</code> encrypts the control connection before USER/PASS, and <code>PROT P</code> encrypts the data. Not to be confused with <b>SFTP</b>, a different protocol that runs inside SSH.</p>
+    <div class="ctl"><button class="btn go" id="sPlain">Log in through the tap · plain FTP</button><button class="btn" id="sTls">Log in through the tap · FTPS</button></div>
+    <div class="two"><div class="tapv" id="sOutA"><div class="hdr">Plain FTP<span>run it</span></div></div><div class="tapv" id="sOutB"><div class="hdr">FTPS<span>run it</span></div></div></div>
+    <div class="note"><b>Bounce-attack protection (RFC 2577).</b> A malicious client could send <code>PORT</code> with <i>someone else's</i> address, so the server would connect to a third machine for it. Our server only connects back to the client's own address, on a port ≥ 1024. Try <code>PORT 8,8,8,8,0,80</code> in the console: <code>500 Illegal PORT command</code>. The <b>jail</b>: <code>CWD ../../..</code> can never leave the user's root.</div>
+  </section>
+
+  <!-- ================================================================ 08 replies -->
+  <section class="sec" id="codes">
+    <div class="sec-h"><div class="bay"><b>08</b>Bay</div><h2>Reading a reply code</h2><div class="rfc">RFC 959 §4.2</div></div>
+    <div class="dec">
+      <div class="digits" id="dDig"><input maxlength="1" value="2" aria-label="first digit"><input maxlength="1" value="2" aria-label="second digit"><input maxlength="1" value="7" aria-label="third digit"></div>
+      <div class="dmean" id="dMean"></div>
+    </div>
+    <div class="ctl" style="margin-top:var(--s6)"><span class="lab">The ledger</span><div class="seg" id="lTabs"><button data-g="all" class="on">All</button><button data-g="CTRL">Control</button><button data-g="DATA">Data</button></div></div>
+    <div class="ledger" id="ledger"><div style="padding:20px;color:var(--muted)">Quiet. Run anything above.</div></div>
+  </section>
+
+  <!-- ================================================================ 09 real servers -->
+  <section class="sec" id="real">
+    <div class="sec-h"><div class="bay"><b>09</b>Bay</div><h2>Our client on real FTP servers</h2><div class="rfc">the same Java client, any RFC 959 server</div></div>
+    <p class="lede">Public test servers: <code>test.rebex.net</code> (user <code>demo</code>, password <code>password</code>, FTP and FTPS) and <code>ftp.gnu.org</code> (anonymous). Some networks block port 21; if the connection times out, that's the network, not the client.</p>
+    <div class="real">
+      <label class="lab">Preset<select id="xPre"><option value="test.rebex.net|21|demo|password">test.rebex.net (demo)</option><option value="ftp.gnu.org|21|anonymous|guest@example.com">ftp.gnu.org (anonymous)</option><option value="127.0.0.1|2121|alice|alice123">our server</option></select></label>
+      <label class="lab">Host<input class="inp" id="xHost" value="test.rebex.net"></label>
+      <label class="lab">Port<input class="inp" id="xPort" value="21" style="width:60px"></label>
+      <label class="lab">User<input class="inp" id="xUser" value="demo"></label>
+      <label class="lab">Password<input class="inp" id="xPass" type="password" value="password"></label>
+      <label class="lab">Mode<select id="xMode"><option>passive</option><option>active</option></select></label>
+      <button class="btn go" id="xGo">Connect</button>
+    </div>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="xTls"> FTPS (AUTH TLS)</label>
+    <div class="out" id="xOut" style="border-top:2px solid var(--ink);margin-top:12px;max-height:280px">Results appear here. The full conversation is in the ledger (section 08).</div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div><span class="lab">Control sessions open now</span><table class="sess" id="sess"></table>
+      <div style="margin-top:16px"><label class="chk"><input type="checkbox" id="setSlow" checked> slow link for big files (so REST is visible)</label><label class="chk"><input type="checkbox" id="setAnon" checked> allow anonymous</label></div></div>
+    <div><span class="lab">Server log</span><div class="logs" id="logs"></div></div>
+  </div>
+</footer>
+
+<div class="player" aria-label="Step control">
+  <button class="pbtn fwd" id="pFwd" title="Next step (→ / space / Enter)">Forward ▶</button>
+  <button class="pbtn" id="pAuto" aria-pressed="false">Auto-play ▶▶</button>
+  <label class="pspeed">speed <select id="pSpeed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+  <span class="pstat" id="pStat">press Forward to run active vs passive</span>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const api = async p => (await fetch(p, { cache: 'no-store' })).json();
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const segVal = id => $(id).querySelector('.on').dataset.v || $(id).querySelector('.on').dataset.g;
+document.querySelectorAll('.seg').forEach(s => s.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; s.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
+
+// ================================================================ step control: nothing moves until Forward (unless Auto-play)
+const PLAY = { speed: 1, auto: false, fwd: null, busy: false };
+const W = ms => new Promise(r => setTimeout(r, ms / PLAY.speed));
+async function beat(ms) {
+  if (PLAY.auto) { await W(ms); return; }
+  $('pFwd').classList.add('wait');
+  await new Promise(r => { PLAY.fwd = r; });
+  $('pFwd').classList.remove('wait');
+}
+function forward() { if (PLAY.fwd) { const f = PLAY.fwd; PLAY.fwd = null; f(); return; } if (!PLAY.busy) $('mRun').click(); }
+$('pFwd').onclick = forward;
+$('pAuto').onclick = () => { PLAY.auto = !PLAY.auto; $('pAuto').setAttribute('aria-pressed', PLAY.auto); $('pAuto').textContent = PLAY.auto ? 'Auto-play: on' : 'Auto-play ▶▶'; if (PLAY.auto && PLAY.fwd) forward(); };
+$('pSpeed').onchange = () => PLAY.speed = +$('pSpeed').value;
+document.addEventListener('keydown', e => { if (e.target.closest('input,select,textarea')) return; if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); forward(); } });
+
+// ================================================================ the yard: depots, signal wire (control), track (data)
+const CX = 135, SX = 765, WY = 78, TY = 190, FWX = 300;
+function yard(svg) {
+  svg.innerHTML = '';
+  const g = sv('g', {}, svg), Y = { svg, layer: null };
+  const depot = (x, name, sub) => { const d = sv('g', { class: 'depot' }, g); sv('rect', { x: x - 95, y: 108, width: 190, height: 56 }, d); const t = sv('text', { x: x - 82, y: 133 }, d); t.textContent = name; const s = sv('text', { x: x - 82, y: 152, class: 'sub' }, d); s.textContent = sub; };
+  depot(CX, 'CLIENT', 'our client · 127.0.0.1'); depot(SX, 'SERVER', 'ftp.cse.myuniv.edu');
+  Y.wire = sv('path', { class: 'wire', d: `M${CX} 108V${WY}H${SX}V108` }, g);
+  const l1 = sv('text', { class: 'lbl', x: 450, y: WY - 12, 'text-anchor': 'middle' }, g); l1.textContent = 'control connection · port 21';
+  Y.track = sv('g', {}, g);
+  const l2 = sv('text', { class: 'lbl', x: 450, y: TY + 52, 'text-anchor': 'middle' }, g); l2.textContent = 'data connection · one per transfer';
+  Y.ports = sv('g', {}, g);
+  Y.layer = sv('g', {}, svg);
+  return Y;
+}
+function anim(dur, fn) { if (REDUCED) { fn(1); return Promise.resolve(); } return new Promise(res => { const t0 = performance.now(), D = dur / PLAY.speed; let done = false; const fin = () => { if (!done) { done = true; fn(1); res(); } }; setTimeout(fin, D + 200); (function f() { if (done) return; const k = Math.min(1, (performance.now() - t0) / D); fn(k); k < 1 ? requestAnimationFrame(f) : fin(); })(); }); }
+async function flag(Y, fromClient, text, color) {
+  const g = sv('g', { class: 'flag' }, Y.layer), w = Math.min(260, 14 + text.length * 6.7);
+  const r = sv('rect', { width: w, height: 22, fill: color }, g); const t = sv('text', { x: 7, y: 15, fill: color === '#16171a' ? '#fff' : '#16171a' }, g); t.textContent = text.length > 38 ? text.slice(0, 37) + '…' : text;
+  await anim(900, k => { const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; const x = fromClient ? CX + (SX - CX - w) * e : SX - w - (SX - CX - w) * e; g.setAttribute('transform', `translate(${x} ${WY - 11})`); });
+  g.style.transition = 'opacity .6s'; setTimeout(() => { g.style.opacity = 0; setTimeout(() => g.remove(), 700); }, 500);
+}
+async function layTrack(Y, fromClient, label, blockedAt) {
+  Y.track.innerHTML = ''; Y.ports.innerHTML = '';
+  const a = fromClient ? CX : SX, b = blockedAt != null ? blockedAt : (fromClient ? SX : CX);
+  const grp = sv('g', {}, Y.track);
+  await anim(900, k => {
+    grp.innerHTML = ''; const x2 = a + (b - a) * k, lo = Math.min(a, x2), hi = Math.max(a, x2);
+    for (let x = lo; x < hi; x += 18) sv('line', { class: 'sleeper', x1: x + 6, y1: TY - 9, x2: x + 6, y2: TY + 9 }, grp);
+    sv('line', { class: 'rail', x1: lo, y1: TY - 6, x2: hi, y2: TY - 6 }, grp); sv('line', { class: 'rail', x1: lo, y1: TY + 6, x2: hi, y2: TY + 6 }, grp);
+    sv('line', { class: 'tap', x1: CX, y1: 164, x2: CX, y2: TY - 6, stroke: '#3d4048', 'stroke-width': 2 }, grp); sv('line', { x1: SX, y1: 164, x2: SX, y2: TY - 6, stroke: '#3d4048', 'stroke-width': 2 }, grp);
+  });
+  const t = sv('text', { class: 'port', x: fromClient ? CX + 10 : SX - 10, y: TY - 16, 'text-anchor': fromClient ? 'start' : 'end' }, Y.ports); t.textContent = label;
+  const arrow = sv('path', { d: fromClient ? `M${CX + 120} ${TY + 26}h60l-8 -6m8 6l-8 6` : `M${SX - 120} ${TY + 26}h-60l8 -6m-8 6l8 6`, stroke: '#ff5f1f', 'stroke-width': 3, fill: 'none' }, Y.ports);
+  const at = sv('text', { class: 'port', x: fromClient ? CX + 190 : SX - 190, y: TY + 30, 'text-anchor': fromClient ? 'start' : 'end' }, Y.ports); at.textContent = fromClient ? 'client opened it' : 'server opened it';
+}
+function barrier(Y, show) {
+  if (Y.bar) { Y.bar.remove(); Y.bar = null; }
+  if (!show) return;
+  const g = sv('g', {}, Y.svg);
+  const pat = sv('pattern', { id: 'hz' + Y.svg.id, width: 16, height: 16, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, sv('defs', {}, g));
+  sv('rect', { width: 8, height: 16, fill: '#ff5f1f' }, pat); sv('rect', { x: 8, width: 8, height: 16, fill: '#16171a' }, pat);
+  sv('rect', { x: FWX - 8, y: TY - 34, width: 16, height: 68, fill: `url(#hz${Y.svg.id})`, stroke: '#16171a', 'stroke-width': 2 }, g);
+  const t = sv('text', { class: 'lbl', x: FWX, y: TY - 42, 'text-anchor': 'middle', fill: '#c62828' }, g); t.textContent = 'client firewall'; t.style.fill = '#c62828';
+  Y.bar = g;
+}
+async function train(Y, toClient, tls) {
+  const g = sv('g', {}, Y.layer);
+  for (let i = 0; i < 4; i++) sv('rect', { class: 'wagon' + (tls ? ' tls' : ''), x: i * 26, y: TY - 9, width: 22, height: 18, rx: 2 }, g);
+  await anim(1300, k => { const x = toClient ? SX - 110 - (SX - CX - 120) * k : CX + 10 + (SX - CX - 120) * k; g.setAttribute('transform', `translate(${x} 0)`); });
+  g.remove();
+}
+async function lift(Y) { const t = Y.track.firstChild; if (t) await anim(500, k => t.setAttribute('opacity', 1 - k)); Y.track.innerHTML = ''; Y.ports.innerHTML = ''; }
+function blockX(Y) { const g = sv('g', {}, Y.layer); sv('line', { class: 'xm', x1: FWX - 16, y1: TY - 16, x2: FWX + 16, y2: TY + 16 }, g); sv('line', { class: 'xm', x1: FWX + 16, y1: TY - 16, x2: FWX - 16, y2: TY + 16 }, g); }
+
+/** Animate one trace step on a yard. */
+async function playStep(Y, s, ctx) {
+  const tlsOn = ctx.tls;
+  if (s.ch === 'tcp') {
+    if (s.text.startsWith('TLS')) { Y.wire.classList.add('tls'); ctx.tls = true; } else Y.wire.classList.add('up');
+    return;
+  }
+  if (s.ch === 'ctrl') { const err = /^[45]/.test(s.text) && s.dir === 'S'; await flag(Y, s.dir === 'C', s.text, s.dir === 'C' ? '#16171a' : err ? '#c62828' : '#ffb000'); return; }
+  if (s.ch === 'note') { if (/firewall/.test(s.text)) barrier(Y, true); return; }
+  if (s.ch === 'data') {
+    if (/DATA connection: client/.test(s.text)) await layTrack(Y, true, s.text.replace('DATA connection: ', ''));
+    else if (/DATA connection: server/.test(s.text)) await layTrack(Y, false, s.text.replace('DATA connection: ', ''));
+    else if (/no data connection|could not connect/.test(s.text)) { await layTrack(Y, false, 'server tries to connect…', FWX + 12); blockX(Y); }
+    else if (/TLS on the data/.test(s.text)) ctx.dataTls = true;
+    else if (/closed/.test(s.text)) { await train(Y, ctx.down, ctx.dataTls); await lift(Y); }
+    else if (/client stops/.test(s.text)) { await train(Y, true, ctx.dataTls); }
+  }
+}
+function caption(el, s, i, n) {
+  el.innerHTML = `<span class="t"><span class="k">${s.ch === 'ctrl' ? (s.dir === 'C' ? 'client → server' : 'server → client') : s.ch === 'data' ? 'data' : s.ch === 'tcp' ? 'connection' : 'note'}</span>${esc(s.text)}</span>${esc(s.note || '')}<span class="mono" style="float:right;color:#8d8f96">step ${i} / ${n}</span>`;
+}
+
+// ================================================================ 01 two connections
+$('oRun').onclick = async () => {
+  if (PLAY.busy) return; PLAY.busy = true; $('oRun').disabled = true;
+  const op = segVal('oOp'), mode = segVal('oMode');
+  const Y = yard($('yOne')); $('cOne').innerHTML = '<span class="k">running</span>talking to the server…'; $('outOne').textContent = '';
+  const r = await api(`/api/run?op=${op}&mode=${mode}&tls=${$('oTls').checked ? 1 : 0}`);
+  const ctx = { down: op !== 'stor' };
+  for (const [i, s] of r.trace.entries()) {
+    caption($('cOne'), s, i + 1, r.trace.length); $('pStat').textContent = `bay 01 · step ${i + 1} / ${r.trace.length}`;
+    await playStep(Y, s, ctx);
+    if (i < r.trace.length - 1) await beat(1500);
+  }
+  $('outOne').textContent = r.error ? '✗ ' + r.error : r.result;
+  PLAY.busy = false; $('oRun').disabled = false; $('pStat').textContent = 'done · press Forward to run active vs passive';
+};
+
+// ================================================================ 02 active vs passive, in lockstep
+$('mRun').onclick = async () => {
+  if (PLAY.busy) return; PLAY.busy = true; $('mRun').disabled = true;
+  const fw = $('mFw').checked ? 1 : 0;
+  const A = yard($('yAct')), P = yard($('yPas'));
+  barrier(A, fw); barrier(P, fw);
+  $('vAct').textContent = ''; $('vPas').textContent = ''; $('vAct').className = 'verdict'; $('vPas').className = 'verdict';
+  $('cAct').innerHTML = '<span class="k">active</span>running…'; $('cPas').innerHTML = '<span class="k">passive</span>running…';
+  const [ra, rp] = await Promise.all([api(`/api/run?op=list&mode=active&firewall=${fw}`), api(`/api/run?op=list&mode=passive&firewall=${fw}`)]);
+  const ca = { down: true }, cp = { down: true }, n = Math.max(ra.trace.length, rp.trace.length);
+  document.querySelector('#modes').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
+  for (let i = 0; i < n; i++) {
+    $('pStat').textContent = `bay 02 · step ${i + 1} / ${n}`;
+    const jobs = [];
+    if (i < ra.trace.length) { caption($('cAct'), ra.trace[i], i + 1, ra.trace.length); jobs.push(playStep(A, ra.trace[i], ca)); }
+    if (i < rp.trace.length) { caption($('cPas'), rp.trace[i], i + 1, rp.trace.length); jobs.push(playStep(P, rp.trace[i], cp)); }
+    await Promise.all(jobs);
+    if (i < n - 1) await beat(1500);
+  }
+  const verdict = (el, r) => { el.className = 'verdict ' + (r.error ? 'bad' : 'ok'); el.textContent = r.error ? '✗ ' + r.error.slice(0, 60) : '✓ listing received'; };
+  verdict($('vAct'), ra); verdict($('vPas'), rp);
+  PLAY.busy = false; $('mRun').disabled = false; $('pStat').textContent = 'done · press Forward to run it again';
+};
+
+// ================================================================ 03 ASCII vs binary
+$('aRun').onclick = async () => {
+  $('aRun').disabled = true; $('aMsg').textContent = 'uploading with TYPE A and TYPE I, downloading back…';
+  const r = await api('/api/modes'); $('aRun').disabled = false;
+  if (r.error) { $('aMsg').textContent = r.error; return; }
+  $('aMsg').textContent = '';
+  const cards = document.querySelectorAll('#aImgs .imgc');
+  const fill = (c, d, label, cls) => {
+    c.className = 'imgc ' + (cls || '');
+    c.querySelector('.ph').innerHTML = `<img alt="${label}" src="data:image/png;base64,${d.img}" onerror="this.outerHTML='<div class=broken>image is corrupted<br><small style=\\'font:400 12px var(--mono)\\'>the PNG decoder rejects it</small></div>'">`;
+    c.querySelector('.meta').innerHTML = `${d.size} bytes · sha-256 ${d.sha}…${d.same === undefined ? '' : d.same ? ' · <b style="color:var(--go)">identical</b>' : ' · <b style="color:var(--stop)">changed</b>'}`;
+  };
+  fill(cards[0], r.orig, 'original'); fill(cards[1], r.binary, 'binary copy', r.binary.same ? 'good' : 'bad'); fill(cards[2], r.ascii, 'ascii copy', r.ascii.same ? 'good' : 'bad');
+  const mark = (hex, other) => hex.split(' ').map((h, i) => h !== (other.split(' ')[i] || '') ? `<span class="x">${h}</span>` : h).join(' ');
+  $('aHex').innerHTML = r.diff < 0 ? 'no difference' : `byte ${r.diff} (the PNG signature 89 50 4E 47 <b>0D 0A</b> 1A <b>0A</b> is designed to catch exactly this)<br>original&nbsp; ${mark(r.origHex, r.asciiHex)}<br>ascii&nbsp;&nbsp;&nbsp;&nbsp; ${mark(r.asciiHex, r.origHex)}`;
+  const crlf = h => h.replace(/0d 0a/g, '<span class="c">0d 0a</span>').replace(/(^| )0a/g, (m, s) => `${s}<span class="c">0a</span>`);
+  $('tHex').innerHTML = `TYPE I · ${r.textI.size} bytes: ${crlf(r.textI.hex)}<br>TYPE A · ${r.textA.size} bytes: ${crlf(r.textA.hex)}`;
+};
+
+// ================================================================ 04 REST
+$('rCut').oninput = () => $('rCutV').textContent = $('rCut').value + ' %';
+$('rRun').onclick = async () => {
+  $('rRun').disabled = true; $('rMsg').textContent = 'downloading…'; $('rLog').innerHTML = '';
+  const bar = $('rBar'), a = bar.querySelector('.a'), b = bar.querySelector('.b'), cut = bar.querySelector('.cut');
+  a.style.transition = 'none'; b.style.transition = 'none'; a.style.width = '0'; b.style.width = '0'; b.style.left = '0'; cut.style.display = 'none';
+  const pct = +$('rCut').value / 100;
+  void a.offsetWidth; a.style.transition = `width ${3 * pct / PLAY.speed}s linear`; a.style.width = pct * 100 + '%';
+  $('rLbl').textContent = 'downloading…';
+  const r = await api('/api/resume?cut=' + pct);
+  $('rRun').disabled = false;
+  if (r.error) { $('rMsg').textContent = r.error; return; }
+  const p = r.part / r.total;
+  a.style.transition = 'width .3s'; a.style.width = p * 100 + '%';
+  cut.style.left = `calc(${p * 100}% - 4px)`; cut.style.display = 'block';
+  $('rLbl').textContent = `broken at ${r.part.toLocaleString()} bytes`;
+  const lines = r.trace.filter(s => s.ch === 'ctrl' && /REST|RETR|ABOR|SIZE|^426|^350|^226|^150|^213/.test(s.text));
+  $('rLog').innerHTML = lines.map(s => `<div class="${s.dir === 'C' ? 'c' : 's' + (/^4/.test(s.text) ? ' e' : '')}">${s.dir === 'C' ? '→ ' : '← '}${esc(s.text)}</div>`).join('');
+  await W(1200);
+  b.style.left = p * 100 + '%'; void b.offsetWidth; b.style.transition = `width ${Math.max(.8, 3 * (1 - p)) / PLAY.speed}s linear`; b.style.width = (1 - p) * 100 + '%';
+  $('rLbl').textContent = 'resuming with REST ' + r.part.toLocaleString();
+  await W(Math.max(800, 3000 * (1 - p)) + 200);
+  $('rLbl').textContent = `${r.after.toLocaleString()} / ${r.total.toLocaleString()} bytes`;
+  $('rMsg').innerHTML = r.ok ? `<b style="color:var(--go)">✓ joined file is byte-identical</b> · sha-256 ${r.sha}… = server ${r.serverSha}… · saved ${r.part.toLocaleString()} bytes of re-download` : '<b style="color:var(--stop)">✗ mismatch</b>';
+};
+
+// ================================================================ 05 file manager
+let fSelL = null, fSelR = null;
+function parseLs(t) { return t.split(/\r?\n/).filter(Boolean).map(l => { const p = l.trim().split(/\s+/); return { dir: l.startsWith('d'), size: +p[4], name: p.slice(8).join(' ') }; }); }
+async function fmOp(op, extra = {}) {
+  const q = new URLSearchParams(Object.assign({ op, path: $('fPath').value, mode: segVal('fMode') }, extra));
+  const r = await api('/api/fm?' + q); if (r.error) { $('fMsg').textContent = '✗ ' + r.error; return; }
+  $('fMsg').textContent = r.msg ? '› ' + r.msg : '';
+  $('fLocal').innerHTML = r.local.map(f => `<div class="rowf${f.name === fSelL ? ' on' : ''}" data-n="${esc(f.name)}"><span class="ic">▤</span><span>${esc(f.name)}</span><span>${f.size.toLocaleString()} B</span></div>`).join('') || '<div class="rowf"><span></span><span style="color:var(--muted)">empty</span></div>';
+  $('fRemote').innerHTML = parseLs(r.listing).map(f => `<div class="rowf${f.name === fSelR ? ' on' : ''}" data-n="${esc(f.name)}" data-d="${f.dir ? 1 : 0}"><span class="ic">${f.dir ? '▸' : '▤'}</span><span>${esc(f.name)}${f.dir ? '/' : ''}</span><span>${f.dir ? '' : f.size.toLocaleString() + ' B'}</span></div>`).join('') || '<div class="rowf"><span></span><span style="color:var(--muted)">empty</span></div>';
+  $('fLocal').querySelectorAll('.rowf[data-n]').forEach(x => x.onclick = () => { fSelL = x.dataset.n; $('fLocal').querySelectorAll('.rowf').forEach(y => y.classList.toggle('on', y === x)); });
+  $('fRemote').querySelectorAll('.rowf[data-n]').forEach(x => {
+    x.onclick = () => { fSelR = x.dataset.n; $('fRemote').querySelectorAll('.rowf').forEach(y => y.classList.toggle('on', y === x)); };
+    x.ondblclick = () => { if (x.dataset.d === '1') { $('fPath').value = ($('fPath').value.replace(/\/$/, '') + '/' + x.dataset.n); fSelR = null; fmOp('ls'); } };
+  });
+}
+$('fGo').onclick = () => fmOp('ls');
+$('fUp').onclick = () => { $('fPath').value = $('fPath').value.replace(/\/[^/]+\/?$/, '') || '/'; fmOp('ls'); };
+$('fPut').onclick = () => fSelL ? fmOp('put', { name: fSelL }) : ($('fMsg').textContent = 'select a local file first');
+$('fGet').onclick = () => fSelR ? fmOp('get', { name: fSelR }) : ($('fMsg').textContent = 'select a server file first');
+$('fDel').onclick = () => fSelR && fmOp('del', { name: fSelR });
+$('fRmd').onclick = () => fSelR && fmOp('rmdir', { name: fSelR });
+$('fMkd').onclick = () => { const n = prompt('New folder name', 'reports'); if (n) fmOp('mkdir', { name: n }); };
+$('fRen').onclick = () => { if (!fSelR) return; const n = prompt('Rename ' + fSelR + ' to', fSelR + '.bak'); if (n) fmOp('rename', { name: fSelR, to: n }); };
+$('fLdel').onclick = () => fSelL && fmOp('ldel', { name: fSelL });
+
+// ================================================================ 06 console
+const KCH = ['USER alice', 'PASS alice123', 'SYST', 'FEAT', 'PWD', 'CWD /pub', 'TYPE A', 'PASV', 'LIST', 'TYPE I', 'EPSV', 'RETR readme.txt', 'PORT auto', 'NLST', 'SIZE logo.png', 'MDTM logo.png', 'REST 20', 'PASV', 'RETR readme.txt', 'PORT 8,8,8,8,0,80', 'CWD ../../..', 'HELP', 'QUIT'];
+$('kChips').innerHTML = KCH.map(c => `<button>${esc(c)}</button>`).join('');
+$('kChips').onclick = e => { const b = e.target.closest('button'); if (b) kSend(b.textContent); };
+let kId = null, kc = 0, kd = 0, kTok = 0;
+$('kOpen').onclick = async () => {
+  if (kId) await api('/api/raw/close?id=' + kId);
+  const r = await api('/api/raw/open'); kId = r.id; kc = 0; kd = 0;
+  $('kCtrl').textContent = ''; $('kData').textContent = ''; $('kStat').textContent = `connected · 127.0.0.1:${r.port}`;
+  $('kIn').disabled = false; $('kSend').disabled = false; $('kIn').focus();
+  const tok = ++kTok;
+  (async function loop() { while (kId && tok === kTok) { const x = await api(`/api/raw/read?id=${kId}&c=${kc}&d=${kd}`); if (x.ctrl) { const el = $('kCtrl'); x.ctrl.split(/(\n)/).forEach(part => { if (part.startsWith('› ')) { const s = document.createElement('span'); s.className = 'me'; s.textContent = part; el.append(s); } else el.append(part.replace(/\r/g, '')); }); el.scrollTop = 1e9; } if (x.data) { $('kData').append(x.data.replace(/\r/g, '')); $('kData').scrollTop = 1e9; } kc = x.c || kc; kd = x.d || kd; if (x.closed) { $('kStat').textContent = 'closed'; return; } await new Promise(r => setTimeout(r, 350)); } })();
+};
+async function kSend(line) { if (!kId) { $('kStat').textContent = 'connect first'; return; } await api(`/api/raw/send?id=${kId}&line=${encodeURIComponent(line)}`); }
+$('kIn').addEventListener('keydown', e => { if (e.key === 'Enter') { kSend($('kIn').value); $('kIn').value = ''; e.stopPropagation(); } });
+$('kSend').onclick = () => { kSend($('kIn').value); $('kIn').value = ''; };
+
+// ================================================================ 07 security
+async function tapRun(tls) {
+  const box = tls ? $('sOutB') : $('sOutA');
+  box.innerHTML = `<div class="hdr">${tls ? 'FTPS' : 'Plain FTP'}<span>logging in through the tap…</span></div>`;
+  const r = await api('/api/tap?tls=' + (tls ? 1 : 0));
+  if (r.error) { box.innerHTML += `<div class="f">${esc(r.error)}</div>`; return; }
+  const leaked = r.frames.some(f => f.secret);
+  box.innerHTML = `<div class="hdr ${leaked ? 'bad' : 'good'}">${tls ? 'FTPS' : 'Plain FTP'}<span>${leaked ? 'password captured' : 'nothing readable after AUTH TLS'}</span></div>` +
+    r.frames.map(f => `<div class="f${f.secret ? ' secret' : ''}${f.tls ? ' tls' : ''}"><span class="d">${f.dir}</span><span>${esc(f.text)}${f.tls ? `<span class="hx">${esc(f.hex)}</span>` : ''}</span></div>`).join('');
+}
+$('sPlain').onclick = () => tapRun(false); $('sTls').onclick = () => tapRun(true);
+
+// ================================================================ 08 reply decoder + ledger
+const D1 = { 1: 'Positive preliminary: the action has started, expect another reply (e.g. 150 before a transfer)', 2: 'Positive completion: done (200, 226, 230, 250, 257)', 3: 'Positive intermediate: accepted, now send the next command (331 → PASS, 350 → RNTO / RETR)', 4: 'Transient negative: failed this time, may work if you try again (425, 426, 450)', 5: 'Permanent negative: failed, don\'t repeat it as is (500, 530, 550, 553)' };
+const D2 = { 0: 'Syntax', 1: 'Information', 2: 'Connections (control or data)', 3: 'Authentication and accounting', 4: 'Unspecified', 5: 'File system' };
+const KNOWN = { 125: 'data connection already open, transfer starting', 150: 'file status ok, about to open the data connection', 200: 'command ok', 211: 'system status / FEAT list', 213: 'file status (SIZE, MDTM)', 214: 'help', 215: 'system type', 220: 'service ready', 221: 'closing the control connection', 226: 'closing the data connection: transfer complete', 227: 'entering passive mode (h1,h2,h3,h4,p1,p2)', 229: 'entering extended passive mode (|||port|)', 230: 'user logged in', 234: 'AUTH TLS accepted', 250: 'file action ok', 257: 'pathname created / current directory', 331: 'user ok, need password', 350: 'pending further information (RNFR, REST)', 421: 'service not available, closing', 425: "can't open data connection", 426: 'connection closed, transfer aborted', 450: 'file unavailable (busy)', 500: 'syntax error / illegal command', 501: 'syntax error in arguments', 502: 'command not implemented', 503: 'bad sequence of commands', 504: 'parameter not implemented', 530: 'not logged in', 550: 'file unavailable (not found, no access)', 553: 'file name not allowed' };
+function decode() {
+  const d = [...document.querySelectorAll('#dDig input')].map(i => i.value), code = +d.join('');
+  $('dMean').innerHTML = `<div><b>${d[0]}xx</b> · ${esc(D1[d[0]] || 'not a valid first digit (1–5)')}</div><div><b>x${d[1]}x</b> · ${esc(D2[d[1]] || 'not a valid second digit (0–5)')}</div><div><b>${code || ''}</b> · ${esc(KNOWN[code] || 'the third digit only refines the meaning')}</div>`;
+}
+document.querySelectorAll('#dDig input').forEach((i, k, all) => { i.oninput = () => { i.value = i.value.replace(/\D/g, ''); if (i.value && k < 2) all[k + 1].focus(); decode(); }; i.onfocus = () => i.select(); });
+decode();
+let lseq = 0, lHas = false, lGroup = 'all';
+const codeCls = t => { const m = t.match(/^([1-5])\d\d[ -]/); return m ? `<span class="code c${m[1]}">${t.slice(0, 3)}</span>${esc(t.slice(3))}` : esc(t); };
+async function pollLines() {
+  try {
+    const r = await api('/api/lines?since=' + lseq), box = $('ledger'), atB = box.scrollTop + box.clientHeight >= box.scrollHeight - 40, frag = document.createDocumentFragment();
+    for (const l of r.lines) {
+      lseq = l.seq;
+      const d = document.createElement('div'); d.className = 'ln' + (lHas ? ' fresh' : ''); d.dataset.g = l.proto;
+      d.style.display = lGroup === 'all' || lGroup === l.proto ? '' : 'none';
+      d.innerHTML = `<span class="sid">${esc(l.session.replace('client:', '↪'))}</span><span class="ch ${l.proto}">${l.proto}</span><span class="w ${l.dir}">${l.dir}</span><span class="t">${l.dir === 'S' ? codeCls(l.text) : esc(l.text)}${l.note ? `<span class="n">${esc(l.note)}</span>` : ''}</span>`;
+      frag.appendChild(d);
+    }
+    if (frag.childNodes.length) { if (!lHas) { box.innerHTML = ''; lHas = true; } box.appendChild(frag); }
+    while (box.children.length > 1500) box.removeChild(box.firstChild);
+    if (atB) box.scrollTop = box.scrollHeight;
+  } catch (e) { }
+  setTimeout(pollLines, 700);
+}
+$('lTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; lGroup = b.dataset.g; document.querySelectorAll('#ledger .ln').forEach(l => l.style.display = lGroup === 'all' || l.dataset.g === lGroup ? '' : 'none'); };
+
+// ================================================================ 09 real servers
+$('xPre').onchange = () => { const [h, p, u, pw] = $('xPre').value.split('|'); $('xHost').value = h; $('xPort').value = p; $('xUser').value = u; $('xPass').value = pw; };
+$('xGo').onclick = async () => {
+  $('xGo').disabled = true; $('xOut').textContent = 'connecting to ' + $('xHost').value + '…';
+  const q = new URLSearchParams({ host: $('xHost').value, port: $('xPort').value, user: $('xUser').value, pass: $('xPass').value, mode: $('xMode').value, tls: $('xTls').checked ? 1 : 0 });
+  const r = await api('/api/real?' + q); $('xGo').disabled = false;
+  $('xOut').textContent = r.error ? `✗ ${r.error}` + (/timed out|connect/i.test(r.error) ? '\n(the network may block port 21)' : '') : `✓ ${r.host}:${r.port} · PWD ${r.pwd}\n\n${r.listing}`;
+};
+
+// ================================================================ state, board, footer
+async function pollState() {
+  try {
+    const s = await api('/api/state'), S = s.server;
+    $('sess').innerHTML = '<tr><th>Session</th><th>Peer</th><th>User</th><th>Dir</th><th>Type</th><th>TLS</th></tr>' + (S.sessions.map(x => `<tr><td>${x.id}</td><td>${x.peer}</td><td>${esc(x.user || '—')}</td><td>${esc(x.cwd)}</td><td>${x.type}</td><td>${x.tls ? 'yes · PROT ' + x.prot : 'no'}</td></tr>`).join('') || '<tr><td colspan="6">none</td></tr>');
+    const rows = S.board.slice().reverse();
+    $('bRows').innerHTML = rows.length ? rows.map(b => `<div class="br"><span>${new Date(b.t).toTimeString().slice(0, 8)}</span><span>${esc(b.user)}</span><span>${b.cmd}</span><span>${esc(b.path)}</span><span>${b.mode}</span><span>${b.bytes.toLocaleString()}</span><span class="st ${b.status}">${b.status}</span></div>`).join('') : '<div class="empty">NO TRANSFERS YET</div>';
+    const pr = S.progress[0], pb = $('bProg');
+    if (pr) { pb.style.display = 'block'; pb.firstChild.style.width = Math.min(100, pr.done / pr.total * 100) + '%'; } else pb.style.display = 'none';
+    $('setSlow').checked = S.slow; $('setAnon').checked = S.anonymous;
+    const lb = $('logs'); lb.textContent = s.logs.join('\n'); lb.scrollTop = 1e9;
+  } catch (e) { }
+}
+setInterval(pollState, 1500);
+$('setSlow').onchange = () => api('/api/settings?slow=' + ($('setSlow').checked ? 1 : 0));
+$('setAnon').onchange = () => api('/api/settings?anon=' + ($('setAnon').checked ? 1 : 0));
+
+// ================================================================ nav, reveal, start
+const links = [...document.querySelectorAll('.top nav a')];
+const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-40% 0px -55% 0px' });
+document.querySelectorAll('main > section[id]').forEach(s => spy.observe(s));
+if (!REDUCED) {
+  const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
+  document.querySelectorAll('.sec > :not(.sec-h)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
+  setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { if (x.getBoundingClientRect().top < innerHeight * 1.2) x.classList.add('in'); }), 400);
+  document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (a) { const t = document.querySelector(a.getAttribute('href')); t && t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); } });
+}
+yard($('yOne')); yard($('yAct')); yard($('yPas'));
+pollState(); pollLines(); fmOp('ls');
+</script>
+</body>
+</html>
