@@ -6,7 +6,10 @@ A production-inspired, highly available **RFC 2131 DHCP Server Cluster** built f
 
 ## 1. High-Level Architecture & 6-Container Topology
 
-### A. Visual System Architecture Diagram
+![Distributed DHCP Server Cluster Architecture](architecture_diagram.png)
+
+<details>
+<summary><b>Click to expand Interactive Mermaid Flowchart</b></summary>
 
 ```mermaid
 flowchart TD
@@ -52,7 +55,10 @@ flowchart TD
     DB -.->|"Continuous State Sync Daemon (psql upsert)"| LB_UI
 ```
 
-### B. ASCII Network Subnet & Container Topology Map
+</details>
+
+<details>
+<summary><b>Click to expand ASCII Network Subnet & Container Topology Map</b></summary>
 
 ```
                                   +------------------------------------+
@@ -92,6 +98,8 @@ flowchart TD
 |  • Reverse-proxies /cluster/ to Load Balancer     |  • Continuous Background Sync Daemon              |
 +---------------------------------------------------+---------------------------------------------------+
 ```
+
+</details>
 
 ---
 
