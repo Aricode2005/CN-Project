@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTP Reading Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Archivo+Narrow:wght@500;600;700&display=swap">
+<style>
+:root{
+  --paper:#f3ecdc; --paper2:#e9dfc8; --card:#fbf7ee; --ink:#1f2a24; --muted:#5e6a60; --line:#cbbd9e;
+  --green:#2f5d50; --red:#b3261e; --brass:#a8812c; --blue:#3c5a7a; --rule:#d9c9a3;
+  --serif:"Libre Caslon Text",Georgia,serif; --mono:"IBM Plex Mono",Consolas,monospace; --label:"Archivo Narrow","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#161915; --paper2:#1f231e; --card:#22261f; --ink:#ebe3d0; --muted:#a6ab9c; --line:#3c4237;
+  --green:#7fb8a4; --red:#e5715f; --brass:#d6b05c; --blue:#8fb0d6; --rule:#3a3f34;}}
+:root[data-theme="dark"]{--paper:#161915; --paper2:#1f231e; --card:#22261f; --ink:#ebe3d0; --muted:#a6ab9c; --line:#3c4237;
+  --green:#7fb8a4; --red:#e5715f; --brass:#d6b05c; --blue:#8fb0d6; --rule:#3a3f34;}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 var(--serif);padding-bottom:84px}
+a{color:var(--green)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+button,select,input,textarea{font:inherit;color:inherit}
+.label{font:600 .74rem/1.2 var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------------- masthead */
+header.mast{border-bottom:4px double var(--ink);padding:28px 32px 18px;display:grid;grid-template-columns:1fr auto;gap:12px 32px;align-items:end}
+.mast h1{font-weight:400;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1.02;margin:0;letter-spacing:-.01em}
+.mast h1 i{color:var(--green)}
+.mast .sub{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 22px;color:var(--muted)}
+.mast .sub b{color:var(--ink);font-weight:400}
+.desk-hours{text-align:right;font-family:var(--mono);font-size:.8rem;color:var(--muted);line-height:1.7}
+.desk-hours span{color:var(--ink)}
+.theme{border:1px solid var(--line);background:none;padding:4px 10px;cursor:pointer;font:600 .72rem var(--label);letter-spacing:.12em;text-transform:uppercase}
+
+/* ---------------- layout: call-number rail + stacks */
+.wrap{display:grid;grid-template-columns:190px minmax(0,1fr);max-width:1320px;margin:0 auto}
+nav.rail{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:22px 0 22px 26px;border-right:1px solid var(--line)}
+nav.rail a{display:grid;grid-template-columns:40px 1fr;gap:4px;text-decoration:none;color:var(--muted);padding:7px 10px 7px 0;font:500 .9rem/1.25 var(--label)}
+nav.rail a b{font:600 .78rem var(--mono);color:var(--brass)}
+nav.rail a:hover,nav.rail a.on{color:var(--ink)}
+nav.rail a.on b{color:var(--red)}
+main{padding:0 32px}
+section{padding:40px 0 34px;border-bottom:1px solid var(--line)}
+.sec-h{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:baseline;margin-bottom:6px}
+.callno{font:600 .78rem/1 var(--mono);border:1px solid var(--ink);padding:6px 7px;text-align:center;min-width:62px}
+.callno small{display:block;font-size:.62rem;color:var(--muted);margin-top:3px}
+.sec-h h2{font-weight:400;font-size:clamp(1.45rem,2.6vw,2rem);margin:0;line-height:1.15}
+.sec-h .rfc{font:500 .78rem var(--label);letter-spacing:.08em;color:var(--muted);text-align:right}
+.lede{max-width:68ch;margin:8px 0 20px}
+
+/* ---------------- controls */
+.btn{border:1.5px solid var(--ink);background:var(--card);padding:7px 14px;cursor:pointer;font:600 .8rem var(--label);letter-spacing:.1em;text-transform:uppercase}
+.btn:hover{background:var(--ink);color:var(--paper)}
+.btn.go{background:var(--green);border-color:var(--green);color:#fff}
+.btn.go:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:wait}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:grid;gap:4px}
+.field input,.field select,.field textarea{background:var(--card);border:1px solid var(--line);border-bottom:2px solid var(--ink);padding:6px 8px;font-family:var(--mono);font-size:.86rem}
+.field textarea{resize:vertical;min-height:58px}
+input[type=range]{accent-color:var(--green)}
+.tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:2px solid var(--ink);margin-bottom:16px}
+.tabs button{border:none;background:none;padding:8px 14px;cursor:pointer;font:600 .78rem var(--label);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:4px solid transparent;margin-bottom:-2px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--red)}
+
+/* ---------------- catalogue cards (request slip / response) */
+.cards{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:22px;align-items:start}
+.card{position:relative;background:var(--card);border:1px solid var(--line);padding:22px 20px 34px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0 25px,var(--rule) 25px 26px);background-position:0 46px}
+.card::before{content:"";position:absolute;left:0;right:0;top:40px;border-top:2px solid var(--red);opacity:.75}
+.card::after{content:"";position:absolute;bottom:10px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;border:1px solid var(--line);background:var(--paper)}
+.card .ct{font:600 .74rem var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);height:20px;display:flex;justify-content:space-between}
+.card pre{margin:12px 0 0;font:13px/26px var(--mono);white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
+.card pre .k{color:var(--blue)} .card pre .s{color:var(--green);font-weight:600} .card pre .cr{color:var(--brass);opacity:.8}
+.stamp{position:absolute;right:18px;top:52px;transform:rotate(-7deg);border:3px double currentColor;padding:4px 10px 2px;font:700 1.25rem/1 var(--label);letter-spacing:.08em;text-transform:uppercase;opacity:.86;background:color-mix(in srgb,var(--card) 70%,transparent)}
+.stamp small{display:block;font:600 .58rem var(--label);letter-spacing:.12em}
+.s2{color:var(--green)} .s3{color:var(--blue)} .s4{color:var(--red)} .s5{color:var(--red)} .s1{color:var(--brass)}
+.stamp.in{animation:thump .32s ease-out}
+@keyframes thump{0%{transform:rotate(-7deg) scale(1.9);opacity:0}70%{transform:rotate(-7deg) scale(.94);opacity:.9}100%{transform:rotate(-7deg) scale(1)}}
+.note{border-left:3px solid var(--brass);padding:6px 12px;margin:14px 0 0;background:var(--paper2);max-width:76ch}
+.body-prev{margin-top:12px;font:13px/1.45 var(--mono);white-space:pre-wrap;max-height:200px;overflow:auto;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}
+
+/* ---------------- waterfall */
+.wf-ctl{display:grid;grid-template-columns:repeat(4,minmax(0,auto)) 1fr;gap:16px 26px;align-items:end;margin-bottom:18px}
+.wf-ctl output{font-family:var(--mono);font-size:.85rem}
+.lane{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.lane h3{margin:0;font-weight:400;font-size:1.05rem;line-height:1.25}
+.lane .meta{font-family:var(--mono);font-size:.78rem;color:var(--muted);margin-top:6px;line-height:1.6}
+.lane .big{font:700 1.7rem/1 var(--label);color:var(--ink);margin-top:8px}
+.lane .big small{font:500 .8rem var(--mono);color:var(--muted)}
+.lane.dim{opacity:.32}
+.lane svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font:500 .8rem var(--label);color:var(--muted);margin:6px 0 10px}
+.legend i{display:inline-block;width:22px;height:9px;margin-right:6px;vertical-align:middle}
+.ledger{width:100%;border-collapse:collapse;margin-top:16px;font-size:.92rem}
+.ledger th{font:600 .72rem var(--label);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:2px solid var(--ink);padding:6px 8px}
+.ledger td{border-bottom:1px solid var(--line);padding:7px 8px;font-family:var(--mono);font-size:.82rem}
+.ledger td:first-child{font-family:var(--serif);font-size:.95rem}
+
+/* ---------------- proxy desk */
+.route{display:grid;grid-template-columns:1fr 1.2fr 1.6fr 1fr;align-items:center;margin:8px 0 18px;font:600 .78rem var(--label);letter-spacing:.1em;text-transform:uppercase}
+.route .st{border:1.5px solid var(--ink);padding:10px 8px;text-align:center;background:var(--card)}
+.route .st small{display:block;font:400 .72rem var(--mono);letter-spacing:0;text-transform:none;color:var(--muted);margin-top:3px}
+.route .wire{height:2px;background:var(--ink);position:relative;margin:0 6px}
+.route .wire.wan{background:repeating-linear-gradient(90deg,var(--ink) 0 8px,transparent 8px 13px)}
+.route .wire span{position:absolute;top:-22px;left:0;right:0;text-align:center;font:500 .72rem var(--mono);letter-spacing:0;text-transform:none;color:var(--muted)}
+.route .mid{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:14px}
+.slip{border:1px solid var(--line);background:var(--card);padding:8px 10px 10px;position:relative;font-size:.85rem}
+.slip .u{font-family:var(--mono);font-size:.76rem;word-break:break-all}
+.slip .bar{height:5px;background:var(--paper2);margin-top:8px;position:relative}
+.slip .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--green)}
+.slip.stale .bar i{background:var(--red)}
+.slip .tag{font:700 .64rem var(--label);letter-spacing:.12em;text-transform:uppercase}
+.hitgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;margin-top:12px}
+.hit{border:1px solid var(--line);background:var(--card);padding:6px 8px;font:12px/1.4 var(--mono);position:relative;min-height:62px}
+.hit b{display:block;font:700 .82rem var(--label);letter-spacing:.1em}
+.hit.HIT b{color:var(--green)} .hit.MISS b{color:var(--red)} .hit.REVALIDATED b{color:var(--blue)} .hit.PASS b{color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:8px 26px;margin:10px 0}
+.stats div{font:700 1.5rem/1 var(--label)} .stats div small{display:block;font:600 .66rem var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+
+/* ---------------- steps (scripted demos) */
+.steps{display:grid;gap:22px;margin-top:8px}
+.step{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px}
+.step .no{font:700 1.5rem/1 var(--label);color:var(--brass);padding-top:4px;text-align:right}
+.step.hidden{display:none}
+.waiting{color:var(--muted);font-style:italic;margin:6px 0}
+
+/* ---------------- codes */
+.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0;border-top:2px solid var(--ink)}
+.code{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:10px 12px;cursor:pointer;background:none;text-align:left}
+.code:hover{background:var(--paper2)}
+.code b{font:700 1.4rem/1 var(--label)} .code span{font:600 .8rem var(--label);letter-spacing:.06em;margin-left:8px}
+.code p{margin:6px 0 0;font-size:.82rem;color:var(--muted);line-height:1.4}
+
+/* ---------------- console + log */
+.console{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.console textarea{width:100%;min-height:210px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ink);padding:10px;font:13px/1.5 var(--mono)}
+.console pre{margin:0;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);padding:10px;font:13px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;min-height:210px;max-height:440px;overflow:auto}
+.log{font:12.5px/1.6 var(--mono);max-height:420px;overflow:auto;border-top:2px solid var(--ink)}
+.log div{display:grid;grid-template-columns:92px 22px minmax(0,1fr);gap:8px;border-bottom:1px solid var(--line);padding:3px 0}
+.log .C{color:var(--blue)} .log .S{color:var(--green)}
+.log em{grid-column:3;font-style:normal;color:var(--muted);font-size:11.5px}
+.ev{font:12.5px/1.6 var(--mono);color:var(--muted);max-height:180px;overflow:auto}
+.ev div::before{content:"§ ";color:var(--brass)}
+
+/* ---------------- player bar */
+.player{position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:var(--paper);display:flex;gap:12px;align-items:center;padding:10px 18px;z-index:5;border-top:3px solid var(--brass)}
+.player .btn{background:transparent;color:var(--paper);border-color:var(--paper)}
+.player .btn.fwd{background:var(--brass);border-color:var(--brass);color:#1b1b1b}
+.player .btn[aria-pressed=true]{background:var(--paper);color:var(--ink)}
+.player .ps{font:500 .86rem var(--label);letter-spacing:.04em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr} nav.rail{display:none} main{padding:0 16px} header.mast{padding:22px 16px 14px;grid-template-columns:1fr}
+  .desk-hours{text-align:left} .cards,.console{grid-template-columns:1fr} .lane{grid-template-columns:1fr}
+  .wf-ctl{grid-template-columns:1fr 1fr} .route{grid-template-columns:1fr;gap:8px} .route .wire{height:22px;width:2px;margin:0 auto} .route .wire span{display:none} .route .mid{grid-template-columns:1fr}
+  .sec-h{grid-template-columns:auto 1fr} .sec-h .rfc{grid-column:1/-1;text-align:left}
+  .player{flex-wrap:wrap} .player .ps{flex-basis:100%;order:3}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="mast">
+  <h1>The Reading Room<br><i>request</i> &amp; <i>response</i></h1>
+  <div class="desk-hours">
+    origin <span id="hOrigin">127.0.0.1:8800</span><br>
+    WAN link <span id="hLink">:8801 · 100 ms</span><br>
+    reserve shelf (proxy) <span>:3128</span><br>
+    <button class="theme" id="theme">light / dark</button>
+  </div>
+  <div class="sub"><span><b>HTTP/1.1</b> · RFC 9110 semantics · RFC 9112 messages · RFC 9111 caching</span><span>our own server, client, WAN emulator and caching proxy: no libraries</span><span id="hStats">…</span></div>
+</header>
+
+<div class="wrap">
+<nav class="rail" id="rail">
+  <a href="#desk"><b>001</b>Ask at the desk</a>
+  <a href="#fetch"><b>002</b>Four ways to fetch a page</a>
+  <a href="#cond"><b>003</b>Has it changed?</a>
+  <a href="#shelf"><b>004</b>The reserve shelf</a>
+  <a href="#ticket"><b>005</b>Reader's ticket</a>
+  <a href="#more"><b>006</b>Other services</a>
+  <a href="#hand"><b>007</b>By hand</a>
+  <a href="#codes"><b>008</b>Status stamps</a>
+  <a href="#log"><b>009</b>Desk log</a>
+</nav>
+<main>
+
+<!-- ============================================================ 001 -->
+<section id="desk">
+  <div class="sec-h"><div class="callno">001<small>DESK</small></div><h2>Ask at the desk: one request, one response</h2><div class="rfc">RFC 9112 §2–§6 · message format</div></div>
+  <p class="lede">An HTTP request is a <b>call slip</b>: a request line (<code>method target version</code>), header fields, a blank line, and maybe a body. The answer comes back as a card with a <b>status line</b>, its own headers, and the resource. It's all plain text on a TCP connection. Fill in a slip and hand it over.</p>
+  <div class="row" style="align-items:end;gap:14px;margin-bottom:12px">
+    <label class="field"><span class="label">Method</span><select id="dMethod"><option>GET</option><option>HEAD</option><option>POST</option><option>PUT</option><option>DELETE</option><option>OPTIONS</option><option>BREW</option></select></label>
+    <label class="field" style="flex:1;min-width:160px"><span class="label">Target</span><input id="dPath" value="/news.html"></label>
+    <label class="field"><span class="label">Host</span><select id="dHost"><option>www.cse.myuniv.edu</option><option>intranet.cse.myuniv.edu</option><option value="">(none)</option></select></label>
+    <label class="field"><span class="label">Version</span><select id="dVer"><option>HTTP/1.1</option><option>HTTP/1.0</option></select></label>
+    <label class="field"><span class="label">Route</span><select id="dVia"><option value="direct">direct to origin</option><option value="link">across the WAN (RTT)</option><option value="proxy">via the caching proxy</option></select></label>
+  </div>
+  <div class="row" style="align-items:stretch;gap:14px">
+    <label class="field" style="flex:1;min-width:220px"><span class="label">Extra header fields (one per line)</span><textarea id="dHeaders" placeholder="Accept-Encoding: gzip&#10;If-None-Match: &quot;news-1&quot;"></textarea></label>
+    <label class="field" style="flex:1;min-width:220px"><span class="label">Body (POST / PUT)</span><textarea id="dBody" placeholder="user=alice&amp;pass=alice123"></textarea></label>
+  </div>
+  <div class="row" style="margin:12px 0 18px">
+    <button class="btn go" id="dSend">Hand over the slip</button>
+    <span class="label">try:</span>
+    <button class="btn" data-q="GET /gallery.html">gallery</button>
+    <button class="btn" data-q="HEAD /big.bin">HEAD</button>
+    <button class="btn" data-q="POST /login|user=alice&pass=alice123">POST login</button>
+    <button class="btn" data-q="GET /old-page">301</button>
+    <button class="btn" data-q="GET /private/">401</button>
+    <button class="btn" data-q="GET /missing">404</button>
+    <button class="btn" data-q="DELETE /index.html">405</button>
+    <button class="btn" data-q="GET /echo">echo</button>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="ct"><span>Call slip · request</span><span id="dReqMeta"></span></div><pre id="dReq">press “Hand over the slip”</pre></div>
+    <div class="card" id="dRespCard"><div class="ct"><span>Returned card · response</span><span id="dRespMeta"></span></div><pre id="dResp"></pre><div class="body-prev" id="dBodyPrev" hidden></div></div>
+  </div>
+  <div class="note" id="dNote" hidden></div>
+</section>
+
+<!-- ============================================================ 002 -->
+<section id="fetch">
+  <div class="sec-h"><div class="callno">002<small>FETCH</small></div><h2>Four ways to fetch a page with ten pictures</h2><div class="rfc">RFC 9112 §9 · persistence &amp; pipelining</div></div>
+  <p class="lede"><code>gallery.html</code> references 10 images, so the browser needs <b>11 objects</b>. Each new TCP connection costs one round trip for the handshake before the request can go, and each request costs another round trip. Our WAN emulator adds a real RTT between client and server. All four runs are real, and the formulas from the textbook should match what we measure. Press <b>Forward ▶</b> to reveal each strategy.</p>
+  <div class="wf-ctl">
+    <label class="field"><span class="label">Round-trip time</span><span class="row"><input type="range" id="wRtt" min="20" max="300" step="10" value="100"><output id="wRttO">100 ms</output></span></label>
+    <label class="field"><span class="label">Parallel connections k</span><span class="row"><input type="range" id="wK" min="2" max="10" value="5"><output id="wKO">5</output></span></label>
+    <label class="field"><span class="label">Link rate</span><select id="wBw"><option value="100000">100 Mbit/s</option><option value="4000" selected>4 Mbit/s</option><option value="1000">1 Mbit/s</option><option value="256">256 kbit/s</option></select></label>
+    <button class="btn go" id="wRun">Measure all four</button>
+    <span class="waiting" id="wWait"></span>
+  </div>
+  <div class="legend"><span><i style="background:repeating-linear-gradient(45deg,var(--brass) 0 3px,transparent 3px 6px);border:1px solid var(--brass)"></i>TCP handshake (1 RTT)</span><span><i style="background:var(--line)"></i>request → first byte</span><span><i style="background:var(--green)"></i>receiving the object</span><span><i style="border-left:2px solid var(--red);height:12px;width:2px"></i>RTT ticks</span></div>
+  <div id="lanes"></div>
+  <table class="ledger" id="wLedger" hidden><thead><tr><th>Strategy</th><th>TCP conns</th><th>Formula</th><th>Predicted</th><th>Measured</th></tr></thead><tbody></tbody></table>
+</section>
+
+<!-- ============================================================ 003 -->
+<section id="cond">
+  <div class="sec-h"><div class="callno">003<small>COND</small></div><h2>Has it changed? Conditional GET and 304</h2><div class="rfc">RFC 9110 §13 · ETag, Last-Modified</div></div>
+  <p class="lede">A reader who already has a copy shouldn't borrow the whole book again. The first answer carries <b>validators</b> (an <code>ETag</code> and <code>Last-Modified</code>). Next time the client asks <i>only if changed</i>. If nothing changed, the server sends <b>304 Not Modified</b>: just headers, no body.</p>
+  <button class="btn go" data-script="conditional" data-target="condSteps">Load the three steps</button>
+  <div class="steps" id="condSteps"></div>
+</section>
+
+<!-- ============================================================ 004 -->
+<section id="shelf">
+  <div class="sec-h"><div class="callno">004<small>CACHE</small></div><h2>The reserve shelf: a caching proxy</h2><div class="rfc">RFC 9111 · freshness, validation, Via, Age</div></div>
+  <p class="lede">A university puts a <b>web cache</b> between its students and the slow Internet link. The first reader to ask for a page pays the WAN round trips (<b>MISS</b>). The copy goes on the reserve shelf, so the next reader gets it at LAN speed (<b>HIT</b>). When a copy's <code>max-age</code> runs out it becomes <i>stale</i>. The proxy then asks the origin "changed since?" and usually gets a 304 (<b>REVALIDATED</b>).</p>
+  <div class="route">
+    <div class="st">You<small>client</small></div>
+    <div class="mid"><div class="wire"><span>LAN · ~0 ms</span></div><div class="st">Proxy :3128<small>reserve shelf</small></div><div class="wire"></div></div>
+    <div class="wire wan"><span id="rWan">WAN · RTT 100 ms</span></div>
+    <div class="st">Origin<small>www.cse.myuniv.edu</small></div>
+  </div>
+  <div class="row">
+    <button class="btn go" id="pRun">Borrow the gallery through the proxy</button>
+    <button class="btn" id="pExpire">Let every copy go stale</button>
+    <button class="btn" id="pEdit">Edit news.html on the server</button>
+    <button class="btn" id="pNews">Borrow news.html</button>
+    <button class="btn" id="pClear">Empty the shelf</button>
+  </div>
+  <div class="stats" id="pStats"></div>
+  <div class="hitgrid" id="pHits"></div>
+  <p class="label" style="margin-top:22px">On the shelf now</p>
+  <div class="shelf" id="pShelf"></div>
+  <p class="note">Use your real browser too: set its HTTP proxy to <code>127.0.0.1:3128</code> and open <code>http://www.cse.myuniv.edu/gallery.html</code>. That name only exists inside our proxy. HTTPS sites go through as <b>CONNECT tunnels</b>: the proxy can neither read nor cache them, and they appear in the log below.</p>
+</section>
+
+<!-- ============================================================ 005 -->
+<section id="ticket">
+  <div class="sec-h"><div class="callno">005<small>STATE</small></div><h2>Reader's ticket: cookies on a stateless protocol</h2><div class="rfc">RFC 6265 cookies · RFC 7617 Basic auth</div></div>
+  <p class="lede">HTTP forgets each request as soon as it's answered. To remember you, the server hands you a ticket (<code>Set-Cookie: sid=…</code>) and your client shows it on every later request (<code>Cookie: sid=…</code>). The state (who you are, what's in your cart) stays on the server; the cookie is only the key to it.</p>
+  <div class="tabs" id="tTabs"><button class="on" data-script="cookies" data-target="tSteps">Cookies</button><button data-script="auth" data-target="tSteps">Basic authentication</button></div>
+  <div class="steps" id="tSteps"><p class="waiting">Pick a tab, then press Forward ▶.</p></div>
+</section>
+
+<!-- ============================================================ 006 -->
+<section id="more">
+  <div class="sec-h"><div class="callno">006<small>MORE</small></div><h2>Other services at the desk</h2><div class="rfc">methods · ranges · chunked · 100-continue · gzip · redirects · Host</div></div>
+  <div class="tabs" id="mTabs">
+    <button class="on" data-script="methods" data-target="mSteps">Methods</button>
+    <button data-script="vhost" data-target="mSteps">Virtual hosts</button>
+    <button data-script="range" data-target="mSteps">Byte ranges</button>
+    <button data-script="chunked" data-target="mSteps">Chunked</button>
+    <button data-script="expect" data-target="mSteps">100-continue</button>
+    <button data-script="gzip" data-target="mSteps">gzip</button>
+    <button data-script="redirect" data-target="mSteps">Redirects</button>
+  </div>
+  <div class="steps" id="mSteps"><p class="waiting">Pick a tab, then press Forward ▶.</p></div>
+</section>
+
+<!-- ============================================================ 007 -->
+<section id="hand">
+  <div class="sec-h"><div class="callno">007<small>HAND</small></div><h2>By hand, like <code>telnet host 80</code></h2><div class="rfc">every byte you type goes on the wire</div></div>
+  <p class="lede">Type a request exactly as it travels. Line ends become CRLF, and a blank line ends the head. Put two requests one after another and they're <b>pipelined</b> on one connection. Remove the <code>Host</code> line to see a 400.</p>
+  <div class="row" style="margin-bottom:10px"><button class="btn go" id="hSend">Send on a new TCP connection</button><button class="btn" id="hPipe">Load a pipelined example</button><span class="label" id="hMeta"></span></div>
+  <div class="console"><textarea id="hText" spellcheck="false">GET /news.html HTTP/1.1
+Host: www.cse.myuniv.edu
+User-Agent: by-hand
+Connection: close
+</textarea><pre id="hOut">the server's raw bytes appear here</pre></div>
+</section>
+
+<!-- ============================================================ 008 -->
+<section id="codes">
+  <div class="sec-h"><div class="callno">008<small>CODES</small></div><h2>Status stamps</h2><div class="rfc">RFC 9110 §15 · first digit = class</div></div>
+  <p class="lede"><b>1xx</b> wait, more is coming · <b>2xx</b> done · <b>3xx</b> look elsewhere · <b>4xx</b> your mistake · <b>5xx</b> our mistake. Click a stamp to make the server produce it.</p>
+  <div class="codes" id="codeGrid"></div>
+</section>
+
+<!-- ============================================================ 009 -->
+<section id="log">
+  <div class="sec-h"><div class="callno">009<small>LOG</small></div><h2>Desk log</h2><div class="rfc">every request line and status line our server handled</div></div>
+  <div class="ev" id="evs"></div>
+  <div class="log" id="lines"></div>
+</section>
+</main>
+</div>
+
+<div class="player" role="region" aria-label="Step player">
+  <button class="btn" id="pRestart" title="Load the current demo again">⟲ Restart</button>
+  <button class="btn fwd" id="pFwd" title="Next step (→ / space)">Forward ▶</button>
+  <button class="btn" id="pAuto" aria-pressed="false">Auto-play ▶▶</button>
+  <span class="ps" id="pStat">Pick a demo, then press Forward ▶. Nothing moves until you do.</span>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path, params = {}) {
+  const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(params)});
+  return r.json();
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------------- theme */
+$('theme').onclick = () => { const d = document.documentElement; const cur = d.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); d.dataset.theme = cur === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('httpTheme', d.dataset.theme); } catch (e) {} };
+try { const t = localStorage.getItem('httpTheme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+/* ---------------- raw message pretty-printer: shows CRLF and colours the start line */
+function paint(raw, isResp) {
+  if (!raw) return '';
+  const lines = raw.split('\r\n');
+  let out = [], inHead = true;
+  lines.forEach((l, i) => {
+    if (i === lines.length - 1 && l === '') return;
+    if (!inHead) { out.push(esc(l)); return; }
+    if (i === 0) out.push('<span class="s">' + esc(l) + '</span><span class="cr">␍␊</span>');
+    else if (l === '') { out.push('<span class="cr">␍␊   ← blank line: end of the head</span>'); inHead = false; }
+    else { const c = l.indexOf(':'); out.push(c > 0 ? '<span class="k">' + esc(l.slice(0, c)) + '</span>' + esc(l.slice(c)) + '<span class="cr">␍␊</span>' : esc(l)); }
+  });
+  return out.join('\n');
+}
+function stamp(el, code, reason) {
+  el.querySelectorAll('.stamp').forEach(s => s.remove());
+  const s = document.createElement('div');
+  s.className = 'stamp in s' + String(code)[0];
+  s.innerHTML = code + '<small>' + esc(reason) + '</small>';
+  el.appendChild(s);
+}
+
+/* ================================================================ step player: nothing moves until Forward */
+const PLAY = { stepper: null, auto: false, busy: false };
+function setStepper(st) { PLAY.stepper = st; status(st.label + ': press Forward ▶'); }
+function status(t) { $('pStat').textContent = t; }
+async function forward() {
+  if (PLAY.busy) return;
+  const st = PLAY.stepper;
+  if (!st) { status('Pick a demo first (a tab or a “Load” button).'); return; }
+  PLAY.busy = true;
+  try { await st.next(); } finally { PLAY.busy = false; }
+  if (st.done()) { status(st.label + ': finished. ⟲ Restart to see it again.'); if (PLAY.auto) { PLAY.auto = false; $('pAuto').setAttribute('aria-pressed', 'false'); } }
+  else if (PLAY.auto) setTimeout(forward, 1500);
+}
+$('pFwd').onclick = forward;
+$('pAuto').onclick = () => { PLAY.auto = !PLAY.auto; $('pAuto').setAttribute('aria-pressed', PLAY.auto); if (PLAY.auto) forward(); };
+$('pRestart').onclick = () => { if (PLAY.stepper && PLAY.stepper.restart) PLAY.stepper.restart(); };
+document.addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); forward(); }
+});
+
+/* ================================================================ 001 desk */
+document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
+  const [ml, body] = b.dataset.q.split('|'); const [m, p] = ml.split(' ');
+  $('dMethod').value = m; $('dPath').value = p; $('dBody').value = body || ''; $('dHeaders').value = '';
+  send();
+});
+$('dSend').onclick = send;
+async function send() {
+  $('dSend').disabled = true;
+  const r = await api('/api/send', { method:$('dMethod').value, path:$('dPath').value, host:$('dHost').value, version:$('dVer').value, via:$('dVia').value, headers:$('dHeaders').value, body:$('dBody').value });
+  $('dSend').disabled = false;
+  if (r.error) { $('dResp').textContent = r.error; return; }
+  showExchange(r, $('dReq'), $('dResp'), $('dRespCard'), $('dBodyPrev'));
+  $('dReqMeta').textContent = 'conn #' + r.conn;
+  $('dRespMeta').textContent = r.ms + ' ms';
+  $('dNote').hidden = false;
+  $('dNote').innerHTML = '<b>' + r.status + ' ' + esc(r.reason) + '</b>: ' + esc(r.family) + '. ' + esc(r.meaning);
+}
+function showExchange(r, reqEl, respEl, card, bodyEl) {
+  reqEl.innerHTML = paint(r.rawRequest);
+  respEl.innerHTML = paint(r.rawResponse, true);
+  stamp(card, r.status, r.reason);
+  let b = r.body || '';
+  if (r.chunks && r.chunks.length) b = 'chunks on the wire (hex sizes): ' + r.chunks.map(n => n.toString(16)).join(' · ') + '\n\n' + b;
+  bodyEl.hidden = !b; bodyEl.textContent = b ? 'body (' + r.bodyBytes + ' bytes' + (r.wireBytes !== r.bodyBytes ? ', ' + r.wireBytes + ' on the wire' : '') + '):\n' + b : '';
+}
+
+/* ================================================================ 002 waterfall */
+$('wRtt').oninput = () => $('wRttO').textContent = $('wRtt').value + ' ms';
+$('wK').oninput = () => $('wKO').textContent = $('wK').value;
+const ORDER = ['NONPERSISTENT', 'PARALLEL', 'PERSISTENT', 'PIPELINED'];
+const BLURB = {
+  NONPERSISTENT:'HTTP/1.0 style: a new TCP connection per object, one after another. Every object pays a handshake RTT plus a request RTT.',
+  PARALLEL:'Still one object per connection, but k connections at once. Early browsers did this, and it hammers the server with handshakes.',
+  PERSISTENT:'HTTP/1.1 keep-alive: one handshake, then each object costs one RTT, sent only after the previous response arrives.',
+  PIPELINED:'All requests written back-to-back on one connection. The responses stream back in order: about one RTT for the lot.'
+};
+$('wRun').onclick = async () => {
+  $('wRun').disabled = true; $('wWait').textContent = 'measuring for real (this takes a few seconds)…';
+  const r = await api('/api/pageload', { rtt:$('wRtt').value, k:$('wK').value, kbps:$('wBw').value });
+  $('wRun').disabled = false; $('wWait').textContent = '';
+  if (r.error) { $('wWait').textContent = r.error; return; }
+  buildLanes(r);
+};
+function buildLanes(r) {
+  const max = Math.max(...r.runs.map(x => x.totalMs)) * 1.04;
+  const lanes = $('lanes'); lanes.innerHTML = '';
+  const tb = $('wLedger').querySelector('tbody'); tb.innerHTML = ''; $('wLedger').hidden = true;
+  r.runs.forEach((run, i) => {
+    const d = document.createElement('div'); d.className = 'lane dim'; d.id = 'lane' + i;
+    d.innerHTML = '<div><h3>' + esc(run.label) + '</h3><div class="meta">' + esc(BLURB[run.mode]) + '</div><div class="big" id="lt' + i + '">–</div></div><div>' + svgLane(run, max, r.rtt) + '</div>';
+    lanes.appendChild(d);
+  });
+  let shown = 0;
+  setStepper({ label:'Four ways to fetch (RTT ' + r.rtt + ' ms)', done:() => shown >= r.runs.length,
+    restart:() => buildLanes(r),
+    next: async () => {
+      const i = shown++, run = r.runs[i], lane = $('lane' + i);
+      lane.classList.remove('dim'); lane.scrollIntoView({block:'nearest', behavior:'smooth'});
+      lane.querySelectorAll('.grow').forEach((b, j) => setTimeout(() => b.style.transform = 'scaleX(1)', 30 + j * 25));
+      $('lt' + i).innerHTML = Math.round(run.totalMs) + ' ms <small>≈ ' + (run.totalMs / r.rtt).toFixed(1) + ' RTT</small>';
+      tb.insertAdjacentHTML('beforeend', '<tr><td>' + esc(run.label) + '</td><td>' + run.connections + '</td><td>' + esc(run.formula) + '</td><td>' + run.theoryMs + ' ms</td><td><b>' + Math.round(run.totalMs) + ' ms</b></td></tr>');
+      $('wLedger').hidden = false;
+      status(run.label + ': ' + Math.round(run.totalMs) + ' ms measured, ' + run.theoryMs + ' ms predicted, ' + run.connections + ' TCP connection' + (run.connections > 1 ? 's' : ''));
+      await sleep(200);
+    } });
+}
+function svgLane(run, max, rtt) {
+  const W = 900, rowH = 17, top = 20, H = top + run.rows.length * rowH + 6, x = t => 120 + (W - 130) * t / max;
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="waterfall for ' + esc(run.label) + '"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--brass)"/></pattern></defs>';
+  for (let t = rtt, n = 1; t < max; t += rtt, n++) {
+    s += '<line x1="' + x(t) + '" x2="' + x(t) + '" y1="14" y2="' + H + '" stroke="var(--red)" stroke-opacity=".25" stroke-width="1"/>';
+    if (n % Math.max(1, Math.round(max / rtt / 12)) === 0) s += '<text x="' + x(t) + '" y="11" font-size="10" font-family="IBM Plex Mono" fill="var(--muted)" text-anchor="middle">' + n + ' RTT</text>';
+  }
+  run.rows.forEach((o, i) => {
+    const y = top + i * rowH;
+    s += '<text x="0" y="' + (y + 11) + '" font-size="11" font-family="IBM Plex Mono" fill="var(--ink)">' + esc(o.label) + '</text>';
+    s += '<text x="108" y="' + (y + 11) + '" font-size="9" font-family="IBM Plex Mono" fill="var(--muted)" text-anchor="end">c' + o.conn + '</text>';
+    const hs = o.newConn ? Math.min(rtt, o.tFirst - o.tSend) : 0;
+    const a = x(o.tSend), b = x(o.tSend + hs), c = x(o.tFirst), d = Math.max(x(o.tDone), c + 1.5);
+    const g = (x0, x1, fill, extra) => '<rect class="grow" x="' + x0 + '" y="' + (y + 3) + '" width="' + Math.max(0.5, x1 - x0) + '" height="10" fill="' + fill + '" ' + (extra || '') + ' style="transform:scaleX(0);transform-origin:' + x0 + 'px 0;transform-box:view-box;transition:transform .55s ease-out"/>';
+    if (hs > 0) s += g(a, b, 'url(#hatch)', 'stroke="var(--brass)" stroke-width=".8"');
+    s += g(b, c, 'var(--line)');
+    s += g(c, d, 'var(--green)');
+  });
+  return s + '</svg>';
+}
+
+/* ================================================================ scripted demos (003, 005, 006) */
+async function loadScript(name, target, label) {
+  const box = $(target); box.innerHTML = '<p class="waiting">talking to the server…</p>';
+  const r = await api('/api/script', { name });
+  if (r.error) { box.innerHTML = '<p class="waiting">' + esc(r.error) + '</p>'; return; }
+  box.innerHTML = '';
+  r.steps.forEach((st, i) => {
+    const d = document.createElement('div'); d.className = 'step hidden'; d.id = target + '-' + i;
+    d.innerHTML = '<div class="no">' + (i + 1) + '</div><div><p style="margin:0 0 10px;max-width:76ch">' + esc(st.note) + '</p><div class="cards"><div class="card"><div class="ct"><span>Request</span><span>conn #' + st.conn + (st.newConn ? ' · new' : ' · reused') + '</span></div><pre>' + paint(st.rawRequest) + '</pre></div><div class="card"><div class="ct"><span>Response</span><span>' + st.ms + ' ms</span></div><pre>' + paint(st.rawResponse, true) + '</pre>' + (st.body || st.chunks.length ? '<div class="body-prev">' + esc((st.chunks.length ? 'chunks on the wire (hex): ' + st.chunks.map(n => n.toString(16)).join(' · ') + '\n\n' : '') + (st.body || '')) + '</div>' : '') + '</div></div></div>';
+    box.appendChild(d);
+  });
+  box.insertAdjacentHTML('afterbegin', '<p class="waiting" id="' + target + '-hint">' + r.steps.length + ' steps ready: press Forward ▶.</p>');
+  let shown = 0;
+  setStepper({ label, done:() => shown >= r.steps.length, restart:() => loadScript(name, target, label),
+    next: async () => {
+      const el = $(target + '-' + shown), st = r.steps[shown]; shown++;
+      const h = $(target + '-hint'); if (h) h.remove();
+      el.classList.remove('hidden');
+      stamp(el.querySelectorAll('.card')[1], st.status, st.reason);
+      el.scrollIntoView({block:'nearest', behavior:'smooth'});
+      status(label + ': step ' + shown + ' of ' + r.steps.length + ' · ' + st.status + ' ' + st.reason);
+    } });
+}
+document.querySelectorAll('button[data-script]').forEach(b => b.addEventListener('click', () => {
+  const tabs = b.closest('.tabs'); if (tabs) tabs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  loadScript(b.dataset.script, b.dataset.target, b.textContent.trim());
+}));
+
+/* ================================================================ 004 proxy */
+function renderProxy(p) {
+  $('pStats').innerHTML = [['HIT', p.hits], ['MISS', p.misses], ['REVALIDATED', p.revalidated], ['PASS', p.passed], ['TUNNEL', p.tunnels]].map(([k, v]) => '<div>' + v + '<small>' + k + '</small></div>').join('');
+  $('pShelf').innerHTML = p.entries.length ? p.entries.map(e => {
+    const pct = Math.max(0, Math.min(100, 100 - 100 * e.age / Math.max(0.001, e.fresh)));
+    return '<div class="slip ' + (e.isFresh ? '' : 'stale') + '"><span class="tag" style="color:var(--' + (e.isFresh ? 'green' : 'red') + ')">' + (e.isFresh ? 'fresh' : 'stale') + '</span> · ' + e.hits + ' hit' + (e.hits === 1 ? '' : 's') + '<div class="u">' + esc(e.url.slice(e.url.indexOf('/', 7))) + '</div><div class="bar"><i style="width:' + pct + '%"></i></div><div class="mono" style="font-size:.7rem;color:var(--muted);margin-top:4px">age ' + e.age.toFixed(1) + ' s / max-age ' + e.fresh + ' s · ' + esc(e.etag || '') + '</div></div>';
+  }).join('') : '<p class="waiting">The shelf is empty.</p>';
+}
+async function proxyRun(path) {
+  $('pRun').disabled = true;
+  const r = await api('/api/proxyrun', { path });
+  $('pRun').disabled = false;
+  if (r.error) { status(r.error); return; }
+  const box = $('pHits'); box.innerHTML = '';
+  r.rows.forEach(x => box.insertAdjacentHTML('beforeend', '<div class="hit ' + x.cache + '" style="opacity:.15"><b>' + x.cache + '</b>' + esc(x.path.replace('/img/', '')) + '<br>' + x.ms + ' ms</div>'));
+  renderProxy(r.proxy);
+  let shown = 0; const cells = [...box.children];
+  setStepper({ label:'Through the proxy (' + Math.round(r.totalMs) + ' ms in total)', done:() => shown >= cells.length, restart:() => proxyRun(path),
+    next: async () => { const c = cells[shown], x = r.rows[shown]; shown++; c.style.opacity = 1; status(x.path + ' → ' + x.cache + ' in ' + x.ms + ' ms' + (x.cache === 'HIT' ? ' (from the shelf: no WAN round trip)' : x.cache === 'MISS' ? ' (fetched across the WAN, now on the shelf)' : x.cache === 'REVALIDATED' ? ' (asked the origin: 304, reused the copy)' : '')); } });
+  status('Gallery through the proxy: ' + r.rows.length + ' objects in ' + Math.round(r.totalMs) + ' ms. Press Forward ▶ to go through them one by one.');
+}
+$('pRun').onclick = () => proxyRun('/gallery.html');
+$('pNews').onclick = () => proxyRun('/news.html');
+$('pExpire').onclick = async () => renderProxy(await api('/api/proxy/expire'));
+$('pClear').onclick = async () => { renderProxy(await api('/api/proxy/clear')); $('pHits').innerHTML = ''; };
+$('pEdit').onclick = async () => { const r = await api('/api/news/edit'); status('news.html is now version ' + r.version + ' on the server. A stale copy on the shelf will get a 200, not a 304.'); };
+
+/* ================================================================ 007 by hand */
+$('hPipe').onclick = () => $('hText').value = 'GET /img/1.svg HTTP/1.1\nHost: www.cse.myuniv.edu\n\nGET /img/2.svg HTTP/1.1\nHost: www.cse.myuniv.edu\n\nHEAD /news.html HTTP/1.1\nHost: www.cse.myuniv.edu\nConnection: close\n';
+$('hSend').onclick = async () => {
+  $('hSend').disabled = true;
+  const r = await api('/api/raw', { text:$('hText').value });
+  $('hSend').disabled = false;
+  if (r.error) { $('hOut').textContent = r.error; return; }
+  $('hOut').innerHTML = paint(r.received);
+  const n = (r.received.match(/HTTP\/1\.[01] \d{3} [A-Z][^\r\n]*\r\n/g) || []).length;   // a body need not end in a newline, so don't anchor at ^
+  $('hMeta').textContent = r.bytes + ' bytes · ' + n + ' response' + (n === 1 ? '' : 's') + ' · ' + (r.closed ? 'server closed the connection' : 'connection left open (keep-alive)') + ' · ' + r.ms + ' ms';
+};
+
+/* ================================================================ 008 codes */
+const EXAMPLE = { 100:['PUT','/files/x.txt','Expect: 100-continue','x'], 200:['GET','/news.html'], 201:['PUT','/files/stamp.txt','','hello'], 204:['OPTIONS','/files/a.txt'], 206:['GET','/big.bin','Range: bytes=0-99'],
+  301:['GET','/old-page'], 302:['GET','/go'], 303:['POST','/login','','user=alice&pass=alice123'], 304:['GET','/img/1.svg','If-None-Match: "img-1"'], 400:['GET','/',null,'',''], 401:['GET','/private/'],
+  403:['POST','/login','','user=alice&pass=wrong'], 404:['GET','/no-such-book'], 405:['DELETE','/gallery.html'], 411:null, 413:null, 416:['GET','/big.bin','Range: bytes=99999-'], 500:['GET','/crash'], 501:['BREW','/'], 505:null };
+(async () => {
+  const codes = await api('/api/codes');
+  $('codeGrid').innerHTML = codes.map(c => '<button class="code" data-c="' + c.code + '"><b class="s' + String(c.code)[0] + '">' + c.code + '</b><span>' + esc(c.reason) + '</span><p>' + esc(c.meaning) + (EXAMPLE[c.code] ? '' : ' <i>(try it in 007 by hand)</i>') + '</p></button>').join('');
+  document.querySelectorAll('.code').forEach(b => b.onclick = () => {
+    const e = EXAMPLE[b.dataset.c]; if (!e) { location.hash = 'hand'; return; }
+    $('dMethod').value = e[0]; $('dPath').value = e[1]; $('dHeaders').value = e[2] || ''; $('dBody').value = e[3] || ''; $('dVia').value = 'direct'; $('dVer').value = 'HTTP/1.1';
+    $('dHost').value = e[4] === '' ? '' : 'www.cse.myuniv.edu';
+    location.hash = 'desk'; send();
+  });
+})();
+
+/* ================================================================ live state + log */
+let since = 0, evSince = 0;
+async function poll() {
+  try {
+    const s = await api('/api/state', { ev: evSince });
+    $('hOrigin').textContent = '127.0.0.1:' + s.ports.origin + (s.ports.on80 ? ' + :80' : '');
+    $('hLink').textContent = ':' + s.ports.link + ' · ' + s.link.rtt + ' ms';
+    $('rWan').textContent = 'WAN · RTT ' + s.link.rtt + ' ms';
+    $('hStats').textContent = s.origin.connections + ' TCP connections · ' + s.origin.requests + ' requests served';
+    if (!document.querySelector('#pHits .hit')) renderProxy(s.proxy);
+    s.events.forEach(e => { evSince = Math.max(evSince, e.seq); $('evs').insertAdjacentHTML('afterbegin', '<div>' + esc(new Date(e.t).toLocaleTimeString()) + ' ' + esc(e.kind) + ': ' + esc(e.text) + '</div>'); });
+    const ls = await api('/api/lines', { since });
+    const box = $('lines');
+    ls.forEach(l => { since = Math.max(since, l.seq); box.insertAdjacentHTML('afterbegin', '<div><span>' + esc(new Date(l.t).toLocaleTimeString()) + '</span><span class="' + l.dir + '">' + (l.dir === 'C' ? '→' : '←') + '</span><span>' + esc(l.session) + ' · ' + esc(l.text) + '<em>' + esc(l.note) + '</em></span></div>'); });
+    while (box.children.length > 250) box.lastChild.remove();
+  } catch (e) {}
+  setTimeout(poll, 1500);
+}
+poll();
+
+/* rail highlight */
+const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) document.querySelectorAll('#rail a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin:'-40% 0px -55% 0px' });
+document.querySelectorAll('main section').forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
