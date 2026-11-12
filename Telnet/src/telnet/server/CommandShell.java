@@ -69,6 +69,11 @@ final class CommandShell {
         add("show login", 1, false, "Display login block-for status", (a, r) -> out(s.pool.guard.showLogin()));
         add("show dhcp leases", 1, false, "DHCP bindings from the DHCP cluster module", (a, r) -> showDhcp());
         add("show arp", 1, false, "ARP cache of this host (live from the OS)", (a, r) -> showArp());
+        add("show ip dhcp binding", 1, false, "Live DHCP bindings (needs MainProject: DHCP cluster)", (a, r) -> campus(h -> h.showDhcpBinding()));
+        add("show ip arp", 1, false, "ARP tables on the campus LAN (needs MainProject: ARP lab)", (a, r) -> campus(h -> h.showIpArp()));
+        add("show mac address-table", 1, false, "The LAN switch's CAM table (needs MainProject)", (a, r) -> campus(h -> h.showMacTable()));
+        add("show ip arp inspection", 1, false, "Dynamic ARP Inspection status and drops (needs MainProject)", (a, r) -> campus(h -> h.showArpInspection()));
+        add("clear arp-cache", 15, false, "Flush dynamic ARP entries on the LAN (needs MainProject)", (a, r) -> campus(h -> h.clearArpCache()));
         add("show ip interface brief", 1, false, "Brief summary of IP status and configuration", (a, r) -> showIpBrief());
         add("show running-config", 15, false, "Current operating configuration", (a, r) -> out(s.pool.cfg.runningConfig(VtyPool.LINES, s.pool.plainPort)));
         add("dir", 1, false, "List files in flash:", (a, r) -> dir());
@@ -103,11 +108,20 @@ final class CommandShell {
         add("exec-timeout <minutes>", 15, true, "Idle timeout for VTY sessions", (a, r) -> { s.pool.cfg.execTimeoutMin = Math.max(1, num(a.get(0), 5)); });
         add("login block-for <seconds> attempts <tries> within <seconds>", 15, true, "Block logins after repeated failures",
                 (a, r) -> { s.pool.cfg.blockForSec = num(a.get(0), 30); s.pool.cfg.blockAttempts = num(a.get(1), 3); s.pool.cfg.blockWithinSec = num(a.get(2), 60); });
+        add("ip arp inspection vlan <id>", 15, true, "Enable Dynamic ARP Inspection on the LAN switch", (a, r) -> campus(h -> h.setArpInspection(true)));
+        add("no ip arp inspection vlan <id>", 15, true, "Disable Dynamic ARP Inspection", (a, r) -> campus(h -> h.setArpInspection(false)));
         add("do <text>", 15, true, "Run an EXEC command from configuration mode", (a, r) -> {
             TelnetSession.Mode m = s.mode; s.mode = TelnetSession.Mode.EXEC; execute(r); if (s.mode == TelnetSession.Mode.EXEC) s.mode = m;
         });
         add("end", 15, true, "Exit from configure mode", (a, r) -> s.mode = TelnetSession.Mode.EXEC);
         add("exit", 15, true, "Exit from configure mode", (a, r) -> s.mode = TelnetSession.Mode.EXEC);
+    }
+
+    /** Commands that reach into the DHCP and ARP modules; they only work when MainProject runs all three together. */
+    private void campus(java.util.function.Function<CampusHooks, String> f) {
+        CampusHooks h = CampusHooks.Holder.hooks;
+        if (h == null) { out("% Not available here: start MainProject/run.bat to run ARP + DHCP + Telnet as one network.\n"); return; }
+        try { String t = f.apply(h); out(t.endsWith("\n") ? t : t + "\n"); } catch (RuntimeException e) { out("% " + e.getMessage() + "\n"); }
     }
 
     private void add(String p, int priv, boolean cfg, String help, Handler h) { specs.add(new Spec(p, priv, cfg, help, h)); }

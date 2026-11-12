@@ -13,6 +13,14 @@ The repository has two parts:
 
 ### Main project (ARP · DHCP · Telnet)
 
+The three modules also run **together as one campus LAN** in **[MainProject](./MainProject)**:
+- DHCP leases feed the switch's DHCP-snooping table;
+- an ARP conflict triggers a DHCPDECLINE;
+- an ARP-poisoning attacker reads a Telnet password;
+- the admin turns on Dynamic ARP Inspection from the router's Telnet CLI.
+
+Run `MainProject\run.bat` and open http://localhost:8089 (18 end-to-end checks with `--verify`).
+
 | Module | Protocol & RFCs | Ports | Description |
 |:---|:---|:---|:---|
 | **[ARP](./ARP)** | RFC 826, RFC 5227, RFC 1027 | HTTP **8082** (Dashboard & Wire Sniffer) | Address Resolution Protocol (ARP), L2 Switch CAM Learning, Address Conflict Detection (ACD), Proxy ARP, MITM Poisoning, and Dynamic ARP Inspection (DAI). |
@@ -26,8 +34,11 @@ The repository has two parts:
 | **[Mail](./Mail)** | SMTP RFC 5321, POP3 RFC 1939, IMAP4rev1 RFC 3501 | SMTP **2525** / TLS **2465**<br/>POP3 **1110** / TLS **2995**<br/>IMAP **1143** / TLS **2993**<br/>HTTP **8083** (Dashboard) | Our own mail servers and clients (the clients also work with Gmail and Outlook), MIME, STARTTLS, and a visual POP3 vs IMAP comparison on two devices. |
 | **[DNS](./DNS)** | RFC 1034, RFC 1035, RFC 2308 | Resolver **127.0.0.1:53** / **:5300**<br/>Lab servers **127.0.0.10–13** (:53 / :5300)<br/>HTTP **8084** (Dashboard) | A four-level naming hierarchy, both recursive and iterative resolution, a TTL cache, a byte-level packet view, and a cache-poisoning demo. |
 | **[RARP-BOOTP](./RARP-BOOTP)** | RARP RFC 903, BOOTP RFC 951 / 1542 / 1497 | BOOTP UDP **1067** (server), **2067** (relay), **1068** (client)<br/>HTTP **8085** (Dashboard) | The two obsolete protocols that came before DHCP: RARP frames on a simulated Ethernet and BOOTP over real UDP with a relay agent, plus a step-by-step simulation (Forward button) and a recorded MP4. |
+| **[FTP](./FTP)** | RFC 959, RFC 2428, RFC 3659, RFC 4217, RFC 2577 | Control TCP **2121** (+ **21**), active data from **2120**, passive **50000–50100**<br/>Wire tap **2122**<br/>HTTP **8086** (Dashboard) | Our own FTP server and client: two connections, active vs passive (with a client firewall that breaks active mode), ASCII vs binary, REST/ABOR resume, FTPS and a sniffer, bounce protection. |
+| **[HTTP](./HTTP)** | RFC 9110, RFC 9111, RFC 9112, RFC 6265 | Origin **8800** (+ **80**), WAN emulator **8801**, caching proxy **3128**<br/>HTTP **8087** (Dashboard) | Our own HTTP/1.1 server, client and caching proxy: persistent vs non-persistent vs pipelined connections measured against the textbook formulas, conditional GET (304), cookies, ranges, chunked, 100-continue, gzip. |
+| **[Routing](./Routing)** | RIPv2 RFC 2453, OSPFv2 RFC 2328, BGP-4 RFC 4271 | Routers **127.0.0.20–25**: RIP UDP **520**, BGP TCP **179**, OSPF-in-UDP **8900**<br/>HTTP **8088** (Dashboard) | Dijkstra and Bellman-Ford step by step, count to infinity with 2 and 3 routers (split horizon / poison reverse), and how OSPF and BGP (AS_PATH loop check) recover from the same failure. Wireshark decodes the packets. |
 
-All dashboards use different ports (8080–8085), so every module can run at the same time.
+All dashboards use different ports (8080–8089), so every module can run at the same time. (MainProject starts ARP, DHCP and Telnet itself, so stop their separate labs first.)
 
 ---
 
@@ -145,6 +156,66 @@ cd RARP-BOOTP
 .\run.bat               # Start the RARP LAN, BOOTP server + relay, and dashboard
 .\run.bat --verify      # Run 19 automated checks
 python interop_test.py  # A Python BOOTP client against our server and relay (7 checks)
+```
+
+---
+
+## 7. FTP: Two Connections, Active vs Passive (`./FTP`)
+
+### Features
+- **RFC 959 Server and Client**: USER/PASS, PWD/CWD, LIST/NLST, RETR/STOR, DELE/MKD/RMD, RNFR/RNTO, SIZE/MDTM, FEAT, with 3-digit reply codes explained.
+- **Control and Data Connections**: a long-lived control connection, and a new data connection for each listing or file.
+- **Active vs Passive**: PORT/EPRT (the server connects back from port 20) and PASV/EPSV (the client connects). A simulated client firewall makes active mode fail with **425** while passive mode works.
+- **ASCII vs Binary**: TYPE A turns LF into CR LF on the wire and corrupts an image; TYPE I keeps it byte-identical.
+- **Resume**: ABOR half-way (426 + 226), then REST + RETR continues where it stopped.
+- **Security**: FTPS (AUTH TLS, PBSZ, PROT P); a wire tap that reads the password on plain FTP but only TLS records on FTPS; bounce-attack protection (RFC 2577); and a directory jail.
+- **Live Dashboard**: drawn as a freight terminal. Runs on **http://localhost:8086**.
+
+```powershell
+cd FTP
+.\run.bat               # Start the FTP server, wire tap + dashboard
+.\run.bat --verify      # Run 32 automated checks
+python interop_test.py  # Python ftplib (plain + FTPS) and Windows ftp.exe against our server (10 checks)
+ftp 127.0.0.1           # the real Windows client
+```
+
+---
+
+## 8. HTTP: Persistence, Caching and State (`./HTTP`)
+
+### Features
+- **HTTP/1.1 Origin Server (RFC 9110/9112)**: GET, HEAD, POST, PUT, DELETE, OPTIONS; keep-alive and `Connection: close`; HTTP/1.0 rules; virtual hosting with `Host`; status codes 100–505.
+- **Four Ways to Fetch a Page**: a WAN emulator adds a real RTT, and one page plus 10 images is fetched non-persistent (11 TCP connections), with k parallel connections, persistent, and pipelined. Each is measured against the textbook formula (≈ 22, 6, 12 and 3 RTT).
+- **Conditional GET**: ETag and Last-Modified, then If-None-Match, then **304 Not Modified**.
+- **Caching Proxy (RFC 9111)**: MISS → HIT → stale → REVALIDATED, with Age, Via and X-Cache; `no-store` respected; CONNECT tunnels for HTTPS. It also works as your real browser's proxy.
+- **State and Security**: cookies (login and a cart) and Basic authentication (base64 is not encryption).
+- **Framing**: Content-Length, chunked transfer coding (responses and uploads), `Expect: 100-continue`, byte ranges (206/416), and gzip.
+- **Live Dashboard**: a library reading room with request slips, stamped responses, a connection waterfall and a reserve shelf. Runs on **http://localhost:8087**.
+
+```powershell
+cd HTTP
+.\run.bat               # Start the origin server, WAN link, proxy + dashboard
+.\run.bat --verify      # Run 52 automated checks
+python interop_test.py  # Python http.client / urllib + curl against our server and proxy (11 checks)
+```
+
+---
+
+## 9. Routing: Dijkstra, Bellman-Ford, RIP, OSPF, BGP (`./Routing`)
+
+### Features
+- **Dijkstra (Link State)**: the textbook table (N', D(v), p(v)) step by step on the Kurose & Ross six-router network, the shortest-path tree, and the forwarding table.
+- **Bellman-Ford (Distance Vector)**: every router's DV table, exchange by exchange, with each vector sent as a real **RIPv2** packet on UDP port 520.
+- **Instability**: good news vs bad news (a y ⇄ z loop for 47 rounds), **count to infinity with 2 routers** (fixed by split horizon), and **with 3 routers** (which survives split horizon and poison reverse).
+- **The Fix, Twice**: **OSPF** floods new Router-LSAs (sequence numbers, the two-way check, Dijkstra) and recovers in 2 rounds. **BGP** (path vector over TCP port 179) rejects any AS_PATH that contains its own AS and recovers in 3 rounds.
+- **Real Packets**: RIPv2, OSPFv2 LS Update (with correct checksums) and BGP-4 messages on real sockets. **Wireshark decodes them**; a sample capture is included.
+- **Live Dashboard**: a railway signal box with track maps, split-flap routing boards, a cost-per-round chart and a packet inspector. Runs on **http://localhost:8088**.
+
+```powershell
+cd Routing
+.\run.bat               # Start the dashboard
+.\run.bat --verify      # Run 30 automated checks
+python interop_test.py  # An independent Python decoder checks our RIP, OSPF and BGP bytes (15 checks)
 ```
 
 ---

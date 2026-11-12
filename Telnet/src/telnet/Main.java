@@ -32,9 +32,9 @@ import telnet.tap.WireTap;
  */
 public final class Main {
 
-    static final int TELNET = 2323, TAP = 2324, TLS = 9923, TLS_TAP = 9924, HTTP = 8081;
+    public static final int TELNET = 2323, TAP = 2324, TLS = 9923, TLS_TAP = 9924, HTTP = 8081;
     static final File DATA = new File("data");
-    static final File KEYSTORE = new File(DATA, "telnet-tls.p12");
+    public static final File KEYSTORE = new File(DATA, "telnet-tls.p12");
 
     public static void main(String[] args) throws Exception {
         List<String> a = Arrays.asList(args);
@@ -102,7 +102,7 @@ public final class Main {
     // ------------------------------------------------------------------ TLS
 
     /** Create a self-signed certificate for the TLS listener with the JDK's keytool. */
-    static boolean ensureKeystore() {
+    public static boolean ensureKeystore() {
         if (KEYSTORE.exists()) return true;
         String exe = System.getProperty("java.home") + File.separator + "bin" + File.separator + "keytool";
         try {
@@ -119,7 +119,7 @@ public final class Main {
         }
     }
 
-    static ServerSocketFactory tlsFactory() throws Exception {
+    public static ServerSocketFactory tlsFactory() throws Exception {
         KeyStore ks = KeyStore.getInstance("PKCS12");
         try (FileInputStream f = new FileInputStream(KEYSTORE)) { ks.load(f, "changeit".toCharArray()); }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
