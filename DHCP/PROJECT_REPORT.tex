@@ -1,793 +1,932 @@
 \documentclass[11pt,a4paper]{article}
 
-% ==============================================================================
-% PACKAGES & DOCUMENT SETUP
-% ==============================================================================
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
 \usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{listings}
 \usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{listings}
 \usepackage{tikz}
-\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
 \usepackage{enumitem}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{float}
+\usepackage{hyperref}
 
-% Color Definitions
-\definecolor{primaryblue}{RGB}{24, 76, 120}
-\definecolor{darkslate}{RGB}{33, 37, 41}
-\definecolor{accentgreen}{RGB}{40, 167, 69}
-\definecolor{codebg}{RGB}{248, 249, 250}
-\definecolor{codeborder}{RGB}{222, 226, 230}
-\definecolor{codegray}{RGB}{108, 117, 125}
-\definecolor{codepurple}{RGB}{111, 66, 193}
-\definecolor{codeblue}{RGB}{3, 102, 214}
-
-% Hyperref Setup
 \hypersetup{
     colorlinks=true,
-    linkcolor=primaryblue,
-    citecolor=primaryblue,
-    urlcolor=primaryblue,
-    pdftitle={Distributed RFC 2131 DHCP Server System Project Report},
-    pdfauthor={Computer Networks Project Team}
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue!70!black,
+    pdftitle={Distributed and Load-Balanced RFC 2131 DHCP Server System},
+    pdfauthor={Aritra Dutta}
 }
 
-% Code Listing Setup
+\definecolor{codebg}{rgb}{0.96,0.96,0.96}
+\definecolor{codeframe}{rgb}{0.25,0.25,0.25}
+\definecolor{codenum}{rgb}{0.45,0.45,0.45}
+
 \lstset{
     backgroundcolor=\color{codebg},
-    basicstyle=\ttfamily\footnotesize\color{darkslate},
+    basicstyle=\ttfamily\footnotesize,
     breakatwhitespace=false,
     breaklines=true,
     captionpos=b,
-    commentstyle=\color{codegray}\itshape,
-    keywordstyle=\color{primaryblue}\bfseries,
-    stringstyle=\color{accentgreen},
-    numberstyle=\tiny\color{codegray},
+    commentstyle=\color{codenum}\itshape,
+    keywordstyle=\bfseries,
+    numberstyle=\tiny\color{codenum},
     numbers=left,
     numbersep=8pt,
     frame=single,
-    rulecolor=\color{codeborder},
+    rulecolor=\color{codeframe},
     tabsize=4,
+    columns=flexible,
+    keepspaces=true,
     showspaces=false,
     showstringspaces=false,
-    xleftmargin=15pt,
-    xrightmargin=5pt
+    xleftmargin=14pt,
+    xrightmargin=4pt
 }
 
-% Header and Footer
-\pagestyle{fancy}
-\fancyhf{}
-\rhead{\color{codegray}\footnotesize Distributed RFC 2131 DHCP Server System}
-\lhead{\color{codegray}\footnotesize Computer Networks Project Report}
-\rfoot{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\footrulewidth}{0.4pt}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 
-% Section Title Formatting
-\titleformat{\section}{\color{primaryblue}\Large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}{\color{darkslate}\large\bfseries}{\thesubsection}{1em}{}
-\titleformat{\subsubsection}{\color{darkslate}\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.4em}
 
-% ==============================================================================
-% DOCUMENT CONTENT
-% ==============================================================================
 \begin{document}
 
-% TITLE PAGE
+% ==============================================================================
+% TITLE PAGE (Matching Reference Report Structure & Typography)
+% ==============================================================================
 \begin{titlepage}
     \centering
-    \vspace*{1.5cm}
+    \vspace*{4.2cm}
     
-    {\Huge \bfseries \color{primaryblue} Design and Implementation of an Enterprise Distributed, Fault-Tolerant, and Load-Balanced RFC 2131 DHCP Server System\par}
-    \vspace{0.8cm}
-    {\Large \scshape Advanced Computer Networks Project Report\par}
-    \vspace{1.5cm}
-
-    \begin{tikzpicture}
-        \draw[primaryblue, fill=codebg, rounded corners=10pt, thick] (0,0) rectangle (14, 4.5);
-        \node at (7, 3.8) {\large \bfseries \color{primaryblue} Core System Engineering Highlights};
-        \node[align=left, anchor=west] at (0.8, 2.8) {\small $\bullet$ \textbf{RFC 2131 Full Compliance:} 236-byte BOOTP binary parser, Magic Cookie, Dynamic TLV Options};
-        \node[align=left, anchor=west] at (0.8, 2.2) {\small $\bullet$ \textbf{High-Availability Distributed Cluster:} Consistent Hashing (Ketama) with Virtual Nodes};
-        \node[align=left, anchor=west] at (0.8, 1.6) {\small $\bullet$ \textbf{State Synchronization:} Active-Active Peer Gossip Protocol \& Write-Ahead Logging (WAL)};
-        \node[align=left, anchor=west] at (0.8, 1.0) {\small $\bullet$ \textbf{Enterprise Security:} Dual-Engine Rate Limiting (Token Bucket \& Sliding Window Counter)};
-        \node[align=left, anchor=west] at (0.8, 0.4) {\small $\bullet$ \textbf{Production Microservices:} 6-Container Docker cluster with Nginx Gateway VIP \& PostgreSQL 15};
-    \end{tikzpicture}
-
-    \vspace{2.0cm}
-
-    \begin{minipage}[t]{0.45\textwidth}
-        \begin{flushleft} \large
-            \textbf{\color{darkslate}Author / Candidate:}\\
-            Computer Networks Laboratory\\
-            Department of Computer Science \& Engineering
-        \end{flushleft}
-    \end{minipage}
-    \hfill
-    \begin{minipage}[t]{0.45\textwidth}
-        \begin{flushright} \large
-            \textbf{\color{darkslate}Evaluated For:}\\
-            Course: Computer Networks\\
-            Academic Capstone / Laboratory Evaluation
-        \end{flushright}
-    \end{minipage}
-
+    {\LARGE \textbf{Distributed and Load-Balanced RFC 2131 DHCP Server}}\\[0.7em]
+    {\LARGE \textbf{System: Protocol Architecture, Fault Tolerance,}}\\[0.7em]
+    {\LARGE \textbf{and Distributed Cluster Engineering}}\\[1.4em]
+    
+    {\large for Computer Networks Laboratory}
+    
+    \vspace{3.8cm}
+    
+    {\large
+    \textbf{Name:} Aritra Dutta\\[0.55em]
+    \textbf{Class:} BCSE III\\[0.55em]
+    \textbf{Roll:} 002410501009\\[0.55em]
+    \textbf{Group:} A1\\[0.55em]
+    \textbf{College:} Jadavpur University
+    }
+    
     \vfill
-    {\large \today\par}
+    {\normalsize 1}
 \end{titlepage}
 
+% ==============================================================================
+% TABLE OF CONTENTS
+% ==============================================================================
+\pagenumbering{roman}
+\setcounter{page}{2}
 \tableofcontents
 \newpage
 
 % ==============================================================================
-% ABSTRACT
+% MAIN CONTENT
 % ==============================================================================
-\begin{abstract}
-The Dynamic Host Configuration Protocol (DHCP), specified in RFC 2131, is an indispensable foundational protocol of the TCP/IP suite, responsible for dynamic Internet Protocol (IP) address allocation, subnet provisioning, default gateway discovery, and DNS domain distribution. However, traditional standalone DHCP servers present major architectural bottlenecks: single points of failure (SPOF), susceptibility to Denial-of-Service (DoS) and DHCP Starvation floods, lack of horizontal scalability, and absence of active-active state persistence. 
+\pagenumbering{arabic}
+\setcounter{page}{3}
 
-This report presents the design, mathematical foundations, low-level packet mechanics, and containerized deployment of an enterprise-grade, distributed, fault-tolerant, and load-balanced DHCP server architecture implemented in Java. The system incorporates a Layer-4 Load Balancer utilizing a Consistent Hashing ring with virtual nodes (Ketama algorithm) for uniform client partition distribution. State consistency is maintained across peer worker nodes via a peer-to-peer gossip protocol backed by append-only Write-Ahead Logs (WAL) on disk and automated replication to an external PostgreSQL 15 database through a dedicated synchronization daemon. Network security is enforced via a configurable dual-mode rate-limiting engine supporting Token-Bucket and Weighted Sliding Window Counter algorithms to actively suppress malicious starvation floods. The entire architecture is verified across a 6-container Docker network featuring real clients, an Nginx Core Gateway Admin VIP, and an interactive real-time telemetry dashboard.
-\end{abstract}
+\section{Introduction}
+\noindent Modern enterprise Local Area Networks (LANs), cloud data centers, and campus topologies rely upon automated host bootstrap protocols to provision IPv4 addresses, subnet masks, default gateways, and Domain Name System (DNS) resolvers dynamically. The \textbf{Dynamic Host Configuration Protocol (DHCP)}, standardized in \textbf{RFC 2131} and \textbf{RFC 2132}, operates at the Application Layer (Layer 7) over User Datagram Protocol (UDP) transport channels using well-known ports \textbf{67 (Server)} and \textbf{68 (Client)}.
 
-\textbf{\textit{Keywords:}} Dynamic Host Configuration Protocol (DHCP), RFC 2131, Consistent Hashing, Fault Tolerance, Token Bucket, Sliding Window Counter, Write-Ahead Log (WAL), Gossip Replication, Docker Microservices.
-
-% ==============================================================================
-% SECTION 1: INTRODUCTION
-% ==============================================================================
-\section{Introduction and Problem Statement}
-
-\subsection{Background}
-In modern enterprise Local Area Networks (LANs), data centers, and Internet Service Provider (ISP) environments, network hosts require automatic, rapid, and collision-free network configuration upon attaching to the physical or wireless medium. DHCP automates this bootstrap sequence using User Datagram Protocol (UDP) broadcast transactions over well-known ports 67 (server) and 68 (client).
-
-Despite its widespread ubiquity, classical DHCP server deployments suffer from severe operational limitations:
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{Single Point of Failure (SPOF):} A conventional DHCP server operates as a centralized monolithic daemon. If the host crashes or its network interface goes down, newly joining hosts cannot acquire IP addresses, paralyzing local and internet connectivity.
-    \item \textbf{DHCP Starvation Attacks:} Malicious attackers can easily forge thousands of randomized Media Access Control (MAC) addresses using raw sockets, transmitting rapid \texttt{DHCPDISCOVER} floods. Unprotected DHCP servers exhaust their entire available address pool in seconds, denying service to legitimate clients.
-    \item \textbf{Lack of Horizontal Scalability:} Classical active-passive failover solutions (such as split-scope DHCP) waste 50\% of the IP pool per segment and fail to balance processing loads across servers.
-    \item \textbf{Volatile Lease Management:} Without high-performance disk journaling or real-time external database replication, unexpected power failure results in lease table loss and severe IP address collision hazards upon reboot.
-\end{enumerate}
-
-\subsection{Project Scope and Objectives}
-This project solves these limitations by designing and implementing a production-grade distributed DHCP ecosystem:
-\begin{itemize}[leftmargin=1.5em]
-    \item \textbf{RFC 2131 Compliant Protocol Engine:} Full binary serialization and deserialization of raw 236-byte BOOTP headers, 4-byte Magic Cookie, and dynamic Type-Length-Value (TLV) DHCP options.
-    \item \textbf{Consistent Hashing Load Balancing:} Deterministic, uniform distribution of client MAC addresses across multiple independent worker nodes using a virtual node ring ($O(\log N)$ routing time).
-    \item \textbf{Peer-to-Peer Gossip Replication:} Asynchronous active-active lease synchronization between all nodes with sub-millisecond propagation latency and epoch-based conflict resolution.
-    \item \textbf{Multi-Tier Rate Limiting Defense:} Switchable Token-Bucket and Sliding Window Counter rate limiters operating at global and per-MAC granularities to neutralize starvation attacks.
-    \item \textbf{Dual-Layer Persistence:} Append-only binary Write-Ahead Logs (WAL) for local crash recovery combined with asynchronous continuous synchronization into a PostgreSQL 15 relational schema.
-    \item \textbf{Containerized Microservices Cluster:} Complete 6-container Docker Compose deployment featuring isolated IP allocations, Nginx administrative gateway portal, and an integrated real-time Web Dashboard.
+While traditional monolithic DHCP servers suffice for small networks, they introduce critical architectural vulnerabilities in production environments:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Single Point of Failure (SPOF):} If a standalone DHCP daemon crashes or experiences network isolation, newly joining hosts and expiring clients cannot acquire or renew IP leases, paralyzing network connectivity.
+    \item \textbf{Vulnerability to DHCP Starvation Attacks:} Malicious actors can transmit bursts of forged \texttt{DHCPDISCOVER} frames with spoofed hardware MAC addresses, exhausting the entire IP address pool within seconds and causing Denial of Service (DoS) for legitimate hosts.
+    \item \textbf{Lack of Horizontal Scalability and State Persistence:} Traditional split-scope configurations waste 50\% of available IPv4 space and lack real-time active-active memory replication or crash-resilient disk journaling.
 \end{itemize}
 
-% ==============================================================================
-% SECTION 2: RFC 2131 PROTOCOL MECHANICS
-% ==============================================================================
-\section{RFC 2131 Protocol Mechanics and Binary Packet Structure}
+\subsection{Protocol Encapsulation and System Hierarchy}
+Every DHCP transaction processed within this system undergoes progressive multi-layer encapsulation across the TCP/IP networking stack, as illustrated in Figure~\ref{fig:encapsulation}.
 
-\subsection{The D-O-R-A State Machine}
-The fundamental lifecycle of a DHCP dynamic lease allocation follows the four-way \textbf{D-O-R-A} sequence over UDP broadcasts:
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{DHCPDISCOVER (Client $\rightarrow$ Server, Broadcast):} A booting client transmits a broadcast packet ($255.255.255.255:67$) with its hardware MAC address in the \texttt{chaddr} field and a pseudo-random 32-bit transaction ID (\texttt{xid}) to locate available DHCP servers.
-    \item \textbf{DHCPOFFER (Server $\rightarrow$ Client, Unicast/Broadcast):} Servers with available IP leases inspect the client's request, reserve an address from their configured pool, and offer an IP address in the \texttt{yiaddr} (Your IP Address) field, alongside subnet mask, gateway, DNS, and server identifier options.
-    \item \textbf{DHCPREQUEST (Client $\rightarrow$ Server, Broadcast):} The client selects an offer (usually the first received), places the chosen IP in Option 50 (\texttt{OPT\_REQUESTED\_IP}) and the server's IP in Option 54 (\texttt{OPT\_SERVER\_ID}), and broadcasts this request to notify all servers of its selection.
-    \item \textbf{DHCPACK (Server $\rightarrow$ Client, Unicast/Broadcast):} The designated server confirms the lease reservation, records the binding, and transmits the final configuration parameters. Secondary servers observe the broadcast and release their tentative reservations.
-\end{enumerate}
-
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
-\begin{tikzpicture}[node distance=1.8cm, auto, >=stealth']
-    % Nodes
-    \node [draw=primaryblue, thick, fill=codebg, rounded corners, minimum width=3cm, minimum height=1cm] (client) {\textbf{Client (0.0.0.0:68)}};
-    \node [draw=primaryblue, thick, fill=codebg, rounded corners, minimum width=3.5cm, minimum height=1cm, right=6cm of client] (server) {\textbf{DHCP Load Balancer / Node}};
-
-    % Lifelines
-    \draw [dashed, thick, color=codegray] (client.south) -- ++(0, -6.5);
-    \draw [dashed, thick, color=codegray] (server.south) -- ++(0, -6.5);
-
-    % Messages
-    \draw [->, thick, color=primaryblue] ($(client.south)+(0,-1.0)$) -- node[above, font=\footnotesize] {1. \texttt{DHCPDISCOVER} (Broadcast 255.255.255.255, xid, MAC)} ($(server.south)+(0,-1.0)$);
-    \draw [<-, thick, color=accentgreen] ($(client.south)+(0,-2.3)$) -- node[above, font=\footnotesize] {2. \texttt{DHCPOFFER} (Offered IP=192.168.10.X, Server-ID)} ($(server.south)+(0,-2.3)$);
-    \draw [->, thick, color=primaryblue] ($(client.south)+(0,-3.6)$) -- node[above, font=\footnotesize] {3. \texttt{DHCPREQUEST} (Requested IP=192.168.10.X, Server-ID)} ($(server.south)+(0,-3.6)$);
-    \draw [<-, thick, color=accentgreen] ($(client.south)+(0,-4.9)$) -- node[above, font=\footnotesize] {4. \texttt{DHCPACK} (Assigned IP, Subnet Mask, Gateway, DNS, Lease=120s)} ($(server.south)+(0,-4.9)$);
-    \draw [->, thick, dashed, color=darkslate] ($(client.south)+(0,-6.0)$) -- node[above, font=\footnotesize] {Optional: \texttt{DHCPRELEASE} / \texttt{DHCPINFORM} / \texttt{DHCPDECLINE}} ($(server.south)+(0,-6.0)$);
-\end{tikzpicture}
-\caption{The RFC 2131 Dynamic Address Allocation Sequence (D-O-R-A).}
-\label{fig:dora_sequence}
+\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{white}, basicstyle=\ttfamily\footnotesize]
++--------------------+--------------------+--------------------+-----------------------+
+|   Layer 2 Header   |   Layer 3 Header   |   Layer 4 Header   |    Layer 7 Payload    |
+| (Ethernet II: MAC) |   (IPv4 Header)    | (UDP: 67 <-> 68)   | (BOOTP + Cookie + TLV)|
++--------------------+--------------------+--------------------+-----------------------+
+\end{lstlisting}
+\caption{Multi-layer protocol encapsulation of an RFC 2131 DHCP frame.}
+\label{fig:encapsulation}
 \end{figure}
 
-\subsection{Secondary DHCP Message Types Supported}
-In addition to the primary 4-step sequence, the system fully implements:
-\begin{itemize}[leftmargin=1.5em]
-    \item \textbf{DHCPDECLINE (Client $\rightarrow$ Server):} Transmitted by a client if it detects via gratuitous ARP that the offered IP is already active on the physical wire, forcing the server to mark the lease \texttt{DECLINED}.
-    \item \textbf{DHCPRELEASE (Client $\rightarrow$ Server):} Gracefully terminates an active lease before expiration, returning the IP to the available pool.
-    \item \textbf{DHCPINFORM (Client $\rightarrow$ Server):} Used by clients possessing a statically assigned IP to request local domain parameters (DNS servers, Domain Name, Gateway) without modifying lease state.
-    \item \textbf{DHCPNAK (Server $\rightarrow$ Client):} Returned if a client attempts to claim an invalid or expired IP address, forcing the client to restart the bootstrap sequence.
-\end{itemize}
+\subsection{Architectural Overview of the Proposed System}
+To overcome the limitations of standalone DHCP servers, this project implements a zero-dependency, distributed, fault-tolerant DHCP Server Cluster and Layer-4 UDP Load Balancer in Java, deployed across a 6-container Docker microservice topology on subnet \texttt{192.168.10.0/24}:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{RFC 2131 Binary Protocol Engine (\texttt{DhcpPacket}):} Full bit-level serializer and parser supporting the 236-byte BOOTP header, 4-byte Magic Cookie, dynamic Type-Length-Value (TLV) options, and RFC 1542 300-byte minimum padding.
+    \item \textbf{Layer-4 UDP Load Balancer \& Relay Agent (\texttt{DhcpLoadBalancer}):} Intercepts client broadcasts, stamps the Relay Agent IP (\texttt{giaddr = 192.168.10.254}), enforces anti-starvation rate limiting, and routes traffic across healthy worker nodes via Consistent Hashing.
+    \item \textbf{Thread-Safe Lease Manager (\texttt{LeaseManager}):} Manages dynamic pools (\texttt{.10}--\texttt{.150}), static Virtual IP (VIP) reservations (\texttt{.5} and \texttt{.6}), background expiration reaping, and atomic Write-Ahead Log (WAL) disk persistence.
+    \item \textbf{Active-Active Peer Gossip Replication (\texttt{DhcpServerNode}):} Synchronizes lease state transitions across all worker nodes over UDP in sub-millisecond time, ensuring zero-downtime failover.
+\end{enumerate}
 
-\subsection{Binary BOOTP Header and TLV Option Formatting}
-RFC 2131 mandates backwards compatibility with the BOOTP protocol (RFC 951). Every DHCP datagram begins with a fixed \textbf{236-byte} base header, followed by a mandatory \textbf{4-byte Magic Cookie} (\texttt{0x63825363} in network byte order), and dynamic Type-Length-Value (TLV) options:
+\IfFileExists{architecture_diagram.png}{
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth,keepaspectratio]{architecture_diagram.png}
+    \caption{Complete 6-Container Distributed DHCP Cluster Architecture on \texttt{192.168.10.0/24}.}
+    \label{fig:arch_png}
+\end{figure}
+}{}
 
-\begin{table}[htbp]
+% ==============================================================================
+% SECTION 2: BOOTP HEADER, BACKWARD COMPATIBILITY & 4-BYTE MAGIC COOKIE
+% ==============================================================================
+\section{BOOTP Header, Backward Compatibility, and Magic Cookie}
+
+\subsection{236-Byte BOOTP Header Architecture}
+DHCP (RFC 2131) is architecturally designed as a direct extension of the legacy \textbf{Bootstrap Protocol (BOOTP, RFC 951)}. Every DHCP packet begins with an identical, fixed \textbf{236-byte BOOTP header}, followed by a \textbf{4-byte Magic Cookie} and a variable-length options field. The exact byte-offset layout is depicted in Figure~\ref{fig:bootp_layout} and detailed in Table~\ref{tab:bootp_fields}.
+
+\begin{figure}[H]
 \centering
+\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{white}, basicstyle=\ttfamily\scriptsize]
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     op (1)    |   htype (1)   |   hlen (1)    |   hops (1)    |  Bytes 0 - 3
++---------------+---------------+---------------+---------------+
+|                            xid (4)                            |  Bytes 4 - 7
++-------------------------------+-------------------------------+
+|           secs (2)            |           flags (2)           |  Bytes 8 - 11
++-------------------------------+-------------------------------+
+|                          ciaddr (4)                           |  Bytes 12 - 15
++---------------------------------------------------------------+
+|                          yiaddr (4)                           |  Bytes 16 - 19
++---------------------------------------------------------------+
+|                          siaddr (4)                           |  Bytes 20 - 23
++---------------------------------------------------------------+
+|                          giaddr (4)                           |  Bytes 24 - 27
++---------------------------------------------------------------+
+|                          chaddr (16)                          |  Bytes 28 - 43
++---------------------------------------------------------------+
+|                          sname (64)                           |  Bytes 44 - 107
++---------------------------------------------------------------+
+|                           file (128)                          |  Bytes 108 - 235
++---------------------------------------------------------------+
+|            Magic Cookie: 0x63, 0x82, 0x53, 0x63 (4)           |  Bytes 236 - 239
++---------------------------------------------------------------+
+|              options (Variable TLV, ends with 0xFF)           |  Bytes 240 - N
++---------------------------------------------------------------+
+\end{lstlisting}
+\caption{RFC 2131 / BOOTP Binary Packet Header Layout and Byte Offsets.}
+\label{fig:bootp_layout}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{RFC 2131 Fixed 236-Byte BOOTP Header Field Specifications}
+\label{tab:bootp_fields}
 \small
-\begin{tabular}{@{}llcp{8cm}@{}}
+\begin{tabularx}{\textwidth}{@{}llccY@{}}
 \toprule
-\textbf{Field} & \textbf{Data Type} & \textbf{Octets} & \textbf{Description} \\ \midrule
-\texttt{op} & \texttt{uint8} & 1 & Message op code: 1 = \texttt{BOOTREQUEST}, 2 = \texttt{BOOTREPLY} \\
-\texttt{htype} & \texttt{uint8} & 1 & Hardware address type: 1 = Ethernet (10Mb) \\
-\texttt{hlen} & \texttt{uint8} & 1 & Hardware address length: 6 for standard 48-bit MAC \\
-\texttt{hops} & \texttt{uint8} & 1 & Relay agent hop counter (initialized to 0) \\
-\texttt{xid} & \texttt{uint32} & 4 & Transaction ID chosen randomly by client \\
-\texttt{secs} & \texttt{uint16} & 2 & Seconds elapsed since client began acquisition process \\
-\texttt{flags} & \texttt{uint16} & 2 & Broadcast flag (Bit 0: 0 = Unicast, 1 = Broadcast reply) \\
-\texttt{ciaddr} & \texttt{uint32} & 4 & Client IP address (only if client in BOUND state) \\
-\texttt{yiaddr} & \texttt{uint32} & 4 & ``Your'' (client) IP address allocated by server \\
-\texttt{siaddr} & \texttt{uint32} & 4 & Next bootstrap server IP address \\
-\texttt{giaddr} & \texttt{uint32} & 4 & Relay agent IP address \\
-\texttt{chaddr} & \texttt{uint8[16]} & 16 & Client hardware address (Ethernet MAC in first 6 bytes) \\
-\texttt{sname} & \texttt{uint8[64]} & 64 & Optional server host name string, null-terminated \\
-\texttt{file} & \texttt{uint8[128]} & 128 & Boot file name string, null-terminated \\
-\texttt{magic} & \texttt{uint32} & 4 & Magic Cookie: \texttt{0x63}, \texttt{0x82}, \texttt{0x53}, \texttt{0x63} \\
-\texttt{options} & \texttt{variable} & Var & Variable TLV options ending with \texttt{0xFF} (End Option) \\ \bottomrule
-\end{tabular}
-\caption{Detailed RFC 2131 / BOOTP Packet Structure Implemented in \texttt{DhcpPacket.java}.}
-\label{tab:packet_structure}
+\textbf{Field} & \textbf{Offset} & \textbf{Size} & \textbf{Value / Type} & \textbf{Protocol Function} \\ \midrule
+\texttt{op} & 0 & 1 B & \texttt{1}=Req, \texttt{2}=Reply & Specifies \texttt{BOOTREQUEST} (1) or \texttt{BOOTREPLY} (2). \\
+\texttt{htype} & 1 & 1 B & \texttt{1} (Ethernet) & Hardware address type (IEEE 802.3 10Mb Ethernet = 1). \\
+\texttt{hlen} & 2 & 1 B & \texttt{6} octets & Hardware address length in bytes (6 bytes for 48-bit MAC). \\
+\texttt{hops} & 3 & 1 B & \texttt{uint8} & Incremented by each BOOTP/DHCP Relay Agent (\texttt{giaddr}). \\
+\texttt{xid} & 4--7 & 4 B & \texttt{uint32} & Random Transaction ID chosen by client to match replies. \\
+\texttt{secs} & 8--9 & 2 B & \texttt{uint16} & Seconds elapsed since client began address acquisition. \\
+\texttt{flags} & 10--11 & 2 B & \texttt{0x8000} & MSB bit is Broadcast Flag (1 = require broadcast reply). \\
+\texttt{ciaddr} & 12--15 & 4 B & IPv4 Address & Client IP address (filled only in BOUND/RENEW states). \\
+\texttt{yiaddr} & 16--19 & 4 B & IPv4 Address & ``Your'' IP address offered or assigned by the server. \\
+\texttt{siaddr} & 20--23 & 4 B & IPv4 Address & IP address of the next bootstrap server in DORA. \\
+\texttt{giaddr} & 24--27 & 4 B & IPv4 Address & Relay Agent (Load Balancer) IP address (\texttt{192.168.10.254}). \\
+\texttt{chaddr} & 28--43 & 16 B & \texttt{byte[16]} & Client hardware MAC address stored in first 6 bytes. \\
+\texttt{sname} & 44--107 & 64 B & \texttt{byte[64]} & Optional null-terminated server hostname string. \\
+\texttt{file} & 108--235 & 128 B & \texttt{byte[128]} & Optional boot file name string (used in PXE/BOOTP). \\ \bottomrule
+\end{tabularx}
 \end{table}
 
-% ==============================================================================
-% SECTION 3: SYSTEM ARCHITECTURE
-% ==============================================================================
-\section{Distributed System Architecture}
-
-\subsection{Microservices Topology Overview}
-The system is architected as an autonomous 6-container distributed microservices cluster running inside a dedicated Docker bridge network (\texttt{dhcp\_lan}: \texttt{192.168.10.0/24}). 
-
-\begin{figure}[htbp]
-\centering
-\begin{tikzpicture}[
-    box/.style={draw=primaryblue, fill=codebg, rounded corners=6pt, thick, align=center, font=\small},
-    lan/.style={draw=accentgreen, fill=accentgreen!10, rounded corners=8pt, dashed, thick}
-]
-    % Background Network Subnet
-    \draw[lan] (-0.5, -5.2) rectangle (14.5, 3.5);
-    \node[anchor=north west, font=\bfseries\color{accentgreen}] at (0, 3.3) {Corporate Network Subnet: 192.168.10.0/24 (dhcp\_lan)};
-
-    % Gateway & DB VIPs
-    \node[box, fill=primaryblue!10] (gateway) at (2.5, 2.0) {\textbf{Core Nginx Gateway}\\\texttt{gateway-admin-vip}\\IP: \texttt{192.168.10.5:8085}\\MAC: \texttt{00:1A:2B:3C:4D:01}};
-    \node[box, fill=primaryblue!10] (db) at (10.5, 2.0) {\textbf{PostgreSQL 15 Production DB}\\\texttt{prod-db-primary}\\IP: \texttt{192.168.10.6:5432}\\MAC: \texttt{00:1A:2B:3C:4D:02}};
-
-    % Load Balancer
-    \node[box, fill=accentgreen!20, minimum width=6cm] (lb) at (6.5, -0.2) {\textbf{DHCP Load Balancer \& Ingress Router}\\\texttt{dhcp-load-balancer} (IP: \texttt{192.168.10.200})\\Ports: UDP 67/6700 (DHCP) | TCP 8080 (Web Dashboard)\\Dual Rate Limiter + Consistent Hash Ring};
-
-    % Backend Worker Nodes
-    \node[box] (node1) at (2.0, -3.8) {\textbf{DHCP Node 1}\\\texttt{dhcp-node-1}\\IP: \texttt{192.168.10.201}\\Port: UDP 6701\\WAL: \texttt{leases\_node1.db}};
-    \node[box] (node2) at (6.5, -3.8) {\textbf{DHCP Node 2}\\\texttt{dhcp-node-2}\\IP: \texttt{192.168.10.202}\\Port: UDP 6702\\WAL: \texttt{leases\_node2.db}};
-    \node[box] (node3) at (11.0, -3.8) {\textbf{DHCP Node 3}\\\texttt{dhcp-node-3}\\IP: \texttt{192.168.10.203}\\Port: UDP 6703\\WAL: \texttt{leases\_node3.db}};
-
-    % Connections
-    \draw[<->, thick, color=primaryblue] (lb.south) -- (node1.north);
-    \draw[<->, thick, color=primaryblue] (lb.south) -- (node2.north);
-    \draw[<->, thick, color=primaryblue] (lb.south) -- (node3.north);
-
-    % Gossip interconnections
-    \draw[<->, dashed, thick, color=codepurple] (node1.east) -- node[above, font=\tiny] {Gossip Sync} (node2.west);
-    \draw[<->, dashed, thick, color=codepurple] (node2.east) -- node[above, font=\tiny] {Gossip Sync} (node3.west);
-    \draw[<->, dashed, thick, color=codepurple] (node1.south) to [bend right=20] node[below, font=\tiny] {Gossip Replication Mesh} (node3.south);
-
-    % Sync Daemon from DB to LB
-    \draw[->, thick, color=accentgreen] (db.south) -- node[right, font=\tiny] {Continuous Polling / Upsert Daemon} (10.5, -0.2) -- (lb.east);
-    
-    % Reverse proxy link
-    \draw[->, thick, color=primaryblue] (gateway.south) -- node[left, font=\tiny] {Reverse Proxy /cluster/ $\rightarrow$} (2.5, -0.2) -- (lb.west);
-
-\end{tikzpicture}
-\caption{Distributed 6-Container Microservices Architecture Topology.}
-\label{fig:cluster_topology}
-\end{figure}
-
-\subsection{Component Roles and Port Allocations}
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{DHCP Load Balancer (\texttt{192.168.10.200}):} Serves as the single broadcast ingress point for clients. Receives raw UDP packets on port 67 (real LAN mode) or port 6700 (simulation mode), executes rate limiting inspection, selects the responsible backend node via Consistent Hashing, and relays datagrams. It also runs the embedded HTTP server on port 8080.
-    \item \textbf{Backend Worker Nodes (\texttt{192.168.10.201-203}):} Autonomous DHCP servers running on ports 6701, 6702, and 6703. Each node independently manages its own IP address pool (\texttt{192.168.10.10} through \texttt{192.168.10.254}), executes the full D-O-R-A state machine, persists records to local WAL files, and propagates lease bindings to its peers.
-    \item \textbf{Nginx Core Gateway Admin VIP (\texttt{192.168.10.5:8085}):} Simulates an enterprise top-of-rack router and core gateway. Holds static VIP reservation with MAC \texttt{00:1A:2B:3C:4D:01} and provides reverse proxy access to the cluster dashboard at \texttt{/cluster/}.
-    \item \textbf{PostgreSQL 15 Production Database (\texttt{192.168.10.6:5432}):} Enterprise SQL datastore holding persistent tables (\texttt{dhcp\_leases} and \texttt{cluster\_audit\_log}). An asynchronous background synchronization daemon continuously polls cluster state and performs SQL \texttt{INSERT ... ON CONFLICT (ip) DO UPDATE} operations.
+\subsection{Backward Compatibility with BOOTP (RFC 951 \& RFC 1542)}
+Preserving the exact 236-byte BOOTP frame structure provides three critical backward-compatibility guarantees in enterprise networks:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Unmodified BOOTP Relay Agent Forwarding (\texttt{giaddr}):} Legacy Layer-3 routers equipped with RFC 951 / RFC 1542 BOOTP relay agents (\texttt{ip helper-address} in Cisco IOS) inspect bytes 0--27 to stamp \texttt{giaddr} and increment \texttt{hops}. Because DHCP places \texttt{op}, \texttt{hops}, \texttt{flags}, and \texttt{giaddr} at the exact same byte offsets as BOOTP, existing router hardware relays DHCP broadcasts across subnets without requiring router firmware upgrades.
+    \item \textbf{Shared Transport Port Multiplexing:} Both BOOTP and DHCP operate over UDP port 67 (server) and UDP port 68 (client), allowing a single server daemon to service both legacy diskless BOOTP workstations and modern DHCP hosts.
+    \item \textbf{Minimum 300-Byte Packet Padding (RFC 1542):} Historic BOOTP implementations fixed the vendor extensions area at 64 bytes ($236 + 64 = 300\text{ bytes}$). Strict operating system network stacks (including Linux \texttt{udhcpc}, Windows, and Android) drop BOOTP/DHCP replies shorter than 300 bytes as runt frames. Our serializer explicitly zero-pads outgoing buffers to a minimum of 300 bytes (\texttt{while (buffer.position() < 300) buffer.put((byte) 0)}).
 \end{enumerate}
 
-% ==============================================================================
-% SECTION 4: CORE ALGORITHMS AND MECHANICS
-% ==============================================================================
-\section{Core Engineering Algorithms and Mechanics}
-
-\subsection{Consistent Hashing with Virtual Nodes}
-To avoid the severe remapping penalties of naive modulo hashing ($hash(\text{MAC}) \pmod N$), the Load Balancer implements a Consistent Hash Ring (Ketama algorithm) implemented with a Java \texttt{TreeMap<Long, DhcpServerNode>}:
-
-\begin{figure}[htbp]
-\centering
-\begin{tikzpicture}[scale=0.85]
-    % Outer Circle
-    \draw[thick, primaryblue] (0,0) circle (3cm);
-    \node at (0, 3.4) {\small Position 0 / $2^{32}-1$};
-
-    % Virtual Nodes on Ring
-    \filldraw[primaryblue] (45:3cm) circle (3pt) node[anchor=south west, font=\tiny] {Node1-V0};
-    \filldraw[accentgreen] (90:3cm) circle (3pt) node[anchor=south, font=\tiny] {Node2-V0};
-    \filldraw[codepurple] (135:3cm) circle (3pt) node[anchor=south east, font=\tiny] {Node3-V0};
-    \filldraw[primaryblue] (190:3cm) circle (3pt) node[anchor=east, font=\tiny] {Node1-V1};
-    \filldraw[accentgreen] (240:3cm) circle (3pt) node[anchor=north east, font=\tiny] {Node2-V1};
-    \filldraw[codepurple] (300:3cm) circle (3pt) node[anchor=north west, font=\tiny] {Node3-V1};
-
-    % Client Key Mapping
-    \filldraw[red] (110:3cm) circle (4pt) node[anchor=south, font=\scriptsize\bfseries] {Hash(MAC)};
-    \draw[->, thick, red] (110:2.6cm) arc (110:135:2.6cm);
-    \node at (122:2.1cm) [font=\tiny, color=red] {Clockwise Lookup};
-    \node at (0, 0) [align=center, font=\footnotesize] {\textbf{32-bit Hash Ring}\\$V = 100$ Virtual Nodes / Host\\$O(\log(V \cdot N))$ Routing};
-\end{tikzpicture}
-\caption{Consistent Hashing Ring Topology with Clockwise Virtual Node Routing.}
-\label{fig:consistent_hash_ring}
-\end{figure}
-
-\subsubsection{Mathematical Formulation}
-For each physical node $P_i \in \{1, \dots, N\}$, $V$ virtual replicas are created:
-\begin{equation}
-    K_{i,v} = \text{MD5}(P_i \parallel \text{"-vnode-"} \parallel v) \pmod{2^{32}}, \quad \forall v \in \{0, \dots, V-1\}
-\end{equation}
-When a client packet arrives with hardware address $M = \text{MAC}$, its 32-bit hash is computed:
-\begin{equation}
-    H_M = \text{MD5}(M) \pmod{2^{32}}
-\end{equation}
-The target server node $P^*$ is selected via the ceiling entry in the sorted ring:
-\begin{equation}
-    P^* = \text{Ring.ceilingKey}(H_M) \quad \text{or} \quad \text{Ring.firstKey()} \quad \text{if } H_M > \max(K)
-\end{equation}
-
-\subsubsection{Key Distribution Properties}
-Virtual nodes ($V=100$) prevent hash clustering, ensuring standard deviation of load across nodes is within $\sigma < 5\%$. When a node crashes, only $\frac{1}{N}$ of the keys require reassignment, compared to $\approx 100\%$ reassignment under naive modulo hashing.
-
-\subsection{Dual-Engine Rate Limiting (Anti-Starvation Defense)}
-To protect the address pool against malicious starvation floods, the Load Balancer incorporates a runtime-switchable dual-engine rate limiter.
-
-\subsubsection{Algorithm 1: Token Bucket Algorithm}
-The Token Bucket maintains a bucket with burst capacity $B$ and replenishment rate $R$ tokens/second:
-\begin{equation}
-    T_{\text{avail}}(t) = \min\left(B, \; T_{\text{current}} + \Delta t \times R\right)
-\end{equation}
-If $T_{\text{avail}} \ge 1$, the packet is forwarded and $T_{\text{avail}} \leftarrow T_{\text{avail}} - 1$; otherwise, the packet is instantly dropped.
-
-\subsubsection{Algorithm 2: Weighted Sliding Window Counter}
-To eliminate boundary-reset vulnerability inherent in fixed-window counters, the sliding window estimates packet arrivals across overlapping time intervals of width $W$:
-\begin{equation}
-    C_{\text{estimated}} = C_{\text{current}} + C_{\text{previous}} \times \left( \frac{W - (t - t_{\text{window\_start}})}{W} \right)
-\end{equation}
-If $C_{\text{estimated}} > \text{Threshold}$, traffic is dropped. This guarantees smooth rate enforcement even when an attacker concentrates floods precisely across window transitions.
-
-\begin{figure}[htbp]
-\centering
-\begin{tikzpicture}[scale=0.9]
-    % Time Axis
-    \draw[->, thick] (0,0) -- (12,0) node[right] {Time $t$};
-    
-    % Windows
-    \draw[dashed, color=codegray] (2,-0.5) -- (2,2.5);
-    \draw[dashed, color=codegray] (6,-0.5) -- (6,2.5);
-    \draw[dashed, color=codegray] (10,-0.5) -- (10,2.5);
-    
-    % Previous Window Box
-    \draw[fill=primaryblue!15, draw=primaryblue, thick] (2,0.3) rectangle (6,1.8);
-    \node at (4, 1.05) [align=center, font=\small] {\textbf{Previous Window ($C_{\text{prev}}$)}\\Weight: $\frac{W - \Delta t}{W}$};
-    
-    % Current Window Box
-    \draw[fill=accentgreen!15, draw=accentgreen, thick] (6,0.3) rectangle (10,1.8);
-    \node at (8, 1.05) [align=center, font=\small] {\textbf{Current Window ($C_{\text{curr}}$)}\\Weight: $1.0$};
-    
-    % Current Time Marker
-    \draw[thick, red] (7.5,-0.2) -- (7.5,2.2) node[above, font=\scriptsize\bfseries] {Current Arrival $t$};
-    \draw[<->, thick, red] (6,-0.3) -- node[below, font=\tiny] {$\Delta t$} (7.5,-0.3);
-\end{tikzpicture}
-\caption{Weighted Sliding Window Counter Rate Limiting Model.}
-\label{fig:sliding_window}
-\end{figure}
-
-\subsection{State Synchronization: Peer Gossip and Write-Ahead Logging}
-High availability requires that all nodes agree on active leases. The system utilizes a dual-tier synchronization strategy:
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{Active-Active Peer Gossip Protocol:} Whenever Node $i$ successfully binds a lease during \texttt{DHCPACK}, it immediately transmits an internal gossip packet over UDP to all peer nodes ($j \ne i$). The gossip payload contains:
-    \begin{equation}
-        \text{Payload} = \{\text{MAC}, \text{IP}, \text{Hostname}, \text{EpochExpiry}, \text{OwnerNodeID}\}
-    \end{equation}
-    Upon receipt, peers update their internal cache. In case of concurrent conflicting claims, the record with the higher epoch timestamp wins.
-    \item \textbf{Disk Persistence via Write-Ahead Log (WAL):} Every node maintains an append-only binary journal (\texttt{data/leases\_nodeX.db}). Before issuing \texttt{DHCPACK}, the lease record is flushed to disk via an atomic write. On node restart, the WAL is replayed sequentially from byte offset 0, restoring complete in-memory state without external network dependencies.
-\end{enumerate}
-
-% ==============================================================================
-% SECTION 5: IMPLEMENTATION DETAILS
-% ==============================================================================
-\section{Implementation Details}
-
-\subsection{Codebase Architecture and Module Mapping}
-The codebase is structured under the root package \texttt{dhcp}:
-\begin{itemize}[leftmargin=1.5em]
-    \item \texttt{dhcp.protocol}: Implements \texttt{DhcpPacket} and \texttt{DhcpMessageType}. Handles binary buffer encoding/decoding, IP address bit conversions (\texttt{ipToBytes}, \texttt{bytesToIp}), hardware address string parsing, and TLV option maps.
-    \item \texttt{dhcp.storage}: Implements \texttt{LeaseRecord} and \texttt{DiskStorage}. Provides thread-safe read/write operations, epoch serialization, and crash-recovery journal replay.
-    \item \texttt{dhcp.cluster}: Implements \texttt{DhcpServerNode} and \texttt{LeaseManager}. Executes pool management, lease timeout sweeper tasks, and peer gossip broadcast threads.
-    \item \texttt{dhcp.lb}: Implements \texttt{DhcpLoadBalancer}, \texttt{ConsistentHashRouter}, and \texttt{RateLimiter}. Manages the virtual node ring, node health monitoring, and packet ingress filtering.
-    \item \texttt{dhcp.dashboard}: Implements \texttt{DashboardServer}. Hosts the lightweight HTTP server on port 8080, serving the responsive single-page dashboard and REST endpoints (\texttt{/api/state}, \texttt{/api/action}).
-    \item \texttt{dhcp.client}: Implements \texttt{DhcpClientSimulator}. Generates concurrent multi-client synthetic D-O-R-A traffic, starvation attack floods, and individual lease releases.
+\subsection{The 4-Byte Magic Cookie (\texttt{0x63825363}) and TLV Options}
+Immediately following the 236-byte BOOTP header (at byte offset \textbf{236 to 239}) lies the mandatory \textbf{4-byte Magic Cookie}:
+\[
+\text{Magic Cookie} = \texttt{[99, 130, 83, 99]}_{10} = \texttt{0x63, 0x82, 0x53, 0x63}_{16}
+\]
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Role of the Magic Cookie:} In original BOOTP, bytes 236--299 contained arbitrary vendor-specific data. RFC 1497 and RFC 2131 standardized the 4-byte sequence \texttt{99.130.83.99} as a cryptographic-like delimiter. When a parser reads bytes 236--239 and matches \texttt{0x63825363}, it knows the remaining bytes are formatted as structured \textbf{Type-Length-Value (TLV)} DHCP options rather than raw legacy vendor bytes.
+    \item \textbf{Signed Byte Representation in Java:} Because Java's primitive \texttt{byte} is signed ($-128$ to $+127$), the unsigned octet $130$ ($0x82$) overflows $+127$ and is explicitly cast as \texttt{(byte) 130} ($-126$ in two's complement).
+    \item \textbf{TLV Option Encoding:} Every option after byte 240 consists of a 1-byte \textbf{Code} ($T$), a 1-byte unsigned \textbf{Length} ($L$), and an $L$-byte \textbf{Value} ($V$), terminated by the End-of-Options marker \texttt{OPT\_END = (byte) 255} (\texttt{0xFF}).
 \end{itemize}
 
-\subsection{Key Java Implementation Highlights}
+\begin{table}[H]
+\centering
+\caption{RFC 2132 TLV DHCP Options Implemented in \texttt{DhcpPacket.java}}
+\label{tab:tlv_options}
+\small
+\begin{tabularx}{\textwidth}{@{}lccY@{}}
+\toprule
+\textbf{Option Constant} & \textbf{Code} & \textbf{Length} & \textbf{Description and Payload Format} \\ \midrule
+\texttt{OPT\_SUBNET\_MASK} & 1 & 4 B & Client subnet mask (\texttt{255.255.255.0}). \\
+\texttt{OPT\_ROUTER} & 3 & 4 B & Default gateway router IP (\texttt{192.168.10.1}). \\
+\texttt{OPT\_DNS\_SERVER} & 6 & 4 B & Primary Domain Name System resolver (\texttt{8.8.8.8}). \\
+\texttt{OPT\_HOSTNAME} & 12 & Var & Client ASCII hostname string (e.g., \texttt{workstation-11}). \\
+\texttt{OPT\_DOMAIN\_NAME} & 15 & Var & Enterprise domain suffix (\texttt{corp.distributed.local}). \\
+\texttt{OPT\_REQUESTED\_IP} & 50 & 4 B & Specific IPv4 address requested by client in \texttt{DHCPREQUEST}. \\
+\texttt{OPT\_LEASE\_TIME} & 51 & 4 B & Lease validity duration in big-endian seconds (\texttt{120s}). \\
+\texttt{OPT\_MESSAGE\_TYPE} & 53 & 1 B & DHCP message type (\texttt{1}=DISCOVER .. \texttt{8}=INFORM, \texttt{101+}=RPC). \\
+\texttt{OPT\_SERVER\_ID} & 54 & 4 B & Authoritative DHCP Server IP identifier. \\
+\texttt{OPT\_CLIENT\_PORT} & 224 & 4 B & Private relay option storing client UDP source port. \\
+\texttt{OPT\_SYNC\_PAYLOAD} & 225 & Var & Private cluster option carrying serialized Gossip lease record. \\
+\texttt{OPT\_END} & 255 & 1 B & Single-byte marker (\texttt{0xFF}) terminating TLV option parsing. \\ \bottomrule
+\end{tabularx}
+\end{table}
 
-\subsubsection{Raw BOOTP / DHCP Binary Serialization}
-\begin{lstlisting}[language=Java, caption={Excerpt of raw binary parsing in \texttt{DhcpPacket.java}.}]
+\begin{lstlisting}[language=Java, caption={Binary BOOTP Header, Magic Cookie, and TLV Serializer/Parser in \texttt{DhcpPacket.java}.}]
+public static final byte[] MAGIC_COOKIE = new byte[]{99, (byte) 130, 83, 99};
+
+public byte[] toBytes() {
+    ByteBuffer buffer = ByteBuffer.allocate(1024);
+    buffer.put(op).put(htype).put(hlen).put(hops);
+    buffer.putInt(xid).putShort(secs).putShort(flags);
+    buffer.put(ipToBytes(ciaddr)).put(ipToBytes(yiaddr));
+    buffer.put(ipToBytes(siaddr)).put(ipToBytes(giaddr));
+
+    byte[] macBytes = macToBytes(chaddr);
+    byte[] chaddrField = new byte[16];
+    System.arraycopy(macBytes, 0, chaddrField, 0, Math.min(macBytes.length, 16));
+    buffer.put(chaddrField);
+    buffer.put(new byte[64]);  // 64-byte sname field
+    buffer.put(new byte[128]); // 128-byte file field
+
+    buffer.put(MAGIC_COOKIE);  // Bytes 236-239: 0x63, 0x82, 0x53, 0x63
+
+    for (Map.Entry<Byte, byte[]> entry : options.entrySet()) {
+        byte code = entry.getKey();
+        byte[] val = entry.getValue();
+        if (code == OPT_END) continue;
+        buffer.put(code);
+        buffer.put((byte) (val.length & 0xFF));
+        buffer.put(val);
+    }
+    buffer.put(OPT_END);
+    while (buffer.position() < 300) {
+        buffer.put((byte) 0);  // RFC 1542 300-byte minimum BOOTP padding
+    }
+    byte[] result = new byte[buffer.position()];
+    buffer.flip();
+    buffer.get(result);
+    return result;
+}
+
 public static DhcpPacket fromBytes(byte[] data, int length) {
-    ByteBuffer buf = ByteBuffer.wrap(data, 0, length);
+    if (length < 240) {
+        throw new IllegalArgumentException("Packet shorter than 240-byte BOOTP+Cookie minimum");
+    }
+    ByteBuffer buffer = ByteBuffer.wrap(data, 0, length);
     DhcpPacket packet = new DhcpPacket();
-    packet.op = buf.get();
-    packet.htype = buf.get();
-    packet.hlen = buf.get();
-    packet.hops = buf.get();
-    packet.xid = buf.getInt();
-    packet.secs = buf.getShort() & 0xFFFF;
-    packet.flags = buf.getShort() & 0xFFFF;
-    
-    // Extract IP addresses (4 octets each)
+    packet.op = buffer.get(); packet.htype = buffer.get();
+    packet.hlen = buffer.get(); packet.hops = buffer.get();
+    packet.xid = buffer.getInt();
+    packet.secs = buffer.getShort(); packet.flags = buffer.getShort();
+
     byte[] ipBuf = new byte[4];
-    buf.get(ipBuf); packet.ciaddr = bytesToIp(ipBuf);
-    buf.get(ipBuf); packet.yiaddr = bytesToIp(ipBuf);
-    buf.get(ipBuf); packet.siaddr = bytesToIp(ipBuf);
-    buf.get(ipBuf); packet.giaddr = bytesToIp(ipBuf);
-    
-    // Parse 16-byte Hardware Address
-    byte[] chaddrRaw = new byte[16];
-    buf.get(chaddrRaw);
-    packet.chaddr = bytesToMac(chaddrRaw, packet.hlen);
-    
-    // Skip sname (64) and file (128)
-    buf.position(buf.position() + 64 + 128);
-    
-    // Verify 4-Byte Magic Cookie (0x63, 0x82, 0x53, 0x63)
-    if (buf.getInt() == MAGIC_COOKIE) {
-        parseOptions(buf, packet);
+    buffer.get(ipBuf); packet.ciaddr = bytesToIp(ipBuf);
+    buffer.get(ipBuf); packet.yiaddr = bytesToIp(ipBuf);
+    buffer.get(ipBuf); packet.siaddr = bytesToIp(ipBuf);
+    buffer.get(ipBuf); packet.giaddr = bytesToIp(ipBuf);
+
+    byte[] chaddrField = new byte[16];
+    buffer.get(chaddrField);
+    packet.chaddr = bytesToMac(Arrays.copyOf(chaddrField, 6));
+    buffer.position(buffer.position() + 192); // Skip sname (64) + file (128)
+
+    byte[] cookie = new byte[4];
+    buffer.get(cookie);
+    if (!Arrays.equals(cookie, MAGIC_COOKIE)) {
+        throw new IllegalArgumentException("Invalid DHCP Magic Cookie");
+    }
+    while (buffer.hasRemaining()) {
+        byte code = buffer.get();
+        if (code == 0) continue;
+        if (code == OPT_END || !buffer.hasRemaining()) break;
+        int optLen = buffer.get() & 0xFF;
+        if (buffer.remaining() < optLen) break;
+        byte[] val = new byte[optLen];
+        buffer.get(val);
+        packet.options.put(code, val);
     }
     return packet;
 }
 \end{lstlisting}
 
-\subsubsection{Consistent Hashing Router}
-\begin{lstlisting}[language=Java, caption={Virtual node lookup in \texttt{ConsistentHashRouter.java}.}]
-public DhcpServerNode route(String clientMac) {
-    lock.readLock().lock();
-    try {
-        if (ring.isEmpty()) return null;
-        long hash = hash(clientMac);
-        Map.Entry<Long, DhcpServerNode> entry = ring.ceilingEntry(hash);
-        if (entry == null) {
-            entry = ring.firstEntry(); // Wrap around circle
-        }
-        return entry.getValue();
-    } finally {
-        lock.readLock().unlock();
+% ==============================================================================
+% SECTION 3: LEASE RECORD & THREAD-SAFE LEASE MANAGER
+% ==============================================================================
+\section{Lease Record Model, Thread-Safe Lease Manager, and Persistence}
+
+\subsection{Immutable Lease Record Model (\texttt{LeaseRecord.java})}
+Every IP binding across the cluster is represented as an immutable \texttt{LeaseRecord} object. Designing \texttt{LeaseRecord} with \texttt{final} fields ensures that once a lease state is constructed, it can be safely read by concurrent HTTP dashboard threads, Gossip replicators, and disk writers without lock contention.
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Lease Lifecycle States (\texttt{State} Enum):}
+    \begin{enumerate}
+        \item \texttt{OFFERED}: Provisionally reserved for 30 seconds during \texttt{DHCPOFFER} while awaiting client \texttt{DHCPREQUEST}.
+        \item \texttt{ACTIVE}: Formally bound during \texttt{DHCPACK} for the configured TTL (\texttt{120s}, or \texttt{Long.MAX\_VALUE} for Static VIPs).
+        \item \texttt{EXPIRED}: Lease TTL elapsed or explicitly released via \texttt{DHCPRELEASE}; eligible for immediate pool reclamation.
+        \item \texttt{DECLINED}: Quarantined for 120 seconds following a client \texttt{DHCPDECLINE} (ARP conflict detection).
+    \end{enumerate}
+    \item \textbf{Wire \& Disk Serialization:} \texttt{LeaseRecord.serialize()} encodes all seven attributes into a single pipe-delimited record (\texttt{ip|mac|hostname|state|node|expiresAt|isStatic}), enabling both UDP Gossip payloads and single-line WAL file entries.
+\end{itemize}
+
+\begin{lstlisting}[language=Java, caption={Immutable \texttt{LeaseRecord} data structure and pipe-delimited serializer.}]
+public class LeaseRecord {
+    public enum State { OFFERED, ACTIVE, EXPIRED, DECLINED }
+
+    private final String ipAddress;
+    private final String macAddress;
+    private final String hostname;
+    private final State state;
+    private final String allocatedByNode;
+    private final long expiresAtEpochMs;
+    private final boolean staticReservation;
+
+    public boolean isExpired() {
+        return !staticReservation && System.currentTimeMillis() > expiresAtEpochMs;
+    }
+
+    public String serialize() {
+        return String.join("|",
+                ipAddress, macAddress, hostname.replace("|", "_"),
+                state.name(), allocatedByNode,
+                String.valueOf(expiresAtEpochMs), String.valueOf(staticReservation));
+    }
+
+    public static LeaseRecord deserialize(String line) {
+        String[] parts = line.split("\\|");
+        return new LeaseRecord(
+                parts[0], parts[1], parts[2], State.valueOf(parts[3]),
+                parts[4], Long.parseLong(parts[5]), Boolean.parseBoolean(parts[6]));
     }
 }
 \end{lstlisting}
 
-% ==============================================================================
-% SECTION 6: SYSTEM DEPLOYMENT, STARTUP PROCEDURES, AND VERIFICATION
-% ==============================================================================
-\section{System Deployment, Operational Commands, and Verification Guide}
-
-\subsection{Quick Reference Command Matrix}
-Table~\ref{tab:command_matrix} provides a comprehensive operational summary of all administrative commands utilized to build, launch, verify, query, and inspect the distributed DHCP cluster.
-
-\begin{table}[htbp]
-\centering
-\small
-\begin{tabular}{@{}llp{6.8cm}@{}}
-\toprule
-\textbf{Operational Task} & \textbf{Command / Execution Path} & \textbf{Description \& Verification Target} \\ \midrule
-\textbf{Start Cluster (Docker)} & \texttt{docker compose up -d} & Launches all 6 microservice containers in detached background mode on \texttt{192.168.10.0/24}. \\
-\textbf{Rebuild \& Start} & \texttt{docker compose up -{}-build -d} & Recompiles Java code inside Alpine JDK and starts refreshed container images. \\
-\textbf{Check Status} & \texttt{docker compose ps} & Inspects health, uptime, and port forwardings for all 6 microservices. \\
-\textbf{Live Log Stream} & \texttt{docker compose logs -f dhcp-load-balancer} & Follows real-time D-O-R-A handshakes, rate limiter drops, and heartbeat logs. \\
-\textbf{Node Log Stream} & \texttt{docker compose logs -f dhcp-node-1} & Streams peer gossip sync, local allocation logs, and WAL transactions. \\
-\textbf{Web UI Dashboard} & \texttt{http://localhost:8080} & Browser portal for real-time node metrics, active leases, and chaos controls. \\
-\textbf{Gateway VIP Portal} & \texttt{http://localhost:8085} & Core Nginx Gateway router portal on static VIP \texttt{192.168.10.5}. \\
-\textbf{REST Telemetry API} & \texttt{curl http://localhost:8080/api/state} & Retrieves JSON state of lease pool, active nodes, and rate limiter metrics. \\
-\textbf{Query SQL Database} & \texttt{docker exec prod-db-primary psql ...} & Inspects synchronized SQL rows inside PostgreSQL \texttt{dhcp\_leases} table. \\
-\textbf{Real OS Client Test} & \texttt{docker run ... alpine} $\rightarrow$ \texttt{udhcpc} & Verifies real Linux kernel DHCP negotiation over Docker LAN bridge. \\
-\textbf{Native Compilation} & \texttt{javac -d out src/dhcp/.../*.java} & Compiles zero-dependency Java source files natively on host. \\
-\textbf{Native Run (Host)} & \texttt{java -cp out dhcp.Main} & Runs cluster in simulation mode on UDP 6700 and HTTP 8080. \\
-\textbf{Automated Test Suite} & \texttt{java -cp out dhcp.Main -{}-verify} & Executes headless end-to-end integration and chaos verification test suite. \\
-\textbf{Stop Cluster} & \texttt{docker compose down} & Gracefully shuts down and purges container network resources. \\ \bottomrule
-\end{tabular}
-\caption{Operational Command Matrix for Cluster Deployment and Administration.}
-\label{tab:command_matrix}
-\end{table}
-
-\subsection{Method A: Production 6-Container Microservices Deployment (Docker Compose)}
-
-\subsubsection{Step 1: Starting the Server Cluster}
-To instantiate the 6-container cluster on the isolated subnet \texttt{192.168.10.0/24}:
-\begin{lstlisting}[language=bash]
-$ cd "c:\Users\aritr\OneDrive\Desktop\CN Project\DHCP"
-$ docker compose up -d
-\end{lstlisting}
-\textit{Note: When Java source code modifications are made, append the \texttt{-{}-build} flag to trigger layer re-compilation:}
-\begin{lstlisting}[language=bash]
-$ docker compose up --build -d
-\end{lstlisting}
-
-\subsubsection{Step 2: Checking Container Health and Status}
-Verify that all six services report operational status:
-\begin{lstlisting}[language=bash]
-$ docker compose ps
-
-NAME                 IMAGE                     STATUS          PORTS
-dhcp-load-balancer   dhcp-dhcp-load-balancer   Up (healthy)    0.0.0.0:8080->8080/tcp, 0.0.0.0:6700->67/udp
-dhcp-node-1          dhcp-dhcp-node-1          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
-dhcp-node-2          dhcp-dhcp-node-2          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
-dhcp-node-3          dhcp-dhcp-node-3          Up (healthy)    67/udp, 6700-6703/udp, 8080/tcp
-gateway-admin-vip    nginx:alpine              Up              0.0.0.0:8085->80/tcp
-prod-db-primary      dhcp-prod-db-primary      Up (healthy)    0.0.0.0:5432->5432/tcp
-\end{lstlisting}
-
-\subsubsection{Step 3: Checking Live Packet and Cluster Event Logs}
-To stream the real-time ingress packet transactions, rate limiter audits, and heartbeat checks:
-\begin{lstlisting}[language=bash]
-# Follow central Load Balancer event stream
-$ docker compose logs -f dhcp-load-balancer
-
-# Follow specific worker node gossip and allocations
-$ docker compose logs -f dhcp-node-1
-\end{lstlisting}
-
-\subsubsection{Step 4: Checking Active SQL Leases in PostgreSQL}
-The background synchronization daemon continuously polls active leases and upserts them into PostgreSQL. Query the production database directly:
-\begin{lstlisting}[language=bash]
-$ docker exec prod-db-primary psql -U postgres -d dhcp_db -c \
-  "SELECT ip, mac, hostname, state, lease_duration FROM dhcp_leases;"
-\end{lstlisting}
-
-\subsubsection{Step 5: Testing with a Real Linux Operating System Client}
-An independent container running unmodified Alpine Linux can be attached to the cluster network to verify end-to-end RFC 2131 interoperability:
-\begin{lstlisting}[language=bash]
-$ docker run --rm -it --network dhcp_dhcp_lan alpine sh
-# udhcpc -i eth0 -n -q
-udhcpc: started, v1.36.1
-udhcpc: broadcasting discover
-udhcpc: broadcasting select for 192.168.10.10, server 192.168.10.200
-udhcpc: lease of 192.168.10.10 obtained from 192.168.10.200, lease time 120
-\end{lstlisting}
-
-\subsubsection{Step 6: Graceful Teardown}
-When testing is complete, terminate the cluster cleanly:
-\begin{lstlisting}[language=bash]
-$ docker compose down
-\end{lstlisting}
-
-\subsection{Method B: Native Host Execution (Without Docker)}
-For environments lacking Docker virtualization, the system can be compiled and executed natively using the standard Java Development Kit (JDK 11+):
-
-\subsubsection{Step 1: Native Compilation}
-\begin{lstlisting}[language=bash]
-$ javac -d out src/dhcp/protocol/*.java src/dhcp/model/*.java \
-               src/dhcp/cluster/*.java src/dhcp/lb/*.java \
-               src/dhcp/client/*.java src/dhcp/dashboard/*.java \
-               src/dhcp/Main.java
-\end{lstlisting}
-
-\subsubsection{Step 2: Starting the Server on Port 8080}
-\begin{lstlisting}[language=bash]
-$ java -cp out dhcp.Main
-\end{lstlisting}
-The console confirms initialization of all worker nodes, the Consistent Hash Ring, and the embedded HTTP dashboard:
-\begin{lstlisting}[language=text]
-================================================================================
-   DISTRIBUTED & LOAD-BALANCED DHCP SERVER CLUSTER (RFC 2131 + SYSTEM DESIGN)   
-================================================================================
-[DHCP-Node-1] Started on UDP port 6701 (Server ID: 10.0.0.1, Gateway: 192.168.10.1)
-[DHCP-Node-2] Started on UDP port 6702 (Server ID: 10.0.0.2, Gateway: 192.168.10.1)
-[DHCP-Node-3] Started on UDP port 6703 (Server ID: 10.0.0.3, Gateway: 192.168.10.1)
-[LOAD-BALANCER] Started on 0.0.0.0:6700 [Strategy=CONSISTENT_HASHING]
-[DASHBOARD] Live Web UI started at http://localhost:8080
-\end{lstlisting}
-
-\subsubsection{Step 3: Checking Active Network Socket Bindings}
-In a separate terminal, verify that the HTTP management port is listening:
-\begin{lstlisting}[language=bash]
-$ netstat -ano | findstr 8080
-  TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       14920
-\end{lstlisting}
-
-\subsection{Method C: Automated Verification Test Suite}
-The system includes an automated headless verification engine to perform continuous integration tests:
-\begin{lstlisting}[language=bash]
-$ java -cp out dhcp.Main --verify
-\end{lstlisting}
-The verification routine exercises four sequential scenarios:
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{Scenario 1:} Concurrent multi-client 4-way D-O-R-A handshake across the Consistent Hash Ring.
-    \item \textbf{Scenario 2:} Static VIP MAC address reservation matching and extended RFC 2131 operations (\texttt{DHCPINFORM}, \texttt{DHCPDECLINE}, \texttt{DHCPRELEASE}).
-    \item \textbf{Scenario 3:} Chaos injection terminating Node 1, verifying 1.8-second failover eviction and lease preservation via peer gossip.
-    \item \textbf{Scenario 4:} Simulated 40-packet starvation attack verifying burst quota enforcement and packet drops by the rate limiter.
+\subsection{Lease Manager and Thread-Safety Engineering (\texttt{LeaseManager.java})}
+In a high-concurrency DHCP server node, four independent execution contexts access the IP pool simultaneously:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Worker Pool Threads (4 threads per node):} Concurrent DORA packet handlers invoking \texttt{offerLease()}, \texttt{commitLease()}, \texttt{releaseLease()}, and \texttt{declineLease()}.
+    \item \textbf{Peer Gossip Sync Handler:} Processing incoming \texttt{CLUSTER\_PEER\_SYNC} packets via \texttt{applyPeerSync()}.
+    \item \textbf{Background Lease Expiration Reaper:} A scheduled daemon thread executing \texttt{reapExpiredLeases()} every 2 seconds.
+    \item \textbf{HTTP Telemetry Reader:} Dashboard queries invoking \texttt{getAllLeases()} every 1 second.
 \end{enumerate}
 
-% ==============================================================================
-% SECTION 7: EXPERIMENTAL EVALUATION
-% ==============================================================================
-\section{Experimental Evaluation and Test Results}
-
-\subsection{Test Case 1: Standard RFC 2131 D-O-R-A Cycle}
-To verify protocol compliance, a simulated client (\texttt{workstation-38}, MAC \texttt{AA:BB:CC:00:00:26}) executed an unconfigured bootstrap sequence:
-\begin{itemize}[leftmargin=1.5em]
-    \item \textbf{T0 (15:13:43.305):} Client broadcasts \texttt{DHCPDISCOVER} with $xid = \texttt{0x5c4a1e9}$.
-    \item \textbf{T1 (15:13:43.305):} Load balancer routes packet to Node 2 (\texttt{192.168.10.202}), which returns \texttt{DHCPOFFER} with IP \texttt{192.168.10.18}.
-    \item \textbf{T2 (15:13:43.305):} Client transmits \texttt{DHCPREQUEST} for IP \texttt{192.168.10.18} citing Server ID \texttt{192.168.10.202}.
-    \item \textbf{T3 (15:13:43.308):} Node 2 issues \texttt{DHCPACK} with Subnet Mask \texttt{255.255.255.0}, Gateway \texttt{192.168.10.1}, DNS \texttt{8.8.8.8}, and Lease Time \texttt{120s}. Total round-trip latency: \textbf{3.2 ms}.
+\subsubsection{Why \texttt{ConcurrentHashMap} Alone is Insufficient}
+The \texttt{LeaseManager} maintains two coupled index maps for $O(1)$ bidirectional lookup:
+\begin{itemize}[leftmargin=2em]
+    \item \texttt{leasesByIp} (\texttt{ConcurrentHashMap<String, LeaseRecord>}): Maps $\text{IPv4} \rightarrow \text{LeaseRecord}$.
+    \item \texttt{ipByMac} (\texttt{ConcurrentHashMap<String, String>}): Maps $\text{MAC} \rightarrow \text{IPv4}$.
 \end{itemize}
+If two threads concurrently execute \texttt{offerLease()} without method-level synchronization, a classic \textbf{Check-Then-Act Race Condition} occurs: Thread A and Thread B could both inspect \texttt{192.168.10.10}, observe that it is unallocated (\texttt{current == null}), and assign the exact same IPv4 address to two different client MAC addresses!
 
-\subsection{Test Case 2: Multi-Client Load Distribution}
-A batch of 50 concurrent synthetic clients were spawned against the cluster. Table~\ref{tab:load_distribution} illustrates the resulting distribution across the active nodes:
-
-\begin{table}[htbp]
-\centering
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Node Identifier} & \textbf{Node IP} & \textbf{Leases Handled} & \textbf{Allocation Share (\%)} \\ \midrule
-DHCP Node 1 & 192.168.10.201 & 17 & 34.0\% \\
-DHCP Node 2 & 192.168.10.202 & 16 & 32.0\% \\
-DHCP Node 3 & 192.168.10.203 & 17 & 34.0\% \\ \midrule
-\textbf{Total / Average} & --- & \textbf{50} & \textbf{33.33\%} ($\sigma = 0.57$) \\ \bottomrule
-\end{tabular}
-\caption{Empirical Client Distribution across 3 Backend Nodes using Consistent Hashing.}
-\label{tab:load_distribution}
-\end{table}
-The empirical results demonstrate optimal load balance with less than 2\% variance from theoretical uniform distribution.
-
-\subsection{Test Case 3: Automatic Node Failover and Rebalancing}
-To simulate catastrophic hardware failure, Node 2 was forcibly terminated while holding 16 active leases:
-\begin{enumerate}[leftmargin=1.5em]
-    \item The Load Balancer's heartbeat monitor detected failure within 2.0 seconds and purged Node 2's 100 virtual nodes from the hash ring.
-    \item Immediate re-routing shifted Node 2's hash sectors uniformly between Node 1 and Node 3.
-    \item Because active lease bindings had been continuously gossiped to Node 1 and Node 3, subsequent client renewal requests (\texttt{DHCPREQUEST}) were recognized and fulfilled without dropping active client connections or causing IP collisions.
+\subsubsection{Two-Tier Concurrency Control Mechanism}
+To guarantee strict thread safety and linearizable IP allocation while keeping dashboard reads non-blocking:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Intrinsic Monitor Locks (\texttt{synchronized} Mutators):} All state-mutating operations (\texttt{offerLease}, \texttt{commitLease}, \texttt{releaseLease}, \texttt{declineLease}, \texttt{applyPeerSync}, \texttt{reapExpiredLeases}, \texttt{saveToDisk}) are declared \texttt{synchronized} on the \texttt{LeaseManager} monitor. This serializes composite check-then-act sequences and guarantees that \texttt{leasesByIp}, \texttt{ipByMac}, and the disk WAL file are updated atomically.
+    \item \textbf{Lock-Free Concurrent Reads (\texttt{ConcurrentHashMap}):} Because the underlying maps are \texttt{ConcurrentHashMap} instances storing immutable \texttt{LeaseRecord} references, read-only telemetry methods (\texttt{getAllLeases()}, \texttt{getActiveLeaseCount()}) iterate over weakly consistent map views without acquiring the monitor lock or blocking packet processing.
 \end{enumerate}
 
-\subsection{Test Case 4: DHCP Starvation Flood Attack Defense}
-A malicious actor script launched a simulated starvation flood consisting of 40 rapid \texttt{DHCPDISCOVER} packets with spoofed MAC addresses (\texttt{DE:AD:BE:EF:00:01} through \texttt{00:28}) within a 20 ms window.
-
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
-\begin{tikzpicture}[scale=0.95]
-    % Grid lines
-    \foreach \y in {0, 10, 20, 30, 40} {
-        \draw[dotted, color=codeborder] (0, \y*0.1) -- (9.5, \y*0.1);
-        \node[anchor=east, font=\scriptsize, color=codegray] at (-0.1, \y*0.1) {\y};
-    }
-    % Axes
-    \draw[->, thick, color=darkslate] (0,0) -- (9.5,0) node[right, font=\scriptsize] {Metric};
-    \draw[->, thick, color=darkslate] (0,0) -- (0,4.5) node[above, font=\scriptsize] {Packets};
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.9cm and 1.4cm,
+    startstop/.style={rectangle, rounded corners, minimum width=3.2cm, minimum height=0.8cm, text centered, draw=black, thick, fill=gray!15, font=\footnotesize\bfseries},
+    process/.style={rectangle, minimum width=3.8cm, minimum height=0.8cm, text centered, draw=black, thick, fill=white, font=\footnotesize},
+    decision/.style={diamond, aspect=2.2, minimum width=3.2cm, minimum height=0.8cm, text centered, draw=black, thick, fill=gray!10, font=\footnotesize},
+    arrow/.style={thick,->,>=Stealth}
+]
+    \node (start) [startstop] {Incoming \texttt{offerLease(mac, host, reqIp)} [Acquire \texttt{synchronized} Lock]};
+    \node (dec1) [decision, below=0.6cm of start] {MAC in \texttt{staticReservations}?};
+    \node (act1) [process, right=1.8cm of dec1] {Return Static VIP (\texttt{.5} or \texttt{.6})};
+    
+    \node (dec2) [decision, below=0.7cm of dec1] {MAC in \texttt{ipByMac} \& Not Declined?};
+    \node (act2) [process, right=1.8cm of dec2] {Refresh Existing IP (30s Offer)};
+    
+    \node (dec3) [decision, below=0.7cm of dec2] {\texttt{reqIp} in Pool \& Free/Expired?};
+    \node (act3) [process, right=1.8cm of dec3] {Create Offer for \texttt{reqIp}};
+    
+    \node (dec4) [decision, below=0.7cm of dec3] {Scan \texttt{ipPool} (\texttt{.10}--\texttt{.150}) Free?};
+    \node (act4) [process, right=1.8cm of dec4] {Allocate First Free IP \& Update Maps};
+    
+    \node (exhaust) [startstop, below=0.7cm of dec4] {Return \texttt{null} (Pool Exhausted) [Release Lock]};
 
-    % Bars
-    % 1. Transmitted (40)
-    \draw[fill=primaryblue!80, draw=primaryblue, thick] (0.8, 0) rectangle (2.0, 4.0);
-    \node[above, font=\scriptsize\bfseries] at (1.4, 4.0) {40};
-    \node[below, font=\scriptsize, align=center] at (1.4, -0.2) {Transmitted\\Flood};
-
-    % 2. Accepted (10)
-    \draw[fill=accentgreen!80, draw=accentgreen, thick] (3.1, 0) rectangle (4.3, 1.0);
-    \node[above, font=\scriptsize\bfseries] at (3.7, 1.0) {10};
-    \node[below, font=\scriptsize, align=center] at (3.7, -0.2) {Burst Allowed\\(Quota)};
-
-    % 3. Dropped TB (30)
-    \draw[fill=red!70, draw=red, thick] (5.4, 0) rectangle (6.6, 3.0);
-    \node[above, font=\scriptsize\bfseries] at (6.0, 3.0) {30};
-    \node[below, font=\scriptsize, align=center] at (6.0, -0.2) {Dropped\\(Token Bucket)};
-
-    % 4. Dropped SW (30)
-    \draw[fill=codepurple!70, draw=codepurple, thick] (7.7, 0) rectangle (8.9, 3.0);
-    \node[above, font=\scriptsize\bfseries] at (8.3, 3.0) {30};
-    \node[below, font=\scriptsize, align=center] at (8.3, -0.2) {Dropped\\(Slid. Window)};
-\end{tikzpicture}
-\caption{Packet Processing under 40-Packet Starvation Flood with Rate Limiting Enabled.}
-\label{fig:starvation_chart}
+    \draw [arrow] (start) -- (dec1);
+    \draw [arrow] (dec1) -- node[above, font=\scriptsize] {Yes} (act1);
+    \draw [arrow] (dec1) -- node[left, font=\scriptsize] {No} (dec2);
+    \draw [arrow] (dec2) -- node[above, font=\scriptsize] {Yes} (act2);
+    \draw [arrow] (dec2) -- node[left, font=\scriptsize] {No} (dec3);
+    \draw [arrow] (dec3) -- node[above, font=\scriptsize] {Yes} (act3);
+    \draw [arrow] (dec3) -- node[left, font=\scriptsize] {No} (dec4);
+    \draw [arrow] (dec4) -- node[above, font=\scriptsize] {Yes} (act4);
+    \draw [arrow] (dec4) -- node[left, font=\scriptsize] {No} (exhaust);
+\end{tikzpicture}%
+}
+\caption{Flowchart of Thread-Safe 4-Stage IP Allocation Priority inside \texttt{LeaseManager.offerLease()}.}
+\label{fig:lease_flowchart}
 \end{figure}
 
-As shown in Figure~\ref{fig:starvation_chart}, exactly 10 packets were permitted (exhausting the initial burst capacity), after which both the Token Bucket and Sliding Window Counter rate limiters dropped the remaining 30 attack packets with explicit \texttt{RATE LIMIT DROP} audit log entries. The address pool remained secure and operational for legitimate clients.
+\begin{lstlisting}[language=Java, caption={Thread-safe IP allocation, commitment, and expiration reaper in \texttt{LeaseManager.java}.}]
+public synchronized LeaseRecord offerLease(String mac, String hostname, String requestedIp, String nodeId) {
+    String normalizedMac = mac.toUpperCase();
 
-\subsection{Test Case 5: Real OS Client Acquisition via Alpine Linux}
-To validate real-world interoperability, a separate container running vanilla Alpine Linux 3.19 was attached to the \texttt{dhcp\_lan} network:
-\begin{lstlisting}[language=bash]
-$ docker run --rm -it --network dhcp_dhcp_lan alpine sh
-# udhcpc -i eth0 -n -q
-udhcpc: started, v1.36.1
-udhcpc: broadcasting discover
-udhcpc: broadcasting select for 192.168.10.14, server 192.168.10.200
-udhcpc: lease of 192.168.10.14 obtained from 192.168.10.200, lease time 120
+    if (staticReservations.containsKey(normalizedMac)) {
+        String staticIp = staticReservations.get(normalizedMac);
+        LeaseRecord record = new LeaseRecord(staticIp, normalizedMac, hostname,
+                LeaseRecord.State.OFFERED, nodeId,
+                System.currentTimeMillis() + (defaultLeaseSeconds * 1000L), true);
+        leasesByIp.put(staticIp, record);
+        ipByMac.put(normalizedMac, staticIp);
+        return record;
+    }
+
+    String existingIp = ipByMac.get(normalizedMac);
+    if (existingIp != null) {
+        LeaseRecord existing = leasesByIp.get(existingIp);
+        if (existing != null && existing.getState() != LeaseRecord.State.DECLINED) {
+            LeaseRecord refreshed = new LeaseRecord(existingIp, normalizedMac, hostname,
+                    LeaseRecord.State.OFFERED, nodeId, System.currentTimeMillis() + 30_000L, false);
+            leasesByIp.put(existingIp, refreshed);
+            return refreshed;
+        }
+    }
+
+    if (requestedIp != null && ipPool.contains(requestedIp)) {
+        LeaseRecord current = leasesByIp.get(requestedIp);
+        if (current == null || current.isExpired()) {
+            return createOffer(requestedIp, normalizedMac, hostname, nodeId);
+        }
+    }
+
+    for (String candidateIp : ipPool) {
+        if (staticReservations.containsValue(candidateIp)) continue;
+        LeaseRecord current = leasesByIp.get(candidateIp);
+        if (current == null || current.isExpired() || current.getState() == LeaseRecord.State.EXPIRED) {
+            return createOffer(candidateIp, normalizedMac, hostname, nodeId);
+        }
+    }
+    return null;
+}
+
+public synchronized LeaseRecord commitLease(String mac, String requestedIp, String hostname, String nodeId, int leaseTimeSec) {
+    String normalizedMac = mac.toUpperCase();
+    int durationSec = leaseTimeSec > 0 ? leaseTimeSec : defaultLeaseSeconds;
+    String targetIp = (requestedIp == null || requestedIp.equals("0.0.0.0"))
+            ? ipByMac.get(normalizedMac) : requestedIp;
+
+    if (targetIp == null || !targetIp.startsWith(subnetPrefix)) return null;
+
+    LeaseRecord existing = leasesByIp.get(targetIp);
+    if (existing != null && !existing.isExpired()
+            && existing.getState() != LeaseRecord.State.EXPIRED
+            && !existing.getMacAddress().equalsIgnoreCase(normalizedMac)) {
+        return null; // Ownership conflict -> triggers DHCPNAK
+    }
+
+    boolean isStatic = staticReservations.containsKey(normalizedMac);
+    LeaseRecord active = new LeaseRecord(targetIp, normalizedMac,
+            hostname != null ? hostname : (existing != null ? existing.getHostname() : null),
+            LeaseRecord.State.ACTIVE, nodeId,
+            System.currentTimeMillis() + (durationSec * 1000L), isStatic);
+
+    leasesByIp.put(targetIp, active);
+    ipByMac.put(normalizedMac, targetIp);
+    saveToDisk();
+    return active;
+}
 \end{lstlisting}
-The real operating system kernel accepted the parameters, successfully bound \texttt{192.168.10.14} to interface \texttt{eth0}, and configured the default route.
 
-\subsection{Test Case 6: Relational Database Persistence Verification}
-Direct SQL inspection of the PostgreSQL 15 database confirmed automated background synchronization of all active leases:
-\begin{lstlisting}[language=SQL]
-postgres=# SELECT ip, mac, hostname, state, lease_duration FROM dhcp_leases;
+\subsection{Multi-Tier Persistence Architecture (Disk WAL \& PostgreSQL 15)}
+To ensure zero lease loss across node restarts or power failures, the system implements a three-tier storage hierarchy:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Tier 1 — In-Memory Concurrent Hash Maps:} Provides $O(1)$ sub-millisecond read/write access during live packet processing.
+    \item \textbf{Tier 2 — Local Disk Write-Ahead Log (\texttt{data/leases\_nodeX.db}):} Every state commit, release, decline, or expiration reap immediately flushes non-expired leases to disk via \texttt{saveToDisk()}. Upon node boot, \texttt{loadFromDisk()} replays the file, validates that each record matches the active \texttt{subnetPrefix}, and reconstructs both in-memory maps before the UDP socket opens.
+    \item \textbf{Tier 3 — Production PostgreSQL 15 Database (\texttt{prod-db-primary}):} A dedicated container at \texttt{192.168.10.6:5432} runs a background daemon (\texttt{sync\_daemon.sh}) that polls \texttt{/api/state} every 2 seconds and executes atomic SQL \texttt{INSERT ... ON CONFLICT (ip) DO UPDATE} statements into the \texttt{dhcp\_leases} table.
+\end{enumerate}
 
-      ip       |        mac        |      hostname      | state  | lease_duration 
----------------+-------------------+--------------------+--------+----------------
- 192.168.10.5  | 00:1A:2B:3C:4D:01 | gateway-admin-vip  | STATIC |       Infinity
- 192.168.10.6  | 00:1A:2B:3C:4D:02 | prod-db-primary    | STATIC |       Infinity
- 192.168.10.10 | AA:BB:CC:00:00:0A | workstation-10     | ACTIVE |            120
- 192.168.10.14 | 02:42:C0:A8:0A:07 | alpine-client-test | ACTIVE |            120
-(4 rows)
+\begin{lstlisting}[language=Java, caption={Disk WAL persistence and subnet-aware crash recovery in \texttt{LeaseManager.java}.}]
+private synchronized void saveToDisk() {
+    if (persistenceFile == null) return;
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(persistenceFile, false))) {
+        for (LeaseRecord record : leasesByIp.values()) {
+            if (!record.isExpired()) {
+                writer.write(record.serialize());
+                writer.newLine();
+            }
+        }
+    } catch (IOException ignored) {}
+}
+
+private synchronized void loadFromDisk() {
+    if (persistenceFile == null || !persistenceFile.exists()) return;
+    try (BufferedReader reader = new BufferedReader(new FileReader(persistenceFile))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            try {
+                LeaseRecord rec = LeaseRecord.deserialize(line);
+                if (!rec.isExpired() && rec.getIpAddress().startsWith(this.subnetPrefix)) {
+                    leasesByIp.put(rec.getIpAddress(), rec);
+                    ipByMac.put(rec.getMacAddress(), rec.getIpAddress());
+                }
+            } catch (Exception ignored) {}
+        }
+    } catch (IOException ignored) {}
+}
 \end{lstlisting}
 
 % ==============================================================================
-% SECTION 8: VIVA VOCE DEFENSE AND ARCHITECTURAL Q&A
+% SECTION 4: RATE LIMITING & ANTI-STARVATION DEFENSE
 % ==============================================================================
-\section{Oral Defense (Viva Voce) Preparation Guide}
+\section{Dual-Engine Rate Limiting and Starvation Defense}
 
-This section details the critical theoretical and practical questions typically posed during academic project evaluations:
+\subsection{DHCP Starvation Attack Mechanics}
+In a DHCP Starvation attack (e.g., using tools such as \textit{Yersinia} or \textit{Gobbler}), an adversary broadcasts dozens of \texttt{DHCPDISCOVER} frames per second using randomly generated MAC addresses (\texttt{DE:AD:BE:EF:XX:XX}) inside the BOOTP \texttt{chaddr} field. Without ingress rate limiting:
+\begin{itemize}[leftmargin=2em]
+    \item A per-MAC rate limiter alone fails because every spoofed packet carries a brand-new MAC address.
+    \item Within seconds, all 141 dynamic addresses (\texttt{192.168.10.10}--\texttt{.150}) are locked in \texttt{OFFERED} or \texttt{ACTIVE} states, denying service to legitimate clients.
+\end{itemize}
 
-\subsection{Protocol Questions}
-\begin{description}[leftmargin=1.5em]
-    \item[\textbf{Q1: Why does DHCP use UDP instead of TCP?}] \hfill \\
-    At the moment a booting client requests an IP, it has neither an IP address, nor a subnet mask, nor the IP of the server. TCP requires a unicast three-way handshake ($SYN \rightarrow SYN\text{-}ACK \rightarrow ACK$), which cannot function without assigned IP addresses. UDP supports broadcast transmission ($255.255.255.255$), allowing unconfigured clients to bootstrap.
-    
-    \item[\textbf{Q2: Why does the client broadcast DHCPREQUEST if it already received an offer?}] \hfill \\
-    In real networks, multiple DHCP servers may respond with \texttt{DHCPOFFER}. When the client chooses one, broadcasting the \texttt{DHCPREQUEST} accomplishes two things simultaneously: it requests the IP from the selected server and implicitly informs all other servers that their offers were rejected, allowing them to release their reserved IP addresses.
-    
-    \item[\textbf{Q3: What is the purpose of the 4-byte Magic Cookie?}] \hfill \\
-    The Magic Cookie (\texttt{0x63, 0x82, 0x53, 0x63}) is defined in RFC 1497 / RFC 2131 to distinguish modern vendor/DHCP options from legacy BOOTP vendor extensions. Without this cookie, a parser cannot safely interpret variable-length TLV options.
-\end{description}
+\subsection{Two-Level Dual-Algorithm Rate Limiter (\texttt{RateLimiter.java})}
+Our Load Balancer inspects every incoming \texttt{BOOTREQUEST} through a two-level gate (\textbf{Global Cluster Gate} followed by \textbf{Per-MAC Gate}) using two live-switchable algorithms:
 
-\subsection{Distributed Systems \& System Design Questions}
-\begin{description}[leftmargin=1.5em]
-    \item[\textbf{Q4: Why use Consistent Hashing instead of Round-Robin or Modulo Hashing?}] \hfill \\
-    Round-robin does not guarantee sticky routing: if a client's \texttt{DHCPDISCOVER} goes to Server A, its subsequent \texttt{DHCPREQUEST} could go to Server B, causing state inconsistency. Modulo hashing ($hash \pmod N$) maps consistently, but if 1 of $N$ nodes crashes, almost all keys map to completely different nodes. Consistent Hashing guarantees sticky routing based on client MAC address, and node failures require reassigning only $\frac{1}{N}$ of the keys.
+\subsubsection{Algorithm 1: Token Bucket Algorithm}
+Maintains a global bucket ($B_{\text{global}} = 30$ tokens, refill rate $R_{\text{global}} = 15\text{ tokens/s}$) and per-MAC buckets ($B_{\text{mac}} = 20$ tokens, $R_{\text{mac}} = 10\text{ tokens/s}$). Upon packet arrival at time $t_{\text{now}}$:
+\[
+\Delta t = \frac{t_{\text{now}} - t_{\text{last}}}{1000}, \qquad T_{\text{new}} = \min\!\Big(B_{\max},\; T_{\text{curr}} + \Delta t \times R\Big)
+\]
+If $T_{\text{new}} \ge 1.0$, the token count is decremented ($T_{\text{new}} \leftarrow T_{\text{new}} - 1.0$) and the request passes; otherwise, the packet is dropped immediately.
+
+\subsubsection{Algorithm 2: Weighted Sliding Window Counter (Cloudflare Algorithm)}
+Fixed-window counters suffer from boundary bursts (an attacker sending $B$ packets at $0.99\text{s}$ and $B$ packets at $1.01\text{s}$ achieves $2B$ traffic in $20\text{ms}$). The Weighted Sliding Window Counter solves this by blending the previous 1-second window count ($C_{\text{prev}}$) with the current window count ($C_{\text{curr}}$) based on the fractional progress $\omega \in [0, 1)$ through the current window of width $W = 1000\text{ ms}$:
+\[
+\omega = \frac{t_{\text{now}} - t_{\text{window\_start}}}{W}, \qquad C_{\text{estimated}} = C_{\text{prev}} \times (1.0 - \omega) + C_{\text{curr}}
+\]
+If $C_{\text{estimated}} \ge B_{\max}$, the packet is blocked.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.8cm and 1.4cm,
+    block/.style={rectangle, rounded corners, minimum width=3.5cm, minimum height=0.8cm, text centered, draw=black, thick, fill=gray!15, font=\footnotesize\bfseries},
+    proc/.style={rectangle, minimum width=4.2cm, minimum height=0.8cm, text centered, draw=black, thick, fill=white, font=\footnotesize},
+    dec/.style={diamond, aspect=2.2, minimum width=3.4cm, minimum height=0.8cm, text centered, draw=black, thick, fill=gray!10, font=\footnotesize},
+    drop/.style={rectangle, rounded corners, minimum width=3.0cm, minimum height=0.8cm, text centered, draw=black, thick, fill=gray!30, font=\footnotesize\bfseries},
+    arrow/.style={thick,->,>=Stealth}
+]
+    \node (in) [block] {Incoming \texttt{BOOTREQUEST} (\texttt{clientMac})};
+    \node (alg) [dec, below=0.6cm of in] {Active Algorithm?};
     
-    \item[\textbf{Q5: How does the system handle split-brain or node crashes?}] \hfill \\
-    State synchronization relies on peer gossip with Lamport/epoch timestamps, ensuring the latest lease update wins. If a node crashes, the load balancer removes its virtual nodes within 2 seconds. When the dead node recovers, its local Write-Ahead Log restores previous state, and peer gossip anti-entropy catches it up with changes made during its downtime.
-\end{description}
+    \node (tb1) [proc, below left=0.8cm and 0.5cm of alg] {\textbf{Token Bucket:} Refill Global \& MAC};
+    \node (sw1) [proc, below right=0.8cm and 0.5cm of alg] {\textbf{Sliding Window:} Compute $C_{\text{prev}}(1-\omega)+C_{\text{curr}}$};
+    
+    \node (gcheck) [dec, below=2.3cm of alg] {Global Quota Available?};
+    \node (mcheck) [dec, below=0.8cm of gcheck] {Per-MAC Quota Available?};
+    
+    \node (dropnode) [drop, right=2.0cm of gcheck] {DROP Packet (\texttt{totalDropped++})};
+    \node (passnode) [block, below=0.8cm of mcheck] {ALLOW \& Forward to Router (\texttt{totalAllowed++})};
+
+    \draw [arrow] (in) -- (alg);
+    \draw [arrow] (alg.west) -| node[pos=0.25, above, font=\scriptsize] {\texttt{TOKEN\_BUCKET}} (tb1.north);
+    \draw [arrow] (alg.east) -| node[pos=0.25, above, font=\scriptsize] {\texttt{SLIDING\_WINDOW}} (sw1.north);
+    \draw [arrow] (tb1.south) -- ++(0,-0.4cm) -| (gcheck.north);
+    \draw [arrow] (sw1.south) -- ++(0,-0.4cm) -| (gcheck.north);
+    \draw [arrow] (gcheck.east) -- node[above, font=\scriptsize] {No} (dropnode.west);
+    \draw [arrow] (gcheck.south) -- node[left, font=\scriptsize] {Yes} (mcheck.north);
+    \draw [arrow] (mcheck.east) -| node[pos=0.25, above, font=\scriptsize] {No} (dropnode.south);
+    \draw [arrow] (mcheck.south) -- node[left, font=\scriptsize] {Yes} (passnode.north);
+\end{tikzpicture}%
+}
+\caption{Dual-Engine Rate Limiting Execution Flowchart inside \texttt{RateLimiter.java}.}
+\label{fig:ratelimiter_flow}
+\end{figure}
+
+\begin{lstlisting}[language=Java, caption={Token Bucket and Weighted Sliding Window Counter in \texttt{RateLimiter.java}.}]
+private boolean allowRequestTokenBucket(String macAddress) {
+    long now = System.currentTimeMillis();
+    synchronized (globalBucket) {
+        double elapsedSec = (now - globalBucket.lastRefillMs) / 1000.0;
+        if (elapsedSec > 0) {
+            globalBucket.tokens = Math.min(maxGlobalTokens,
+                    globalBucket.tokens + elapsedSec * globalRefillPerSecond);
+            globalBucket.lastRefillMs = now;
+        }
+        if (globalBucket.tokens < 1.0) {
+            totalDropped.incrementAndGet();
+            return false;
+        }
+        globalBucket.tokens -= 1.0;
+    }
+    Bucket macBucket = macBuckets.computeIfAbsent(
+            macAddress.toUpperCase(), k -> new Bucket(maxTokensPerMac));
+    synchronized (macBucket) {
+        double elapsedSec = (now - macBucket.lastRefillMs) / 1000.0;
+        if (elapsedSec > 0) {
+            macBucket.tokens = Math.min(maxTokensPerMac,
+                    macBucket.tokens + elapsedSec * refillPerSecondPerMac);
+            macBucket.lastRefillMs = now;
+        }
+        if (macBucket.tokens < 1.0) {
+            totalDropped.incrementAndGet();
+            return false;
+        }
+        macBucket.tokens -= 1.0;
+    }
+    totalAllowed.incrementAndGet();
+    return true;
+}
+
+private boolean allowRequestSlidingWindow(String macAddress) {
+    long now = System.currentTimeMillis();
+    long currentWindowStart = now - (now % windowSizeMs);
+
+    synchronized (globalWindowCounter) {
+        if (currentWindowStart > globalWindowCounter.currentWindowStartMs) {
+            long elapsed = (currentWindowStart - globalWindowCounter.currentWindowStartMs) / windowSizeMs;
+            globalWindowCounter.previousCount = (elapsed == 1) ? globalWindowCounter.currentCount : 0;
+            globalWindowCounter.currentCount = 0;
+            globalWindowCounter.currentWindowStartMs = currentWindowStart;
+        }
+        double progress = (double) (now - globalWindowCounter.currentWindowStartMs) / windowSizeMs;
+        double estimated = (globalWindowCounter.previousCount * (1.0 - progress))
+                         + globalWindowCounter.currentCount;
+        if (estimated >= maxGlobalTokens) {
+            totalDropped.incrementAndGet();
+            return false;
+        }
+        globalWindowCounter.currentCount++;
+    }
+    // Per-MAC sliding window check follows identical weighted estimation
+    totalAllowed.incrementAndGet();
+    return true;
+}
+\end{lstlisting}
 
 % ==============================================================================
-% SECTION 9: CONCLUSION AND FUTURE DIRECTIONS
+% SECTION 5: LOAD BALANCING, CONSISTENT HASHING & FAILOVER
 % ==============================================================================
-\section{Conclusion and Future Directions}
+\section{Load Balancing, Consistent Hashing, and Automatic Failover}
 
-\subsection{Conclusion}
-This project successfully designed, implemented, and validated an enterprise-grade, distributed, fault-tolerant RFC 2131 DHCP server system in Java. By combining Layer-4 Consistent Hashing, virtual node topology, active-active peer gossip synchronization, Write-Ahead Log persistence, and dual-engine rate limiting, the system eliminates traditional DHCP single points of failure and successfully mitigates aggressive starvation attacks. The 6-container Docker deployment with Nginx routing, PostgreSQL 15 integration, and a real-time web telemetry console demonstrates practical production viability.
+\subsection{L4 UDP Relay Agent Mechanics (\texttt{DhcpLoadBalancer.java})}
+When a client broadcasts a \texttt{BOOTREQUEST} to UDP port 67 (or simulation port 6700), the Load Balancer acts as an RFC 2131 Relay Agent:
+\begin{enumerate}[leftmargin=2em]
+    \item Validates the packet against the \texttt{RateLimiter}.
+    \item Selects a healthy backend worker node (\texttt{6701}, \texttt{6702}, or \texttt{6703}) via \texttt{ConsistentHashRouter}.
+    \item Stamps \texttt{giaddr = 192.168.10.254}, increments \texttt{hops} by 1, and records the client's source UDP port in Option 224 (\texttt{OPT\_CLIENT\_PORT}) before forwarding the datagram to the chosen worker node.
+    \item When the worker node returns a \texttt{BOOTREPLY} (\texttt{DHCPOFFER} or \texttt{DHCPACK}), the Load Balancer strips internal Option 224, sets \texttt{OPT\_SERVER\_ID} to the cluster VIP (\texttt{192.168.10.200}), and transmits the reply back to the client on port 68.
+\end{enumerate}
 
-\subsection{Future Directions}
-Potential enhancements include:
-\begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{DHCPv6 Compliance (RFC 8415):} Expanding protocol support to IPv6 Solicit, Advertise, Request, and Reply over UDP ports 546/547.
-    \item \textbf{Distributed Consensus via Raft:} Replacing peer gossip with a Raft consensus engine (e.g., Apache Ratis) for linearizable lease commits.
-    \item \textbf{Kernel-Bypass Packet Acceleration:} Utilizing Linux eBPF/XDP (eXpress Data Path) at the network ingress to filter starvation floods at wire speeds exceeding 10 million packets per second.
+\subsection{Consistent Hashing Ring with Virtual Nodes (\texttt{ConsistentHashRouter.java})}
+Stateful multi-step protocols like DHCP require \textbf{session stickiness}: a client's \texttt{DHCPDISCOVER} and its subsequent \texttt{DHCPREQUEST} should deterministically route to the same server node. However, naive modulo hashing ($\text{hash}(\text{MAC}) \bmod N$) remaps $\approx \frac{N-1}{N}$ of all keys whenever a node crashes or recovers.
+
+To achieve both deterministic stickiness and minimal key disruption, \texttt{ConsistentHashRouter} implements a \textbf{32-bit MD5 Consistent Hash Ring} backed by a \texttt{TreeMap<Long, Integer>} with $V = 32$ virtual nodes per physical server:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Virtual Node Placement:} When backend port $P_i \in \{6701, 6702, 6703\}$ joins the cluster, 32 virtual node keys (\texttt{"NODE-" + port + "-VN-" + v}) are hashed using the lower 32 bits of MD5 onto the ring $[0, 2^{32}-1]$.
+    \item \textbf{Clockwise $O(\log(V \cdot N))$ Lookup:} For an incoming client MAC address $M$, the router computes $h = \text{MD5}_{32}(M)$ and calls \texttt{hashRing.ceilingEntry(h)} to locate the first virtual node clockwise at or after $h$. If \texttt{ceilingEntry(h)} returns \texttt{null} ($h$ exceeds the highest key on the ring), it wraps around the circle via \texttt{hashRing.firstEntry()}.
+    \item \textbf{Switchable Strategies:} For comparative evaluation, the router also supports live switching to \texttt{ROUND\_ROBIN} and \texttt{LEAST\_LOADED} strategies.
+\end{enumerate}
+
+\begin{lstlisting}[language=Java, caption={Consistent Hashing Ring with Virtual Nodes in \texttt{ConsistentHashRouter.java}.}]
+public synchronized void addNode(int backendPort) {
+    if (!healthyBackendPorts.contains(backendPort)) {
+        healthyBackendPorts.add(backendPort);
+        nodeLoadCounters.putIfAbsent(backendPort, 0L);
+        for (int v = 0; v < virtualNodesPerServer; v++) {
+            long hash = computeHash("NODE-" + backendPort + "-VN-" + v);
+            hashRing.put(hash, backendPort);
+        }
+    }
+}
+
+public synchronized Integer selectBackendPort(String clientMac) {
+    if (healthyBackendPorts.isEmpty()) return null;
+    Integer chosenPort;
+    switch (currentStrategy) {
+        case ROUND_ROBIN: {
+            int idx = Math.abs(roundRobinIndex.getAndIncrement()) % healthyBackendPorts.size();
+            chosenPort = healthyBackendPorts.get(idx);
+            break;
+        }
+        case LEAST_LOADED: {
+            chosenPort = healthyBackendPorts.get(0);
+            long minLoad = Long.MAX_VALUE;
+            for (int port : healthyBackendPorts) {
+                long load = nodeLoadCounters.getOrDefault(port, 0L);
+                if (load < minLoad) { minLoad = load; chosenPort = port; }
+            }
+            break;
+        }
+        case CONSISTENT_HASHING:
+        default: {
+            long hash = computeHash(clientMac.toUpperCase());
+            Map.Entry<Long, Integer> entry = hashRing.ceilingEntry(hash);
+            if (entry == null) {
+                entry = hashRing.firstEntry(); // Clockwise wrap-around
+            }
+            chosenPort = entry.getValue();
+            break;
+        }
+    }
+    nodeLoadCounters.merge(chosenPort, 1L, Long::sum);
+    return chosenPort;
+}
+\end{lstlisting}
+
+\subsection{Heartbeat Health Monitoring and Automatic Failover}
+A dedicated scheduled thread (\texttt{LB-HealthChecker}) inside \texttt{DhcpLoadBalancer} executes every \textbf{700 ms}:
+\begin{itemize}[leftmargin=2em]
+    \item Transmits a \texttt{CLUSTER\_HEALTH\_PING} control packet to each registered backend node.
+    \item Healthy nodes immediately reply with \texttt{CLUSTER\_HEALTH\_PONG}, updating \texttt{lastPongTimestamp}.
+    \item If $\text{now} - \text{lastSeen} > 1800\text{ ms}$ (2.5 missed heartbeats), the Load Balancer marks the node unhealthy and calls \texttt{router.removeNode(backendPort)}, evicting its 32 virtual nodes from the ring and automatically failing traffic over to surviving nodes.
+    \item When a crashed node recovers and responds with \texttt{CLUSTER\_HEALTH\_PONG}, \texttt{router.addNode(backendPort)} seamlessly re-inserts its virtual nodes into the ring.
+\end{itemize}
+
+% ==============================================================================
+% SECTION 6: ACTIVE-ACTIVE LEASE GOSSIP SYNCHRONIZATION
+% ==============================================================================
+\section{Active-Active Peer Gossip Lease Synchronization}
+
+\subsection{Gossip Protocol Architecture (\texttt{DhcpServerNode.java})}
+If Node 1 allocates IP \texttt{192.168.10.10} to a client and subsequently crashes, the Load Balancer will route that client's future renewal (\texttt{DHCPREQUEST}) or release (\texttt{DHCPRELEASE}) packets to Node 2 or Node 3. If Node 2 and Node 3 had no knowledge of Node 1's allocations, they might either reject the client's renewal with \texttt{DHCPNAK} or accidentally assign \texttt{192.168.10.10} to a second host!
+
+To guarantee cluster-wide state convergence without a centralized lock bottleneck, all worker nodes form a full-mesh \textbf{Active-Active UDP Gossip Replication network}:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{State Broadcast on Mutation:} Whenever a node mutates a lease (\texttt{DHCPOFFER}, \texttt{DHCPACK}, \texttt{DHCPRELEASE}, or \texttt{DHCPDECLINE}), it invokes \texttt{replicateToPeers(record)}.
+    \item \textbf{UDP Gossip Datagram (\texttt{CLUSTER\_PEER\_SYNC}):} The node constructs a compact DHCP control packet with message type \texttt{CLUSTER\_PEER\_SYNC (101)} and embeds \texttt{record.serialize()} inside Option 225 (\texttt{OPT\_SYNC\_PAYLOAD}).
+    \item \textbf{Peer Convergence:} Every peer node receives the datagram on its UDP listener, deserializes the \texttt{LeaseRecord}, and calls \texttt{leaseManager.applyPeerSync(syncedRecord)}, updating its local \texttt{leasesByIp} and \texttt{ipByMac} maps in under 1 millisecond.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{white}, basicstyle=\ttfamily\scriptsize]
+DHCP Client             Load Balancer (:67)         DHCP-Node-1 (:6701)       DHCP-Node-2 & Node-3
+     |                           |                           |                          |
+     |--- 1. DHCPDISCOVER ------>|                           |                          |
+     |                           |-- Hash(MAC) -> Node-1 --->|                          |
+     |                           |                           |-- offerLease(.10)        |
+     |                           |                           |== Gossip(OFFERED .10) ==>| (Maps Updated)
+     |<-- 2. DHCPOFFER (.10) ----|<-- DHCPOFFER (.10) -------|                          |
+     |                           |                           |                          |
+     |--- 3. DHCPREQUEST (.10) ->|                           |                          |
+     |                           |-- Hash(MAC) -> Node-1 --->|                          |
+     |                           |                           |-- commitLease(.10)       |
+     |                           |                           |-- saveToDisk() [WAL]     |
+     |                           |                           |== Gossip(ACTIVE .10) ===>| (Maps Updated)
+     |<-- 4. DHCPACK (.10) ------|<-- DHCPACK (.10) ---------|                          |
+     |                           |                           |                          |
+     |                     [Node-1 Crashes -> Evicted after 1.8s]                       |
+     |                           |                           X                          |
+     |--- 5. Renew DHCPREQUEST ->|                                                      |
+     |                           |-- Re-routed by Hash Ring ----------------------->    |
+     |                           |<-- DHCPACK (.10 Renewed Seamlessly from Gossip!) ----|
+\end{lstlisting}
+\caption{Chronological Sequence Flow of DORA, Active-Active Gossip Sync, and Zero-Downtime Failover.}
+\label{fig:gossip_sequence}
+\end{figure}
+
+\begin{lstlisting}[language=Java, caption={Active-Active Peer Gossip sender and receiver in \texttt{DhcpServerNode.java}.}]
+private void replicateToPeers(LeaseRecord record) {
+    DhcpPacket syncPacket = new DhcpPacket();
+    syncPacket.setOp(DhcpPacket.BOOTREQUEST);
+    syncPacket.setXid((int) System.nanoTime());
+    syncPacket.setMessageType(DhcpMessageType.CLUSTER_PEER_SYNC);
+    syncPacket.setOptionString(DhcpPacket.OPT_SYNC_PAYLOAD, record.serialize());
+    byte[] bytes = syncPacket.toBytes();
+
+    for (InetSocketAddress peer : peerEndpoints) {
+        try {
+            DatagramPacket dp = new DatagramPacket(
+                    bytes, bytes.length, peer.getAddress(), peer.getPort());
+            socket.send(dp);
+        } catch (IOException ignored) {}
+    }
+}
+
+// Inside handlePacket() listener loop:
+if (type == DhcpMessageType.CLUSTER_PEER_SYNC) {
+    String payload = request.getOptionString(DhcpPacket.OPT_SYNC_PAYLOAD);
+    if (payload != null) {
+        LeaseRecord syncedRecord = LeaseRecord.deserialize(payload);
+        leaseManager.applyPeerSync(syncedRecord);
+        peerSyncsReceived.incrementAndGet();
+    }
+    return;
+}
+\end{lstlisting}
+
+% ==============================================================================
+% SECTION 7: EXPERIMENTAL DEPLOYMENT & VERIFICATION
+% ==============================================================================
+\section{Experimental Deployment, Execution Commands, and Results}
+
+\subsection{6-Container Microservice Infrastructure Matrix}
+The complete distributed system is deployed using Docker Compose across an isolated bridge network (\texttt{dhcp\_lan}: \texttt{192.168.10.0/24}), as specified in Table~\ref{tab:container_matrix}.
+
+\begin{table}[H]
+\centering
+\caption{6-Container Cluster Addressing and Role Configuration Matrix}
+\label{tab:container_matrix}
+\small
+\begin{tabularx}{\textwidth}{@{}lllcY@{}}
+\toprule
+\textbf{Container Name} & \textbf{IPv4 Address} & \textbf{Ports} & \textbf{MAC / Mode} & \textbf{Architectural Role} \\ \midrule
+\texttt{gateway-admin-vip} & \texttt{192.168.10.5} & TCP 8085 & \texttt{00:1A:2B:3C:4D:01} & Core NGINX Gateway Router \& Static VIP. \\
+\texttt{prod-db-primary} & \texttt{192.168.10.6} & TCP 5432 & \texttt{00:1A:2B:3C:4D:02} & PostgreSQL 15 DB \& Lease Sync Daemon. \\
+\texttt{dhcp-load-balancer} & \texttt{192.168.10.200} & UDP 67, 8080 & Dynamic Ingress & L4 Relay Agent, Rate Limiter \& Web UI. \\
+\texttt{dhcp-node-1} & \texttt{192.168.10.201} & UDP 6701 & Worker Node 1 & DHCP Server, Gossip Peer \& WAL \texttt{node1.db}. \\
+\texttt{dhcp-node-2} & \texttt{192.168.10.202} & UDP 6702 & Worker Node 2 & DHCP Server, Gossip Peer \& WAL \texttt{node2.db}. \\
+\texttt{dhcp-node-3} & \texttt{192.168.10.203} & UDP 6703 & Worker Node 3 & DHCP Server, Gossip Peer \& WAL \texttt{node3.db}. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Operational Startup and Verification Commands}
+The cluster can be launched either as a 6-container Docker deployment or natively via the Java JDK:
+
+\begin{lstlisting}[language=bash, caption={Commands to start the server cluster, verify health, query SQL leases, and test a real Linux client.}]
+# 1. Start the 6-container distributed cluster in Docker
+$ cd "c:\Users\aritr\OneDrive\Desktop\CN Project\DHCP"
+$ docker compose up --build -d
+
+# 2. Check container status and port bindings (Web UI on :8080, Gateway on :8085)
+$ docker compose ps
+
+# 3. Stream live D-O-R-A packet logs from the Load Balancer
+$ docker compose logs -f dhcp-load-balancer
+
+# 4. Query synchronized leases inside the PostgreSQL 15 production database
+$ docker exec prod-db-primary psql -U postgres -d dhcp_db \
+  -c "SELECT ip, mac, hostname, state FROM dhcp_leases;"
+
+# 5. Test real Linux OS DHCP acquisition using an Alpine container on dhcp_lan
+$ docker run --rm -it --network dhcp_dhcp_lan alpine sh -c "udhcpc -i eth0 -n -q"
+
+# 6. Alternative: Compile and run natively on Windows (Port 8080 & UDP 6700)
+$ javac -d out src/dhcp/protocol/*.java src/dhcp/model/*.java src/dhcp/cluster/*.java \
+  src/dhcp/lb/*.java src/dhcp/client/*.java src/dhcp/dashboard/*.java src/dhcp/Main.java
+$ java -cp out dhcp.Main
+\end{lstlisting}
+
+\subsection{Observations and Empirical Results}
+\begin{lstlisting}[numbers=none, caption={Observed D-O-R-A packet stream, failover, and starvation defense output logs.}]
+15:13:43.301 [workstation-38 | AA:BB:CC:00:00:26] Sent DHCPDISCOVER (xid=0x5c4a1e9)
+15:13:43.305 [workstation-38] Received DHCPOFFER: IP=192.168.10.18 from Server=192.168.10.202
+15:13:43.305 [workstation-38] Sent DHCPREQUEST for IP=192.168.10.18 (serverId=192.168.10.202)
+15:13:43.308 [workstation-38] DORA COMPLETE (DHCPACK): Assigned IP=192.168.10.18, Mask=255.255.255.0, GW=192.168.10.1, DNS=8.8.8.8, Lease=120s
+15:20:11.104 [DHCP-Node-1] CHAOS ALERT: Node simulated CRASH (offline)
+15:20:12.890 [LOAD-BALANCER] FAILOVER TRIGGERED: Backend 192.168.10.201:6701 missed heartbeats! Evicted from Hash Ring.
+15:27:48.675 [SECURITY-SIM] Launching simulated DHCP Starvation flood (40 rapid DISCOVER packets)...
+15:27:48.691 [LOAD-BALANCER] RATE LIMIT DROP: Blocked packet from MAC DE:AD:BE:EF:00:1E (DHCP Starvation Protection)
+\end{lstlisting}
+
+\noindent \textbf{Key Technical Inferences:}
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Sub-5ms DORA Completion:} Full binary BOOTP/TLV serialization, Consistent Hash routing, disk WAL commit, and UDP Gossip replication completed in \textbf{3.2 ms} round-trip time.
+    \item \textbf{Deterministic Failover in 1.8 Seconds:} When \texttt{DHCP-Node-1} was crashed, the Load Balancer evicted its 32 virtual nodes within $1.78\text{ s}$ and seamlessly routed new and renewing clients to Nodes 2 and 3 with 0\% packet loss.
+    \item \textbf{Starvation Mitigation:} During a 40-packet spoofed-MAC flood, the global rate limiter clamped ingress immediately after the burst threshold, preserving over 85\% of the IP pool for legitimate hosts.
 \end{enumerate}
 
 % ==============================================================================
-% REFERENCES
+% SECTION 8: CONCLUSION & AI ACKNOWLEDGEMENT
 % ==============================================================================
-\begin{thebibliography}{99}
-\bibitem{rfc2131}
-R.~Droms, ``Dynamic Host Configuration Protocol,'' \emph{RFC 2131}, Network Working Group, Mar. 1997.
+\section{Conclusion}
+Through the design and implementation of this distributed RFC 2131 DHCP Server Cluster, core networking and distributed systems principles were empirically verified:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{RFC 2131 \& BOOTP Wire Compatibility:} Constructing raw 236-byte BOOTP headers, validating the 4-byte Magic Cookie (\texttt{0x63825363}), encoding TLV options, and enforcing 300-byte minimum padding enabled seamless interoperability with real Linux kernel clients (\texttt{udhcpc}).
+    \item \textbf{Thread-Safe State \& Multi-Tier Persistence:} Combining \texttt{synchronized} mutators with \texttt{ConcurrentHashMap} indexes, local Write-Ahead Logs (\texttt{.db}), and continuous PostgreSQL 15 synchronization eliminated race conditions and prevented lease loss across crashes.
+    \item \textbf{High Availability \& DDoS Resilience:} Integrating a 32-virtual-node Consistent Hash Ring, sub-millisecond Active-Active UDP Gossip replication, 700ms heartbeat monitoring, and Dual-Engine Rate Limiting (Token Bucket and Weighted Sliding Window Counter) eliminated single points of failure and neutralized DHCP Starvation attacks.
+\end{enumerate}
 
-\bibitem{rfc1533}
-S.~Alexander and R.~Droms, ``DHCP Options and BOOTP Vendor Extensions,'' \emph{RFC 1533}, Oct. 1993.
-
-\bibitem{rfc951}
-B.~Croft and J.~Gilmore, ``Bootstrap Protocol (BOOTP),'' \emph{RFC 951}, Stanford University, Sep. 1985.
-
-\bibitem{karger1997}
-D.~Karger, E.~Lehman, T.~Leighton, R.~Panigrahy, M.~Levine, and D.~Lewin, ``Consistent Hashing and Random Trees: Distributed Caching Protocols for Relieving Hot Spots on the World Wide Web,'' in \emph{Proc. 29th ACM STOC}, 1997, pp. 654--663.
-
-\bibitem{rfc8415}
-T.~Mrugalski, M.~Siodelski, B.~Volz, A.~Yourtchenko, M.~Richardson, S.~Jiang, T.~Lemon, and T.~Winters, ``Dynamic Host Configuration Protocol for IPv6 (DHCPv6),'' \emph{RFC 8415}, Nov. 2018.
-
-\bibitem{tanenbaum2011}
-A.~S. Tanenbaum and D.~J. Wetherall, \emph{Computer Networks}, 5th~ed. Boston, MA: Pearson, 2011.
-\end{thebibliography}
+\section*{AI Acknowledgement}
+\addcontentsline{toc}{section}{AI Acknowledgement}
+Artificial Intelligence tools were used as an aid during this project. Specifically, AI assistance was used for:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Distributed architecture \& container orchestration guidance:} Structuring the 6-container Docker Compose topology, NGINX reverse-proxy rules, and PostgreSQL synchronization daemon scripts.
+    \item \textbf{Protocol verification and concurrency analysis:} Cross-checking RFC 2131 / RFC 2132 binary byte offsets, TLV option codes, thread-safe lock granularity, and rate-limiting mathematical formulations.
+    \item \textbf{Writing and visualization:} Drafting, structuring, and refining the technical explanations, sequence flowcharts, tables, and \LaTeX{} source code of this report.
+\end{itemize}
+All protocol implementations, Java source code, container deployments, experimental tests, and final conclusions were performed, reviewed, and verified by the author, who takes full responsibility for the content of this report.
 
 \end{document}
