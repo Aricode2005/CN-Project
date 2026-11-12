@@ -20,7 +20,7 @@ public final class Story {
     }
     public interface Act { Result run() throws Exception; }
     public static final class Result {
-        public final String say, mood;
+        public final String say, mood; public List<String> replay = new ArrayList<>();
         Result(String say, String mood) { this.say = say; this.mood = mood; }
     }
 
@@ -51,8 +51,11 @@ public final class Story {
         if (done()) return new Result("The story is finished. Restart to run it again.", "ok");
         Step s = steps.get(next);
         bus.ev("STORY", "── step " + (next + 1) + " of " + steps.size() + ": " + s.title + " ──");
+        long mark = bus.rec.mark();
         Result r;
         try { r = s.act.run(); } catch (Exception e) { r = new Result("This step failed: " + e.getClass().getSimpleName() + ": " + e.getMessage(), "alarm"); }
+        try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+        r.replay = bus.rec.since(mark, bus.adminIp);
         next++;
         lastSay = r.say; lastMood = r.mood;
         return r;

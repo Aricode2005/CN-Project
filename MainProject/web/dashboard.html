@@ -9,76 +9,132 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 :root{
+  --canvas:#202326; --dot:#2f3337; --wire:#c9ccd0;
   --bg:#1a1c1e; --rack:#232629; --rack2:#2b2f33; --rail:#3a3f44; --ink:#e8e6e1; --muted:#9aa0a6; --line:#33383d;
-  --dhcp:#4f9cf0; --arp:#f2c14e; --tel:#52c48a; --bad:#ef5d5d; --bus:#c49cf2;
+  --dhcp:#4f9cf0; --arp:#f2c14e; --tel:#52c48a; --bad:#ef5d5d; --bus:#c49cf2; --term:#0e1012;
   --cond:"IBM Plex Sans Condensed","Arial Narrow",sans-serif; --mono:"IBM Plex Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
   --bg:#e9e7e2; --rack:#f5f4f0; --rack2:#ecebe6; --rail:#c9c6bd; --ink:#1d2024; --muted:#5d636a; --line:#d5d2ca;
-  --dhcp:#1f6fc9; --arp:#a87800; --tel:#1d8a55; --bad:#c43838; --bus:#7a4fc2;}}
+  --dhcp:#1f6fc9; --arp:#a87800; --tel:#1d8a55; --bad:#c43838; --bus:#7a4fc2; --canvas:#fdfdfb; --dot:#e2e0d8; --wire:#2b2f33;}}
 :root[data-theme="light"]{--bg:#e9e7e2; --rack:#f5f4f0; --rack2:#ecebe6; --rail:#c9c6bd; --ink:#1d2024; --muted:#5d636a; --line:#d5d2ca;
-  --dhcp:#1f6fc9; --arp:#a87800; --tel:#1d8a55; --bad:#c43838; --bus:#7a4fc2;}
+  --dhcp:#1f6fc9; --arp:#a87800; --tel:#1d8a55; --bad:#c43838; --bus:#7a4fc2; --canvas:#fdfdfb; --dot:#e2e0d8; --wire:#2b2f33;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--cond);padding-bottom:76px}
 code,.mono{font-family:var(--mono);font-size:.86em}
-button{font:inherit;color:inherit}
+button,select{font:inherit;color:inherit}
 
-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 30px;align-items:end;padding:24px 28px 18px;border-bottom:1px solid var(--line)}
-h1{margin:0;font:700 clamp(1.9rem,4.4vw,3.2rem)/.95 var(--cond);letter-spacing:-.01em;text-transform:uppercase}
+header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 30px;align-items:end;padding:22px 28px 16px;border-bottom:1px solid var(--line)}
+h1{margin:0;font:700 clamp(1.8rem,4.2vw,3rem)/.95 var(--cond);letter-spacing:-.01em;text-transform:uppercase}
 h1 .c1{color:var(--dhcp)} h1 .c2{color:var(--arp)} h1 .c3{color:var(--tel)}
-.sub{color:var(--muted);max-width:74ch;margin-top:8px}
+.sub{color:var(--muted);max-width:76ch;margin-top:8px}
 .jacks{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .jack{display:grid;gap:2px;text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--rack);padding:6px 10px 7px;min-width:96px}
 .jack small{font:600 .68rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.jack b{font:600 .95rem var(--mono)}
-.jack i{display:block;height:3px;margin-top:4px}
+.jack b{font:600 .95rem var(--mono)} .jack i{display:block;height:3px;margin-top:4px}
 .theme{border:1px solid var(--line);background:none;padding:3px 10px;cursor:pointer;font:600 .7rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);align-self:center}
 
-main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:22px 28px;max-width:1500px;margin:0 auto}
+main{display:grid;grid-template-columns:290px minmax(0,1fr);gap:22px;padding:20px 28px;max-width:1560px;margin:0 auto}
 .steps{list-style:none;margin:0;padding:0;border-left:3px solid var(--rail)}
-.steps li{padding:8px 0 8px 14px;position:relative;color:var(--muted)}
-.steps li::before{content:"";position:absolute;left:-8px;top:13px;width:13px;height:13px;border-radius:50%;background:var(--bg);border:3px solid var(--rail)}
-.steps li b{display:block;font-weight:600;color:inherit}
-.steps li span{font:400 .78rem var(--mono)}
+.steps li{padding:7px 0 7px 14px;position:relative;color:var(--muted)}
+.steps li::before{content:"";position:absolute;left:-8px;top:12px;width:13px;height:13px;border-radius:50%;background:var(--bg);border:3px solid var(--rail)}
+.steps li b{display:block;font-weight:600;color:inherit} .steps li span{font:400 .76rem var(--mono)}
 .steps li.done{color:var(--ink)} .steps li.done::before{background:var(--tel);border-color:var(--tel)}
 .steps li.done.alarm::before{background:var(--bad);border-color:var(--bad)}
 .steps li.next{color:var(--ink)} .steps li.next::before{border-color:var(--arp);box-shadow:0 0 0 4px color-mix(in srgb,var(--arp) 25%,transparent)}
-.say{margin-top:16px;border-left:4px solid var(--rail);background:var(--rack);padding:12px 14px;min-height:90px}
+.say{margin-top:14px;border-left:4px solid var(--rail);background:var(--rack);padding:12px 14px;min-height:90px}
 .say.ok{border-color:var(--tel)} .say.alarm{border-color:var(--bad)}
 .say .k{font:600 .7rem var(--cond);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
 
-.closet{background:var(--rack);border:1px solid var(--line);position:relative}
-.closet svg{display:block;width:100%;height:auto}
-.cap{position:absolute;left:12px;top:9px;font:600 .7rem var(--cond);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.dev rect{fill:var(--rack2);stroke:var(--rail);stroke-width:1.5}
-.dev text{fill:var(--ink);font:600 13px var(--cond)}
-.dev text.s{fill:var(--muted);font:400 10.5px var(--mono)}
-.dev.attacker rect{stroke:var(--bad)}
-.dev.laptop rect{stroke:var(--arp);stroke-width:2.5}
-.dev.router rect{stroke:var(--tel);stroke-width:2.5}
-.cable{fill:none;stroke-width:4;stroke-linecap:round}
-.panel rect.body{fill:var(--rack2);stroke:var(--rail)}
-.led{transition:fill .2s}
+/* ---------------- stage */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0;background:var(--rack);border:1px solid var(--line)}
+.mapbox{position:relative;border-right:1px solid var(--line);background:var(--canvas);background-image:radial-gradient(var(--dot) 1px,transparent 1px);background-size:22px 22px}
+.mapbox svg{display:block;width:100%;height:auto}
+.scene{position:absolute;left:12px;bottom:10px;display:flex;gap:10px;align-items:center;background:var(--canvas);padding:2px 6px 2px 0}
+.scene b{font:700 .78rem var(--cond);letter-spacing:.16em;text-transform:uppercase;padding:2px 8px;border:1px solid currentColor}
+.scene span{font:400 .8rem var(--mono);color:var(--muted)}
+.mode{position:absolute;right:10px;bottom:10px;font:600 .72rem var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;gap:6px;align-items:center}
+.mode i{width:16px;height:16px;border-radius:50%;border:2px solid var(--muted);display:inline-block;position:relative}
+.mode i::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--arp)}
+.lbl{fill:var(--ink);font:600 15px var(--cond)} .lbl2{fill:var(--muted);font:400 12.5px var(--mono)}
+.port{fill:var(--muted);font:400 11px var(--mono)}
+.link{stroke:var(--wire);stroke-width:2.2}
+.ring{fill:none;stroke-width:3.5;opacity:0}
+.dev.hit .ring{animation:hit .9s ease-out}
+@keyframes hit{0%{opacity:1}100%{opacity:0}}
+.verdict{font:600 13px var(--mono);opacity:0;transition:opacity .25s}
+.dev.show .verdict{opacity:1}
+.pkt text{font:700 11.5px var(--mono);fill:var(--ink);paint-order:stroke;stroke:var(--canvas);stroke-width:3px}
 
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+.side{display:grid;grid-template-rows:auto 1fr;min-width:0}
+.pdu{padding:10px 12px;border-bottom:1px solid var(--line);min-height:210px}
+.pdu h3{margin:0;font:700 .8rem var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pdu .at{font:600 1.05rem var(--cond);margin:2px 0 8px}
+.pdu .at small{font:400 .78rem var(--mono);color:var(--muted);margin-left:6px}
+.osi{border:1px solid var(--rail);font:12px/1.35 var(--mono)}
+.osi div{display:grid;grid-template-columns:70px minmax(0,1fr);border-bottom:1px solid var(--line)}
+.osi div:last-child{border-bottom:0}
+.osi b{background:var(--rack2);padding:4px 6px;font-weight:600;border-right:1px solid var(--line);white-space:nowrap}
+.osi span{padding:4px 7px;word-break:break-word}
+.osi div.top span{font-weight:600}
+.osi div.off{opacity:.38}
+.pdu table{border-collapse:collapse;width:100%;font:11.5px/1.35 var(--mono);margin-top:8px}
+.pdu td{border-bottom:1px solid var(--line);padding:3px 3px;vertical-align:top}
+.pdu td:first-child{color:var(--muted);white-space:nowrap;padding-right:8px}
+.pdu .empty{color:var(--muted);font-style:italic;margin:6px 0 0}
+.events{padding:8px 12px 10px;min-height:0;display:flex;flex-direction:column}
+.events h3{margin:0 0 6px;font:700 .8rem var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.evt{overflow:auto;max-height:260px;border:1px solid var(--rail)}
+.evt table{border-collapse:collapse;width:100%;font:11.5px/1.3 var(--mono)}
+.evt th{position:sticky;top:0;background:var(--rack2);text-align:left;font:600 .66rem var(--cond);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:4px 5px;border-bottom:1px solid var(--rail)}
+.evt td{padding:3px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
+.evt tr.cur td{background:color-mix(in srgb,var(--arp) 28%,transparent)}
+.evt tr.done td{color:var(--muted)}
+.evt i{display:inline-block;width:11px;height:11px;margin-right:5px;vertical-align:-1px;border:1px solid #0006}
+
+/* ---------------- telnet stack */
+.stackbox{margin-top:14px;background:var(--rack);border:1px solid var(--line);border-top:4px solid var(--tel);padding:10px 14px 14px}
+.stackbox h3{margin:0 0 8px;font:600 .78rem var(--cond);letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.stackbox h3 small{font:400 .76rem var(--mono);letter-spacing:0;text-transform:none;color:var(--muted)}
+.stacks{display:grid;grid-template-columns:minmax(0,1fr) 120px minmax(0,1fr);gap:0;align-items:stretch}
+.col h4{margin:0 0 6px;font:700 .95rem var(--cond)}
+.col h4 small{font:400 .74rem var(--mono);color:var(--muted);margin-left:6px}
+.layer{border:1px solid var(--rail);background:var(--rack2);padding:6px 9px;margin-bottom:4px;transition:background .15s,border-color .15s;min-height:46px}
+.layer b{display:block;font:600 .86rem var(--cond)}
+.layer span{font:400 .74rem var(--mono);color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.layer.lit{background:color-mix(in srgb,var(--tel) 28%,var(--rack2));border-color:var(--tel)}
+.layer.lit span{color:var(--ink)}
+.layer.app{border-left:4px solid var(--tel)} .layer.pty{border-left:4px solid var(--bus)}
+.wirecol{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 8px 4px}
+.wirecol .w{height:46px;width:100%;border-top:3px dashed var(--rail);position:relative;margin-bottom:4px}
+.wirecol .w.lit{border-top-color:var(--tel)} .wirecol .w.bad{border-top-color:var(--bad)}
+.wirecol .w i{position:absolute;top:-9px;width:14px;height:14px;border-radius:50%;background:var(--tel);left:0;opacity:0}
+.wirecol .w.bad i{background:var(--bad)}
+.wirecol small{font:400 .7rem var(--mono);color:var(--muted);text-align:center}
+.tokens{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;min-height:28px}
+.tokens span{font:600 .76rem var(--mono);padding:3px 7px;border:1px solid var(--rail)}
+.tokens span.data{border-color:var(--tel)} .tokens span.iac{border-color:var(--bus);color:var(--bus)} .tokens span.tls{border-color:var(--bad);color:var(--bad)}
+.tokens span em{font-style:normal;color:var(--muted);margin-left:6px;font-weight:400}
+
+/* ---------------- tables */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
 .card{background:var(--rack);border:1px solid var(--line);border-top:4px solid var(--rail);padding:10px 12px;min-width:0}
 .card h3{margin:0 0 6px;font:600 .78rem var(--cond);letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;gap:10px}
 .card h3 small{font:400 .74rem var(--mono);letter-spacing:0;text-transform:none;color:var(--muted)}
 .card.dhcp{border-top-color:var(--dhcp)} .card.arp{border-top-color:var(--arp)} .card.tel{border-top-color:var(--tel)} .card.bad{border-top-color:var(--bad)}
-table{border-collapse:collapse;width:100%;font:12.5px/1.4 var(--mono)}
-th{font:600 .66rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid var(--rail);padding:4px 5px}
-td{border-bottom:1px solid var(--line);padding:4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.card table{border-collapse:collapse;width:100%;font:12.5px/1.4 var(--mono)}
+.card th{font:600 .66rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid var(--rail);padding:4px 5px}
+.card td{border-bottom:1px solid var(--line);padding:4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
 tr.me td{color:var(--arp)} tr.bad td{color:var(--bad)} td.dec{color:var(--bad)}
-pre.term{margin:0;background:#0e1012;color:#cfe9d9;font:12px/1.45 var(--mono);padding:10px;height:240px;overflow:auto;white-space:pre-wrap;border-radius:2px}
-pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color:var(--ink);font:12.5px/1.5 var(--mono);padding:10px;min-height:120px;max-height:240px;overflow:auto;white-space:pre-wrap;border:1px dashed var(--bad)}
+pre.term{margin:0;background:var(--term);color:#cfe9d9;font:12px/1.45 var(--mono);padding:10px;height:220px;overflow:auto;white-space:pre-wrap}
+pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color:var(--ink);font:12.5px/1.5 var(--mono);padding:10px;min-height:90px;max-height:220px;overflow:auto;white-space:pre-wrap;border:1px dashed var(--bad)}
 .badge{display:inline-block;padding:1px 8px;font:600 .72rem var(--cond);letter-spacing:.1em;text-transform:uppercase;border:1px solid currentColor}
-
-.lanes{margin-top:16px;background:var(--rack);border:1px solid var(--line);padding:10px 12px}
+.lanes{margin-top:14px;background:var(--rack);border:1px solid var(--line);padding:10px 12px}
 .lanes h3{margin:0 0 6px;font:600 .78rem var(--cond);letter-spacing:.14em;text-transform:uppercase}
-.trace{max-height:300px;overflow:auto;font:12px/1.5 var(--mono)}
+.trace{max-height:260px;overflow:auto;font:12px/1.5 var(--mono)}
 .trace div{display:grid;grid-template-columns:78px 74px minmax(0,1fr);gap:8px;border-bottom:1px solid var(--line);padding:2px 0}
 .trace .m{font-weight:600}
-.trace .DHCP .m{color:var(--dhcp)} .trace .ARP .m{color:var(--arp)} .trace .TELNET .m{color:var(--tel)} .trace .BUS .m{color:var(--bus)} .trace .STORY{background:var(--rack2)} .trace .STORY .m{color:var(--ink)}
+.trace .DHCP .m{color:var(--dhcp)} .trace .ARP .m{color:var(--arp)} .trace .TELNET .m{color:var(--tel)} .trace .BUS .m{color:var(--bus)} .trace .STORY{background:var(--rack2)}
 .trace .t{color:var(--muted)}
 
 .player{position:fixed;left:0;right:0;bottom:0;background:#0e1012;color:#e8e6e1;display:flex;gap:10px;align-items:center;padding:10px 18px;border-top:3px solid var(--arp);z-index:3}
@@ -86,9 +142,10 @@ pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color
 .player button.fwd{background:var(--arp);border-color:var(--arp);color:#111}
 .player button[aria-pressed=true]{background:#e8e6e1;color:#111}
 .player button:disabled{opacity:.45;cursor:wait}
+.player select{background:#0e1012;color:#e8e6e1;border:2px solid #9aa0a6;padding:4px 6px;font:600 .8rem var(--mono)}
 .player .st{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9ccd0}
 
-@media (max-width:1000px){ main{grid-template-columns:1fr;padding:16px} header{grid-template-columns:1fr;padding:18px 16px} .jacks{justify-content:flex-start} .grid{grid-template-columns:1fr} .player{flex-wrap:wrap} .player .st{flex-basis:100%;order:9} }
+@media (max-width:1100px){ main{grid-template-columns:1fr;padding:16px} .stage{grid-template-columns:1fr} .mapbox{border-right:0;border-bottom:1px solid var(--line)} header{grid-template-columns:1fr;padding:18px 16px} .jacks{justify-content:flex-start} .grid{grid-template-columns:1fr} .stacks{grid-template-columns:1fr} .wirecol{display:none} .player{flex-wrap:wrap} .player .st{flex-basis:100%;order:9} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -96,7 +153,7 @@ pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color
 <header>
   <div>
     <h1>One LAN, <span class="c1">DHCP</span> · <span class="c2">ARP</span> · <span class="c3">Telnet</span></h1>
-    <p class="sub">The main project as a single network, 192.168.1.0/24. A laptop gets its address from the <b>DHCP</b> cluster, finds the gateway with <b>ARP</b>, and the admin manages router JU-Main-R over <b>Telnet</b>. Then an attacker poisons ARP to read the Telnet password, and the fix needs all three. Every step is real: UDP for DHCP, frames on the ARP lab's switch, TCP for Telnet.</p>
+    <p class="sub">The main project as a single network, 192.168.1.0/24. Each <b>Forward ▶</b> runs one step for real, then replays every packet it produced: the <b>DHCP</b> Discover-Offer-Request-Ack, every <b>ARP</b> broadcast and reply crossing the switch, and every <b>Telnet</b> segment travelling down one protocol stack and up the other into the router's pseudo-terminal.</p>
   </div>
   <div class="jacks">
     <a class="jack" href="http://localhost:8080" target="_blank" rel="noopener"><small>DHCP cluster</small><b>:8080</b><i style="background:var(--dhcp)"></i></a>
@@ -113,7 +170,44 @@ pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color
   </aside>
 
   <section>
-    <div class="closet"><span class="cap">wiring closet · CSE-Switch · VLAN 1</span><svg id="map" viewBox="0 0 900 400"></svg></div>
+    <div class="stage">
+      <div class="mapbox">
+        <div class="scene" id="scene"><b style="color:var(--muted)">idle</b><span>waiting for Forward ▶</span></div>
+        <div class="mode"><i></i>simulation</div>
+        <svg id="map" viewBox="50 20 950 520" role="img" aria-label="logical topology of the campus LAN"></svg>
+      </div>
+      <div class="side">
+        <div class="pdu" id="pdu"><h3>PDU information</h3><p class="empty">Press Forward ▶. Each packet of the step is replayed on the topology, and its layers appear here.</p></div>
+        <div class="events"><h3>Event list <span id="evCount"></span></h3><div class="evt"><table><thead><tr><th>#</th><th>Last device</th><th>At device</th><th>Type</th></tr></thead><tbody id="evBody"><tr><td colspan="4" style="color:var(--muted)">no events yet</td></tr></tbody></table></div></div>
+      </div>
+    </div>
+
+    <div class="stackbox" id="stackbox">
+      <h3>Telnet: keyboard to shell, through two protocol stacks <small id="stackNote">the router's shell sees the remote user through a pseudo-terminal driver</small></h3>
+      <div class="stacks">
+        <div class="col">
+          <h4>admin-laptop <small>Telnet client</small></h4>
+          <div class="layer" data-l="c0"><b>Terminal (keyboard + screen)</b><span id="c0">the admin types here</span></div>
+          <div class="layer" data-l="c1"><b>Terminal driver</b><span id="c1">local keystrokes, local echo off (the server echoes)</span></div>
+          <div class="layer app" data-l="c2"><b>Telnet client: NVT encode</b><span id="c2">data → NVT ASCII, end of line → CR LF, commands → IAC …</span></div>
+          <div class="layer" data-l="c3"><b>TCP</b><span id="c3">segment to port 23</span></div>
+          <div class="layer" data-l="c4"><b>IP</b><span id="c4">192.168.1.x → 192.168.1.1</span></div>
+          <div class="layer" data-l="c5"><b>Ethernet</b><span id="c5">to the MAC in the ARP cache</span></div>
+        </div>
+        <div class="wirecol"><div class="w" id="wire"><i id="wireDot"></i></div><small id="wireNote">LAN</small></div>
+        <div class="col">
+          <h4>JU-Main-R <small>Telnet server</small></h4>
+          <div class="layer pty" data-l="s0"><b>Shell (IOS-style CLI)</b><span id="s0">runs commands as if typed locally</span></div>
+          <div class="layer pty" data-l="s1"><b>Pseudo-terminal driver</b><span id="s1">pretends the bytes came from a local keyboard; echoes them back</span></div>
+          <div class="layer app" data-l="s2"><b>Telnet server: NVT decode</b><span id="s2">IAC commands → option negotiation, data → characters</span></div>
+          <div class="layer" data-l="s3"><b>TCP</b><span id="s3">port 23 (lab 2323)</span></div>
+          <div class="layer" data-l="s4"><b>IP</b><span id="s4">192.168.1.1</span></div>
+          <div class="layer" data-l="s5"><b>Ethernet</b><span id="s5">00:1A:2B:00:01:01</span></div>
+        </div>
+      </div>
+      <div class="tokens" id="tokens"></div>
+    </div>
+
     <div class="grid">
       <div class="card dhcp"><h3>DHCP leases <small>all three cluster nodes</small></h3><table id="leases"></table></div>
       <div class="card arp"><h3>DHCP-snooping table <small id="daiState"></small></h3><table id="binds"></table></div>
@@ -129,6 +223,8 @@ pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color
   <button id="restart">⟲ Restart</button>
   <button class="fwd" id="fwd">Forward ▶</button>
   <button id="auto" aria-pressed="false">Auto-play ▶▶</button>
+  <select id="speed" aria-label="animation speed"><option value="1.6">slow</option><option value="1" selected>1×</option><option value="0.55">2×</option><option value="0.2">fast</option></select>
+  <button id="skip">Skip animation ⇥</button>
   <span class="st" id="st">Step 0 of 10</span>
 </div>
 
@@ -136,77 +232,341 @@ pre.note{margin:0;background:color-mix(in srgb,var(--bad) 10%,var(--rack));color
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(p) { const r = await fetch(p, { method:'POST' }); return r.json(); }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let SKIP = false;
+const K = () => +$('speed').value;
+const wait = ms => SKIP ? Promise.resolve() : sleep(ms * K());
 
 $('theme').onclick = () => { const d = document.documentElement; const cur = d.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); d.dataset.theme = cur === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('campusTheme', d.dataset.theme); } catch (e) {} };
 try { const t = localStorage.getItem('campusTheme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 
-/* ---------------- player: one real step per Forward */
-let busy = false, auto = false, S = null, moods = [];
+/* ================================================================ logical workspace (Packet Tracer style) */
+const NS = 'http://www.w3.org/2000/svg';
+function el(t, a, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+const SWC = { x:470, y:300 };                                            // the switch
+const DEV = { 1:{x:150,y:95}, 2:{x:380,y:95}, 3:{x:610,y:95}, 4:{x:790,y:300}, 5:{x:470,y:470}, 6:{x:120,y:300} };
+const CL = { lb:{x:870,y:175}, n:{1:{x:780,y:62},2:{x:870,y:62},3:{x:960,y:62}} };
+const COL = { dhcp:'#3d8fe8', arp:'#e8b82e', tel:'#3fb67d', bad:'#e55050' };
+const PORTN = { 1:'Fa0/1', 2:'Fa0/2', 3:'Fa0/3', 4:'Fa0/4', 5:'Fa0/5', 6:'Fa0/6' };
+const DEVPORT = { 1:'Fa0', 2:'Fa0', 3:'Fa0', 4:'Fa0/0', 5:'Fa0', 6:'Fa0' };
+const toward = (a, b, d) => { const L = Math.hypot(b.x - a.x, b.y - a.y) || 1; return { x:a.x + (b.x - a.x) * d / L, y:a.y + (b.y - a.y) * d / L }; };
+// packet paths: device → switch → device (straight links, as on a logical workspace)
+const portPath = p => [DEV[p], SWC];
+const pin = p => SWC;
+const rev = l => l.slice().reverse();
+const route = (from, to) => [DEV[from], SWC, DEV[to]];
+const routerToLb = () => [DEV[4], CL.lb];
+const lbToNode = n => [CL.lb, CL.n[n]];
+
+let S = null, NAMES = {};
+const LAPTOP = { port:6, name:'admin-laptop', ip:'0.0.0.0', mac:'3C:52:82:AD:00:01', kind:'laptop' };
+const devices = s => s.ports.some(d => d.port === 6) ? s.ports : s.ports.concat([LAPTOP]);
+const ptMac = m => { const h = String(m || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase(); return h.length === 12 ? h.slice(0, 4) + '.' + h.slice(4, 8) + '.' + h.slice(8) : m; };
+
+/* ---------- device icons: original drawings in the usual network-diagram conventions */
+function iconPC(g, c, tint) {
+  el('rect', { x:c.x - 26, y:c.y - 26, width:52, height:36, rx:3, fill:'#dfe4ea', stroke:'#2b3138', 'stroke-width':2 }, g);
+  el('rect', { x:c.x - 21, y:c.y - 21, width:42, height:26, fill: tint || '#3b6fb6' }, g);
+  el('path', { d:'M' + (c.x - 6) + ',' + (c.y + 10) + ' h12 l4,9 h-20 z', fill:'#9aa3ad', stroke:'#2b3138', 'stroke-width':1.5 }, g);
+  el('rect', { x:c.x - 18, y:c.y + 19, width:36, height:5, rx:1, fill:'#c4cbd3', stroke:'#2b3138', 'stroke-width':1.2 }, g);
+}
+function iconLaptop(g, c) {
+  el('path', { d:'M' + (c.x - 24) + ',' + (c.y - 24) + ' h48 v32 h-48 z', fill:'#dfe4ea', stroke:'#2b3138', 'stroke-width':2 }, g);
+  el('rect', { x:c.x - 19, y:c.y - 19, width:38, height:22, fill:'#e8b82e' }, g);
+  el('path', { d:'M' + (c.x - 31) + ',' + (c.y + 8) + ' h62 l-6,10 h-50 z', fill:'#c4cbd3', stroke:'#2b3138', 'stroke-width':2 }, g);
+}
+function iconSwitch(g, c) {
+  el('rect', { x:c.x - 44, y:c.y - 22, width:88, height:44, rx:6, fill:'#3b6fb6', stroke:'#1d3a63', 'stroke-width':2 }, g);
+  el('path', { d:'M' + (c.x - 40) + ',' + (c.y - 22) + ' l10,-10 h68 l-10,10 z', fill:'#5e8fd0', stroke:'#1d3a63', 'stroke-width':2 }, g);
+  [[-8, -9, 1], [-8, 7, -1], [8, -9, 1], [8, 7, -1]].forEach(([dx, dy, dir]) => {
+    const y = c.y + dy, x0 = c.x + dx - 26 * dir * (dx < 0 ? -1 : 1);
+    el('path', { d:'M' + (c.x + dx * 4.2) + ',' + y + ' h' + (dx < 0 ? 22 : -22), stroke:'#fff', 'stroke-width':3, 'marker-end':'url(#arw)' }, g);
+  });
+}
+function iconRouter(g, c) {
+  el('path', { d:'M' + (c.x - 40) + ',' + (c.y - 8) + ' v18 a40,13 0 0 0 80,0 v-18', fill:'#3b6fb6', stroke:'#1d3a63', 'stroke-width':2 }, g);
+  el('ellipse', { cx:c.x, cy:c.y - 8, rx:40, ry:13, fill:'#5e8fd0', stroke:'#1d3a63', 'stroke-width':2 }, g);
+  [[-1, -1], [1, 1]].forEach(([a]) => {});
+  el('path', { d:'M' + (c.x - 22) + ',' + (c.y - 13) + ' l12,3 M' + (c.x + 22) + ',' + (c.y - 3) + ' l-12,-3 M' + (c.x - 6) + ',' + (c.y - 18) + ' l3,5 M' + (c.x + 6) + ',' + (c.y + 2) + ' l-3,-5', stroke:'#fff', 'stroke-width':3, 'stroke-linecap':'round' }, g);
+}
+function iconServer(g, c, on) {
+  el('rect', { x:c.x - 15, y:c.y - 26, width:30, height:50, rx:3, fill: on ? '#7fb3f0' : '#dfe4ea', stroke:'#2b3138', 'stroke-width':2 }, g);
+  [ -16, -8, 0 ].forEach(dy => el('line', { x1:c.x - 9, y1:c.y + dy, x2:c.x + 9, y2:c.y + dy, stroke:'#2b3138', 'stroke-width':2 }, g));
+  el('circle', { cx:c.x + 8, cy:c.y + 15, r:2.5, fill:'#3fb67d' }, g);
+}
+function linkLights(svg, a, b) {           // the little link-up triangles near each end of a link
+  [[a, b], [b, a]].forEach(([p, q]) => { const m = toward(p, q, 52), ang = Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI;
+    el('path', { d:'M-5,-5 L6,0 L-5,5 z', fill:'#3fb67d', stroke:'#1f6b45', 'stroke-width':1, transform:'translate(' + m.x + ',' + m.y + ') rotate(' + ang + ')' }, svg); });
+}
+function portLabel(svg, from, to, text, dist) { const m = toward(from, to, dist || 70); const t = el('text', { x:m.x + 6, y:m.y - 6, class:'port' }, svg); t.textContent = text; }
+
+function drawMap(s) {
+  const svg = $('map'); svg.innerHTML = '';
+  const defs = el('defs', {}, svg); const mk = el('marker', { id:'arw', viewBox:'0 0 10 10', refX:5, refY:5, markerWidth:4, markerHeight:4, orient:'auto' }, defs); el('path', { d:'M0,0 L10,5 L0,10 z', fill:'#fff' }, mk);
+  const devs = devices(s);
+  // links
+  devs.forEach(d => { el('line', { x1:DEV[d.port].x, y1:DEV[d.port].y, x2:SWC.x, y2:SWC.y, class:'link' }, svg); linkLights(svg, DEV[d.port], SWC);
+    portLabel(svg, SWC, DEV[d.port], PORTN[d.port], 82); if (d.port === 4) portLabel(svg, DEV[4], SWC, 'Fa0/0', 66); });
+  el('line', { x1:DEV[4].x, y1:DEV[4].y, x2:CL.lb.x, y2:CL.lb.y, class:'link' }, svg); linkLights(svg, DEV[4], CL.lb);
+  [1, 2, 3].forEach(n => el('line', { x1:CL.lb.x, y1:CL.lb.y, x2:CL.n[n].x, y2:CL.n[n].y, class:'link', 'stroke-dasharray':'4 3' }, svg));
+  // the DHCP cluster: three servers behind a relay/load balancer, reached through the router (like "ip helper-address")
+  [1, 2, 3].forEach(n => { const g = el('g', { id:'node' + n }, svg); iconServer(g, CL.n[n], false); const t = el('text', { x:CL.n[n].x, y:CL.n[n].y + 42, 'text-anchor':'middle', class:'lbl2' }, svg); t.textContent = 'Node-' + n; });
+  const lb = el('g', {}, svg); el('rect', { x:CL.lb.x - 30, y:CL.lb.y - 14, width:60, height:28, rx:4, fill:'#3b6fb6', stroke:'#1d3a63', 'stroke-width':2 }, lb);
+  const lbt = el('text', { x:CL.lb.x, y:CL.lb.y + 5, 'text-anchor':'middle', fill:'#fff', 'font-size':12, 'font-weight':700, 'font-family':'IBM Plex Mono' }, lb); lbt.textContent = 'LB';
+  const lbl = el('text', { x:CL.lb.x + 38, y:CL.lb.y + 4, class:'lbl2' }, svg); lbl.textContent = 'relay';
+  // the switch
+  const sg = el('g', {}, svg); iconSwitch(sg, SWC);
+  const sl = el('text', { x:SWC.x - 56, y:SWC.y + 24, 'text-anchor':'end', class:'lbl' }, svg); sl.textContent = 'CSE-Switch';
+  const dl = el('text', { x:SWC.x + 54, y:SWC.y + 44, 'text-anchor':'start', class:'lbl2' }, svg);
+  dl.textContent = 'ip arp inspection: ' + (s.dai.enabled ? 'ON' : 'off') + (s.dai.dropped ? ' · ' + s.dai.dropped + ' dropped' : '');
+  if (s.dai.enabled) dl.setAttribute('fill', 'var(--tel)');
+  // end devices
+  NAMES = {};
+  devs.forEach(d => {
+    NAMES[d.mac] = d.name; const c = DEV[d.port];
+    const g = el('g', { class:'dev ' + d.kind, id:'dev' + d.port }, svg);
+    el('circle', { cx:c.x, cy:c.y, r:46, class:'ring', stroke:'var(--arp)' }, g);
+    if (d.kind === 'router') iconRouter(g, c); else if (d.kind === 'laptop') iconLaptop(g, c); else iconPC(g, c, d.kind === 'attacker' ? '#b33b3b' : null);
+    const below = d.port === 5 ? 44 : 46;
+    const n = el('text', { x:c.x, y:c.y + below, 'text-anchor':'middle', class:'lbl' }, g); n.textContent = d.name;
+    const i = el('text', { x:c.x, y:c.y + below + 16, 'text-anchor':'middle', class:'lbl2' }, g); i.textContent = d.ip === '0.0.0.0' ? 'no IP yet' : d.ip;
+    const v = el('text', { x:c.x, y:c.y - 40, 'text-anchor':'middle', class:'verdict', id:'v' + d.port }, g);
+  });
+  if (s.poisoned) { const a = DEV[6], b = DEV[5];
+    el('path', { d:'M' + (a.x + 20) + ',' + (a.y + 34) + ' Q' + (a.x + 70) + ',' + (b.y - 10) + ' ' + (b.x - 40) + ',' + b.y, fill:'none', stroke:'var(--bad)', 'stroke-width':2.5, 'stroke-dasharray':'6 5' }, svg);
+    const t = el('text', { x:a.x - 70, y:b.y + 30, fill:'var(--bad)', 'font-size':13, 'font-family':'IBM Plex Mono' }, svg); t.textContent = 'laptop ARP: 192.168.1.1 → 6666.6666.6666'; }
+  el('g', { id:'pk' }, svg);
+}
+
+/* ---------- envelopes */
+function pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); return L; }
+function at(pts, d) { for (let i = 1; i < pts.length; i++) { const s = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); if (d <= s) { const k = s ? d / s : 0; return { x:pts[i - 1].x + (pts[i].x - pts[i - 1].x) * k, y:pts[i - 1].y + (pts[i].y - pts[i - 1].y) * k }; } d -= s; } return pts[pts.length - 1]; }
+function envelope(g, color) {
+  el('rect', { x:-14, y:-10, width:28, height:20, rx:2, fill:color, stroke:'#222', 'stroke-width':1.3 }, g);
+  el('path', { d:'M-14,-10 L0,2 L14,-10', fill:'none', stroke:'#222', 'stroke-width':1.3 }, g);
+}
+const cssColor = c => c.startsWith('var(') ? ({ 'var(--dhcp)':COL.dhcp, 'var(--arp)':COL.arp, 'var(--tel)':COL.tel, 'var(--bad)':COL.bad })[c] || c : c;
+function fly(pts, color, label, ms) {
+  return new Promise(resolve => {
+    const layer = $('pk'); if (!layer) return resolve();
+    if (SKIP || reduced) return resolve();
+    const g = el('g', { class:'pkt' }, layer);
+    envelope(g, cssColor(color));
+    const t = el('text', { x:0, y:25, 'text-anchor':'middle' }, g); t.textContent = label;
+    const L = pathLen(pts), dur = ms * K(), t0 = performance.now();
+    const step = () => { if (SKIP) { g.remove(); return resolve(); } const k = Math.min(1, (performance.now() - t0) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, p = at(pts, L * e);
+      g.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')'); if (k < 1) setTimeout(step, 16); else { g.remove(); resolve(); } };
+    step();
+  });
+}
+/* an envelope that stays a moment at a device: ✓ accepted, ✕ dropped (as in simulation mode) */
+function settle(port, color, ok) {
+  const layer = $('pk'); if (!layer || SKIP || reduced) return;
+  const c = port === 'sw' ? SWC : DEV[port];
+  const g = el('g', { class:'pkt', transform:'translate(' + (c.x + 30) + ',' + (c.y - 30) + ')' }, layer);
+  envelope(g, cssColor(color));
+  const m = el('text', { x:0, y:6, 'text-anchor':'middle', 'font-size':22, 'font-weight':800, fill: ok ? '#1f8a55' : '#d23b3b', stroke:'#fff', 'stroke-width':3, 'paint-order':'stroke' }, g); m.textContent = ok ? '✓' : '✕';
+  setTimeout(() => g.remove(), 1500 * K());
+}
+function flash(port, color, verdict, vcolor) {
+  const d = $('dev' + port); if (!d) return;
+  const f = d.querySelector('.ring'); if (f) f.setAttribute('stroke', cssColor(color));
+  d.classList.remove('hit'); void d.getBoundingClientRect(); d.classList.add('hit');
+  const v = $('v' + port); if (v && verdict) { v.textContent = verdict; v.setAttribute('fill', vcolor || 'var(--ink)'); d.classList.add('show'); setTimeout(() => d.classList.remove('show'), 1800 * K()); }
+  if (verdict) settle(port, color, !/not for me|ignored|dropped/.test(verdict));
+}
+function nodeLit(n, on) { const g = $('node' + n); if (!g) return; const r = g.querySelector('rect'); if (r) r.setAttribute('fill', on ? '#7fb3f0' : '#dfe4ea'); }
+function dropMark() { settle('sw', COL.bad, false); const g = $('pk'); const t = el('text', { x:SWC.x, y:SWC.y - 44, 'text-anchor':'middle', fill:'var(--bad)', 'font-size':16, 'font-weight':700, 'font-family':'IBM Plex Mono' }, g); t.textContent = 'DAI: dropped'; setTimeout(() => t.remove(), 1600 * K()); }
+
+/* ---------- PDU information (OSI model view) + event list */
+let EV = [], EVI = -1;
+function osi(r) {
+  const ip = (S && S.adminIp) || '0.0.0.0', laptop = '3C52.82AD.0001', router = '001A.2B00.0101', bcast = 'FFFF.FFFF.FFFF';
+  if (r.kind === 'dhcp') {
+    const up = r.dir === 'up';
+    if (r.msg === 'BOUND') return [[7, 'DHCP client: BOUND to ' + r.ip], [3, 'interface configured: ' + r.ip + ' / 255.255.255.0, gateway 192.168.1.1']];
+    if (r.msg === 'DECLINE-SEEN') return [[7, 'DHCP server DHCP-Node-' + r.node + ': ' + r.ip + ' marked DECLINED']];
+    return [[7, 'DHCP ' + r.msg + (r.xid ? '  xid ' + r.xid : '') + (r.ip ? '  ' + r.ip : '')], [4, 'UDP  Src Port: ' + (up ? 68 : 67) + ', Dst Port: ' + (up ? 67 : 68)],
+      [3, 'IP  Src: ' + (up ? '0.0.0.0' : 'server (via relay)') + ', Dst: ' + (up ? '255.255.255.255' : 'the client')], [2, 'Ethernet II  ' + (up ? laptop + ' >> ' + bcast : router + ' >> ' + laptop)], [1, 'Port: FastEthernet0/' + (up ? 6 : 4) + ' (in)']];
+  }
+  if (r.kind === 'arp') return [[2, 'ARP  ' + (r.op === 'REQUEST' ? 'Request' : 'Reply') + '  ' + r.spa + ' / ' + ptMac(r.sha) + '  →  ' + r.tpa + ' / ' + ptMac(r.tha)],
+    [2, 'Ethernet II  ' + ptMac(r.src) + ' >> ' + ptMac(r.dst) + '  type 0x0806'], [1, 'Port: FastEthernet0/' + r.port + ' (in)' + (r.blocked ? '  ✕ dropped by DAI' : '')]];
+  const up = r.dir === 'up';
+  return [[7, 'Telnet  ' + (r.tls ? 'TLS records (encrypted)' : (r.text || '').slice(0, 46))], [4, 'TCP  ' + (up ? 'Src Port: client, Dst Port: 23' : 'Src Port: 23, Dst Port: client') + ', ' + r.bytes + ' bytes'],
+    [3, 'IP  ' + (up ? ip + ' → 192.168.1.1' : '192.168.1.1 → ' + ip)], [2, 'Ethernet II  dst ' + (r.port === 5 ? '6666.6666.6666 (attacker!)' : up ? router : laptop)], [1, 'Port: FastEthernet0/' + (up ? 6 : 4) + ' (in)']];
+}
+function slip(title, color, routeTxt, layers, fields, idx, total) {
+  const r = EV[idx] || {}, L = osi(r), have = new Set(L.map(x => x[0]));
+  const rows = [7, 6, 5, 4, 3, 2, 1].map(n => { const hits = L.filter(x => x[0] === n); return hits.length ? hits.map((h, k) => '<div class="' + (n === L[0][0] && k === 0 ? 'top' : '') + '"><b>Layer ' + n + '</b><span>' + esc(h[1]) + '</span></div>').join('') : '<div class="off"><b>Layer ' + n + '</b><span>—</span></div>'; }).join('');
+  $('pdu').innerHTML = '<h3>PDU information</h3><div class="at" style="color:' + cssColor(color) + '">' + esc(title) + '<small>' + esc(routeTxt) + '</small></div>'
+    + '<div class="osi">' + rows + '</div>'
+    + '<table>' + (fields || []).map(f => '<tr><td>' + esc(f.k) + '</td><td>' + esc(f.v) + '</td></tr>').join('') + '</table>';
+  markEvent(idx);
+}
+function evInfo(r) {
+  const dev = p => (devices(S).find(d => d.port === p) || {}).name || '?';
+  if (r.kind === 'dhcp') { if (r.msg === 'BOUND') return ['—', 'admin-laptop', 'DHCP', COL.dhcp]; if (r.msg === 'DECLINE-SEEN') return ['LB', 'DHCP-Node-' + r.node, 'DHCP', COL.dhcp];
+    return r.dir === 'up' ? ['admin-laptop', 'DHCP-Node-' + (r.node || '?'), 'DHCP', COL.dhcp] : ['DHCP-Node-' + (r.node || '?'), 'admin-laptop', 'DHCP', COL.dhcp]; }
+  if (r.kind === 'arp') { const to = r.bcast ? 'all ports' : (NAMES[r.dst] || r.dst); return [dev(r.port), r.blocked ? 'CSE-Switch (dropped)' : to, 'ARP', r.blocked ? COL.bad : COL.arp]; }
+  const from = r.dir === 'up' ? 'admin-laptop' : 'JU-Main-R', to = r.port === 5 ? 'Kali-Attacker' : r.dir === 'up' ? 'JU-Main-R' : 'admin-laptop';
+  return [from, to, r.tls ? 'TLS' : 'TELNET', r.port === 5 ? COL.bad : COL.tel];
+}
+function eventList(list) {
+  EV = list; EVI = -1;
+  $('evCount').textContent = list.length + ' event' + (list.length === 1 ? '' : 's');
+  $('evBody').innerHTML = list.length ? list.map((r, i) => { const [a, b, t, c] = evInfo(r); return '<tr id="ev' + i + '"><td>' + (i + 1) + '</td><td>' + esc(a) + '</td><td>' + esc(b) + '</td><td><i style="background:' + c + '"></i>' + t + (r.msg ? ' ' + r.msg.replace('DECLINE-SEEN', 'DECLINE') : r.type ? ' ' + r.type.toLowerCase() : '') + '</td></tr>'; }).join('')
+    : '<tr><td colspan="4" style="color:var(--muted)">this step sent no packets</td></tr>';
+}
+function markEvent(i) { if (EVI >= 0 && $('ev' + EVI)) { $('ev' + EVI).classList.remove('cur'); $('ev' + EVI).classList.add('done'); } EVI = i; const r = $('ev' + i); if (r) { r.classList.add('cur'); r.scrollIntoView({ block:'nearest' }); } }
+function scene(name, color, what) { $('scene').innerHTML = '<b style="color:' + cssColor(color) + '">' + esc(name) + '</b><span>' + esc(what) + '</span>'; }
+
+/* ================================================================ replays */
+const DHCP_LABEL = { DISCOVER:'DHCPDISCOVER', OFFER:'DHCPOFFER', REQUEST:'DHCPREQUEST', ACK:'DHCPACK', DECLINE:'DHCPDECLINE' };
+async function playDhcp(r, i, n) {
+  const col = 'var(--dhcp)';
+  if (r.msg === 'BOUND') { slip('Configured: ' + r.ip, col, 'the laptop applies the options from the ACK', ['DHCP client state: BOUND'], r.fields, i, n); flash(6, col, 'BOUND ' + r.ip, 'var(--dhcp)'); await wait(1400); return; }
+  if (r.msg === 'DECLINE-SEEN') { slip('Server marks ' + r.ip + ' DECLINED', col, 'DHCP-Node-' + r.node, ['DHCP server'], r.fields, i, n); nodeLit(r.node, true); await wait(1100); nodeLit(r.node, false); return; }
+  const node = r.node || 1;
+  scene('DHCP · ' + (r.msg === 'DECLINE' ? 'DECLINE' : 'DORA'), col, { DISCOVER:'D: client broadcasts "any server?"', OFFER:'O: a server offers an address', REQUEST:'R: client broadcasts which offer it takes', ACK:'A: the server confirms the lease', DECLINE:'client refuses an address that is in use' }[r.msg] || '');
+  const up = r.dir === 'up';
+  slip(DHCP_LABEL[r.msg] + (r.ip ? '  ' + r.ip : ''), col, (up ? r.src + ' → ' + r.dst : r.src + ' → the laptop :68') + (r.xid ? '  · xid ' + r.xid : ''),
+    ['Ethernet ' + (up ? 'dst FF:FF:FF:FF:FF:FF' : 'dst 3C:52:82:AD:00:01'), 'IP ' + (up ? '0.0.0.0 → 255.255.255.255' : 'server → client'), 'UDP ' + (up ? '68 → 67' : '67 → 68'), 'DHCP ' + r.msg], r.fields, i, n);
+  const label = DHCP_LABEL[r.msg];
+  if (up) {
+    // a layer-2 broadcast: the switch floods it out of every port; only the router (the relay) acts on it
+    await fly(portPath(6), col, label, 650);
+    const others = devices(S).filter(d => d.port !== 6).map(d => d.port);
+    await Promise.all(others.map(p => fly([pin(6), pin(p)].concat(rev(portPath(p))), col, label, 900)));
+    others.forEach(p => flash(p, col, p === 4 ? 'relays to the server' : 'not for me: ignored', p === 4 ? 'var(--dhcp)' : 'var(--muted)'));
+    await fly(routerToLb(), col, label + ' (giaddr set)', 650);
+    await fly(lbToNode(node), col, 'hash → N' + node, 500);
+    nodeLit(node, true); await wait(300); nodeLit(node, false);
+  } else {
+    nodeLit(node, true);
+    await fly(rev(lbToNode(node)), col, label, 500);
+    await fly(rev(routerToLb()), col, label, 650);
+    await fly(route(4, 6), col, label, 1100);
+    flash(6, col, label.replace('DHCP', '') + ' ' + (r.ip || ''), 'var(--dhcp)');
+    nodeLit(node, false);
+  }
+  await wait(300);
+}
+async function playArp(r, i, n) {
+  const col = r.blocked ? 'var(--bad)' : 'var(--arp)';
+  const name = r.type === 'PROBE' ? 'ARP probe' : r.type === 'GRATUITOUS' ? 'Gratuitous ARP' : 'ARP ' + r.op.toLowerCase();
+  const who = r.op === 'REQUEST' ? (r.type === 'PROBE' ? 'is anyone using ' + r.tpa + '?' : r.type === 'GRATUITOUS' ? r.spa + ' is at ' + r.sha : 'who has ' + r.tpa + '? tell ' + r.spa) : r.spa + ' is at ' + r.sha;
+  scene('ARP · ' + (r.bcast ? 'broadcast' : 'unicast'), col, who);
+  slip(name, col, (NAMES[r.src] || r.src) + ' → ' + (r.bcast ? 'everyone (FF:FF:FF:FF:FF:FF)' : (NAMES[r.dst] || r.dst)) + '  · enters on Fa0/' + r.port,
+    ['Ethernet dst ' + (r.bcast ? 'FF:FF:FF:FF:FF:FF' : r.dst), 'EtherType 0x0806', 'ARP ' + (r.op === 'REQUEST' ? 'op 1 request' : 'op 2 reply')], r.fields, i, n);
+  const lbl = r.op === 'REQUEST' ? (r.type === 'PROBE' ? 'probe ' + r.tpa : r.type === 'GRATUITOUS' ? 'GARP ' + r.spa : 'who has ' + r.tpa + '?') : r.spa + ' is-at';
+  await fly(portPath(r.port), col, lbl, 650);
+  if (r.blocked) { dropMark(); flash(r.port, 'var(--bad)', 'DAI dropped my forged ARP', 'var(--bad)'); await wait(1100); return; }
+  if (r.bcast) {
+    const others = devices(S).filter(d => d.port !== r.port).map(d => d.port);
+    await Promise.all(others.map(p => fly([pin(r.port), pin(p)].concat(rev(portPath(p))), col, lbl, 950)));
+    others.forEach(p => { const d = devices(S).find(x => x.port === p); const mine = d && d.ip === r.tpa; flash(p, col, mine ? (r.type === 'PROBE' ? 'that is my address' : 'that is me') : 'not for me', mine ? 'var(--arp)' : 'var(--muted)'); });
+  } else {
+    const dst = devices(S).find(d => d.mac === r.dst); const to = dst ? dst.port : 6;
+    await fly([pin(r.port), pin(to)].concat(rev(portPath(to))), col, lbl, 950);
+    flash(to, col, r.port === 5 ? 'cache poisoned!' : 'cached ' + r.spa, r.port === 5 ? 'var(--bad)' : 'var(--arp)');
+  }
+  await wait(250);
+}
+const LAYERS_UP = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'], LAYERS_SRV = ['s5', 's4', 's3', 's2', 's1', 's0'];
+function lit(ids, on) { ids.forEach(id => { const d = document.querySelector('[data-l="' + id + '"]'); if (d) d.classList.toggle('lit', on); }); }
+async function walk(ids, ms) { for (const id of ids) { lit([id], true); await wait(ms); lit([id], false); } }
+async function playTel(r, i, n, compact) {
+  const col = r.port === 5 ? 'var(--bad)' : 'var(--tel)';
+  const up = r.dir === 'up', ip = (S && S.adminIp) || '192.168.1.x';
+  scene('Telnet · TCP port 23' + (r.tls ? ' (TLS)' : ''), col, up ? 'client → router: ' + (r.text || '').slice(0, 40) : 'router → client: ' + (r.text || '').slice(0, 40));
+  slip(up ? 'Telnet: keystrokes to the router' : 'Telnet: output to the laptop', col, up ? ip + ' → 192.168.1.1:23' : '192.168.1.1:23 → ' + ip,
+    ['Ethernet ' + (r.port === 5 ? 'dst 66:66:… (attacker!)' : up ? 'dst router' : 'dst laptop'), 'IP', 'TCP :23', r.tls ? 'TLS records' : 'Telnet NVT'], r.fields, i, n);
+  $('tokens').innerHTML = r.tokens.map(t => '<span class="' + t.k + '">' + esc(t.t) + (t.hex ? '<em>' + esc(t.hex) + '</em>' : '') + '</span>').join('');
+  const data = r.tokens.filter(t => t.k === 'data').map(t => t.t).join('');
+  $('c0').textContent = up ? (data ? 'typed: ' + data : 'option negotiation (no keystrokes)') : 'screen shows: ' + (data || '(negotiation)').slice(0, 60);
+  $('c2').textContent = r.tls ? 'encrypted inside TLS before TCP' : r.tokens.map(t => t.k === 'iac' ? t.t : '"' + t.t.slice(0, 18) + '"').join(' · ').slice(0, 90);
+  $('c3').textContent = up ? 'segment ' + ip + ':client → :23, ' + r.bytes + ' bytes' : 'segment :23 → ' + ip + ', ' + r.bytes + ' bytes';
+  $('c4').textContent = up ? ip + ' → 192.168.1.1' : '192.168.1.1 → ' + ip;
+  $('c5').textContent = r.port === 5 ? 'dst 66:66:66:66:66:66 (the poisoned ARP entry!)' : up ? 'dst 00:1A:2B:00:01:01 (router)' : 'dst 3C:52:82:AD:00:01 (laptop)';
+  $('s1').textContent = up ? (data ? 'delivers "' + data.slice(0, 30) + '" as if typed locally; echoes it back' : 'no data: options only') : 'writes the shell\'s output to the remote "terminal"';
+  $('s0').textContent = up && data.includes('⏎') ? 'runs: ' + data.split('⏎').filter(Boolean).pop() : up ? 'waiting for a full line' : 'output: ' + (data.split('⏎').filter(Boolean)[1] || data).slice(0, 50);
+  const wire = $('wire'), dot = $('wireDot'); wire.className = 'w lit' + (r.port === 5 ? ' bad' : ''); $('wireNote').textContent = r.port === 5 ? 'via the attacker' : 'LAN';
+  const lbl = r.tls ? 'TLS' : 'TCP:23';
+  if (compact) {                                    // a quick envelope: no stack walk
+    if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 260); await fly(route(5, up ? 4 : 6), col, lbl, 220); }
+    else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 300);
+    wire.className = 'w'; return;
+  }
+  const per = 85;
+  const net = (async () => { if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 700); flash(5, 'var(--bad)', r.tls ? 'only ciphertext' : 'reads: ' + (data.slice(0, 22) || 'IAC…'), 'var(--bad)'); await fly(route(5, up ? 4 : 6), col, lbl, 500); }
+                        else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 750); })();
+  if (up) { await walk(LAYERS_UP, per); await moveDot(dot, true); await walk(LAYERS_SRV, per); }
+  else { await walk(LAYERS_SRV.slice().reverse(), per); await moveDot(dot, false); await walk(LAYERS_UP.slice().reverse(), per); }
+  await net;
+  wire.className = 'w';
+}
+function moveDot(dot, right) { return new Promise(res => { if (SKIP || reduced) return res(); dot.style.opacity = 1; const t0 = performance.now(), dur = 380 * K();
+  const st = () => { const k = Math.min(1, (performance.now() - t0) / dur); dot.style.left = 'calc(' + (right ? k : 1 - k) * 100 + '% - 7px)'; if (k < 1) setTimeout(st, 16); else { dot.style.opacity = 0; res(); } }; st(); }); }
+
+async function replay(list) {
+  SKIP = false; $('skip').disabled = false;
+  eventList(list);
+  // long Telnet logins: play the first ones fully, then the rest quickly
+  let telSeen = 0, tlsShown = false;
+  for (let i = 0; i < list.length; i++) {
+    if (SKIP) break;
+    const r = list[i];
+    $('st').textContent = 'replaying packet ' + (i + 1) + ' of ' + list.length;
+    if (r.kind === 'dhcp') await playDhcp(r, i, list.length);
+    else if (r.kind === 'arp') await playArp(r, i, list.length);
+    else if (r.kind === 'tel') {
+      telSeen++;
+      // full stack walk only for the first 3 segments and the ones that tell the story (the stolen password, the first TLS record)
+      const key = (r.port === 5 && /cisco/.test(r.text || '')) || (r.tls && !tlsShown);
+      if (r.tls) tlsShown = true;
+      await playTel(r, i, list.length, !(telSeen <= 3 || key));
+    }
+  }
+  for (let i = 0; i < list.length; i++) { const r = $('ev' + i); if (r) { r.classList.remove('cur'); r.classList.add('done'); } }
+  $('skip').disabled = true; SKIP = false;
+}
+$('skip').onclick = () => { SKIP = true; };
+
+/* ================================================================ player */
+let busy = false, auto = false, moods = [];
 async function forward() {
   if (busy || (S && S.step >= S.total)) return;
-  busy = true; $('fwd').disabled = true; $('st').textContent = 'running step ' + ((S ? S.step : 0) + 1) + '…';
-  try { const r = await api('/api/forward'); moods[r.index - 1] = r.mood; await poll(); }
-  finally { busy = false; $('fwd').disabled = false; }
-  if (auto && S.step < S.total) setTimeout(forward, 1800); else if (S.step >= S.total) { auto = false; $('auto').setAttribute('aria-pressed', 'false'); }
+  busy = true; $('fwd').disabled = true; $('restart').disabled = true;
+  $('st').textContent = 'running step ' + ((S ? S.step : 0) + 1) + ' for real…';
+  try {
+    const r = await api('/api/forward'); moods[r.index - 1] = r.mood;
+    const keepSay = { say:r.say, mood:r.mood };
+    await poll(true);
+    $('say').className = 'say'; $('say').innerHTML = '<span class="k">step ' + r.index + ' · watch the replay</span>' + esc(r.say);
+    if (r.replay && r.replay.length) await replay(r.replay);
+    $('say').className = 'say ' + (keepSay.mood || ''); $('say').innerHTML = '<span class="k">step ' + r.index + ' of ' + S.total + '</span>' + esc(keepSay.say);
+    await poll(true);
+  } finally { busy = false; $('fwd').disabled = false; $('restart').disabled = false; }
+  if (auto && S.step < S.total) setTimeout(forward, 1200); else if (S.step >= S.total) { auto = false; $('auto').setAttribute('aria-pressed', 'false'); }
 }
 $('fwd').onclick = forward;
 $('auto').onclick = () => { auto = !auto; $('auto').setAttribute('aria-pressed', auto); if (auto) forward(); };
-$('restart').onclick = async () => { $('restart').disabled = true; $('st').textContent = 'resetting the network…'; await api('/api/restart'); moods = []; $('trace').innerHTML = ''; since = 0; $('restart').disabled = false; poll(); };
+$('restart').onclick = async () => { $('restart').disabled = true; $('st').textContent = 'resetting the network…'; await api('/api/restart'); moods = []; $('trace').innerHTML = ''; since = 0; $('tokens').innerHTML = ''; $('pdu').innerHTML = '<h3>PDU information</h3><p class="empty">Press Forward ▶.</p>'; $('evBody').innerHTML = ''; $('evCount').textContent = ''; scene('idle', 'var(--muted)', 'waiting for Forward ▶'); $('restart').disabled = false; poll(true); };
 document.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); forward(); } });
 
-/* ---------------- the wiring closet */
-const NS = 'http://www.w3.org/2000/svg';
-function el(t, a, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
-const POS = { 1:[150, 62], 2:[390, 62], 3:[630, 62], 4:[780, 250], 5:[450, 345], 6:[90, 250] };
-function drawMap(s) {
-  const svg = $('map'); svg.innerHTML = '';
-  const px = 290, py = 180, pw = 320, ph = 56;                       // patch panel
-  const portX = p => px + 26 + (p - 1) * 54;
-  const devs = s.ports;
-  devs.forEach(d => {
-    const [x, y] = POS[d.port];
-    const col = d.kind === 'attacker' ? 'var(--bad)' : d.kind === 'router' ? 'var(--tel)' : d.kind === 'laptop' ? 'var(--arp)' : 'var(--rail)';
-    const sx = portX(d.port), sy = py + ph / 2 + 6;
-    el('path', { d:'M' + x + ',' + (y + (y < py ? 28 : -28)) + ' C' + x + ',' + (y < py ? py - 10 : py + ph + 40) + ' ' + sx + ',' + (y < py ? py - 30 : py + ph + 60) + ' ' + sx + ',' + (y < py ? py + 12 : py + ph - 10), class:'cable', stroke:col, opacity:.85 }, svg);
-  });
-  const panel = el('g', { class:'panel' }, svg);
-  el('rect', { x:px, y:py, width:pw, height:ph, rx:3, class:'body' }, panel);
-  const lbl = el('text', { x:px + pw / 2, y:py - 8, 'text-anchor':'middle', fill:'var(--muted)', 'font-size':11, 'font-family':'IBM Plex Mono' }, panel);
-  lbl.textContent = 'CSE-Switch · DAI ' + (s.dai.enabled ? 'ON' : 'off') + ' · ' + s.dai.dropped + ' dropped';
-  for (let p = 1; p <= 6; p++) {
-    const has = devs.some(d => d.port === p);
-    el('rect', { x:portX(p) - 14, y:py + 12, width:28, height:22, rx:2, fill:'#0e1012', stroke:'var(--rail)' }, panel);
-    el('circle', { cx:portX(p), cy:py + 44, r:4, class:'led', fill: has ? (p === 4 ? 'var(--tel)' : 'var(--tel)') : 'var(--rail)' }, panel);
-    const t = el('text', { x:portX(p), y:py + 27, 'text-anchor':'middle', fill:'var(--muted)', 'font-size':10, 'font-family':'IBM Plex Mono' }, panel); t.textContent = 'Fa0/' + p;
-  }
-  const dl = el('rect', { x:px + pw - 52, y:py + 6, width:44, height:16, rx:2, fill: s.dai.enabled ? 'var(--tel)' : 'var(--rail)' }, panel);
-  const dt = el('text', { x:px + pw - 30, y:py + 18, 'text-anchor':'middle', fill:'#111', 'font-size':10, 'font-weight':700, 'font-family':'IBM Plex Mono' }, panel); dt.textContent = 'DAI';
-  devs.forEach(d => {
-    const [x, y] = POS[d.port];
-    const g = el('g', { class:'dev ' + d.kind }, svg);
-    el('rect', { x:x - 72, y:y - 28, width:144, height:56, rx:3 }, g);
-    const n = el('text', { x:x - 62, y:y - 9 }, g); n.textContent = d.name + (d.kind === 'router' ? ' (Telnet)' : '');
-    const i = el('text', { x:x - 62, y:y + 7, class:'s' }, g); i.textContent = d.ip === '0.0.0.0' ? 'no address yet' : d.ip;
-    const m = el('text', { x:x - 62, y:y + 21, class:'s' }, g); m.textContent = d.mac;
-  });
-  if (s.poisoned) {                                                   // the laptop thinks the gateway is the attacker
-    const [lx, ly] = POS[6], [ax, ay] = POS[5];
-    el('path', { d:'M' + (lx + 20) + ',' + (ly + 30) + ' Q' + (lx + 60) + ',' + (ay + 10) + ' ' + (ax - 74) + ',' + ay, fill:'none', stroke:'var(--bad)', 'stroke-width':2.5, 'stroke-dasharray':'6 5' }, svg);
-    const t = el('text', { x:lx + 10, y:ay + 30, fill:'var(--bad)', 'font-size':12, 'font-family':'IBM Plex Mono' }, svg); t.textContent = 'laptop: 192.168.1.1 is at 66:66:66:66:66:66';
-  }
-}
-
-/* ---------------- tables + trace */
-function rows(el, head, data, cls) {
-  el.innerHTML = '<tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' + (data.length ? data.map(r => '<tr class="' + (cls ? cls(r) : '') + '">' + r.cells.map(c => '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + ' title="' + esc(c.t ?? c) + '">' + esc(c.t ?? c) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + head.length + '" style="color:var(--muted)">—</td></tr>');
+/* ================================================================ tables + trace */
+function rows(t, head, data, cls) {
+  t.innerHTML = '<tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' + (data.length ? data.map(r => '<tr class="' + (cls ? cls(r) : '') + '">' + r.cells.map(c => '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + ' title="' + esc(c.t ?? c) + '">' + esc(c.t ?? c) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + head.length + '" style="color:var(--muted)">—</td></tr>');
 }
 let since = 0;
-async function poll() {
+async function poll(force) {
+  if (busy && !force) return;
   let s; try { s = await (await fetch('/api/state?since=' + since)).json(); } catch (e) { return; }
   S = s;
   $('steps').innerHTML = s.steps.map((x, i) => '<li class="' + (i < s.step ? 'done ' + (moods[i] || '') : i === s.step ? 'next' : '') + '"><b>' + (i + 1) + '. ' + esc(x.title) + '</b><span>' + esc(x.lead) + '</span></li>').join('');
-  if (s.say) { $('say').className = 'say ' + (s.mood || ''); $('say').innerHTML = '<span class="k">step ' + s.step + ' of ' + s.total + '</span>' + esc(s.say); }
-  $('st').textContent = s.step >= s.total ? 'Finished. ⟲ Restart to run the story again.' : 'Step ' + s.step + ' of ' + s.total + ' · next: ' + s.steps[s.step].title;
+  if (!busy) { if (s.say) { $('say').className = 'say ' + (s.mood || ''); $('say').innerHTML = '<span class="k">step ' + s.step + ' of ' + s.total + '</span>' + esc(s.say); }
+    $('st').textContent = s.step >= s.total ? 'Finished. ⟲ Restart to run the story again.' : 'Step ' + s.step + ' of ' + s.total + ' · next: ' + s.steps[s.step].title; }
   drawMap(s);
   rows($('leases'), ['IP', 'MAC', 'host', 'state', 'node'], s.leases.map(l => ({ cells:[l.ip, l.mac, l.host, { t:l.state, cls:l.state === 'DECLINED' ? 'dec' : '' }, l.node], me:l.mac === '3C:52:82:AD:00:01' })), r => r.me ? 'me' : '');
   $('daiState').innerHTML = 'DAI <span class="badge" style="color:var(--' + (s.dai.enabled ? 'tel' : 'muted') + ')">' + (s.dai.enabled ? 'on' : 'off') + '</span> · ' + s.dai.dropped + ' dropped';
@@ -219,7 +579,7 @@ async function poll() {
   s.events.forEach(e => { since = Math.max(since, e.seq); tr.insertAdjacentHTML('afterbegin', '<div class="' + esc(e.module) + '"><span class="t">' + new Date(e.t).toLocaleTimeString() + '</span><span class="m">' + esc(e.module) + '</span><span>' + esc(e.text) + '</span></div>'); });
   while (tr.children.length > 400) tr.lastChild.remove();
 }
-poll(); setInterval(() => { if (!busy) poll(); }, 1500);
+poll(true); setInterval(() => poll(false), 2000);
 </script>
 </body>
 </html>

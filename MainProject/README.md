@@ -44,6 +44,22 @@ All three are compiled from their own folders (`run.bat` uses `-sourcepath ..\AR
 | Telnet → ARP | `LanRelay` (2325 → 2323, 9925 → 9923) passes the real TCP session through, and sends every chunk as an Ethernet frame across the ARP lab's switch, addressed to whatever MAC the sender's ARP cache holds. ARP poisoning therefore really decides who receives it, and the attacker's `onReceiveFrame` logs it. |
 | Telnet → DHCP / ARP | `telnet.server.CampusHooks`: `show ip dhcp binding`, `show ip arp`, `show mac address-table`, `show ip arp inspection`, `clear arp-cache`, `[no] ip arp inspection vlan 1` |
 
+## Packet Tracer–style simulation view
+
+Each **Forward ▶** runs one step for real, then **replays every packet it produced** on the topology, the way Packet Tracer's simulation mode does:
+- **DHCP DORA:** the DISCOVER and REQUEST are layer-2 broadcasts. The envelope fans out to every port: PCs drop it (✕) and the router relays it to the load balancer, which hashes the MAC to one cluster node. The OFFER and ACK come back to the laptop.
+- **ARP:** a request floods all ports, with ✓ at the owner and ✕ elsewhere; the reply is unicast back. Probes, gratuitous ARPs, forged replies, and drops by inspection at the switch are all shown.
+- **Telnet:** each TCP segment travels down the client's stack (terminal → terminal driver → Telnet client/NVT → TCP → IP → Ethernet) and up the router's (Ethernet → IP → TCP → Telnet server → **pseudo-terminal driver** → shell). The real NVT bytes are shown (e.g. `IAC DO ECHO` = `FF FD 01`). When the cache is poisoned, the frames detour through the attacker.
+- **PDU information:** the OSI layers (L7 to L1) of the packet on screen, with its fields.
+- **Event list:** every packet of the step: last device, at device, type.
+
+These records come from the modules themselves: DHCP's send and receive log lines, the ARP lab's frame capture at the switch, and the bytes on the Telnet relay.
+
+| | |
+|---|---|
+| ![](docs/screenshots/07_dhcp_discover_broadcast.png) | ![](docs/screenshots/08_arp_request_reply.png) |
+| ![](docs/screenshots/09_telnet_stack_pty.png) | ![](docs/screenshots/05_dai_blocks_attack.png) |
+
 ## The step-by-step story
 
 Each step performs real actions, and the page shows their effect on:

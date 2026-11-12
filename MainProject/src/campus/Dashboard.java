@@ -48,7 +48,7 @@ public final class Dashboard {
                     send(ex, 200, "text/html; charset=utf-8", Files.readAllBytes(f.toPath())); return;
                 }
                 case "/api/state": json(ex, state(Long.parseLong(q.getOrDefault("since", "0")))); return;
-                case "/api/forward": { Story.Result r = story.forward(); json(ex, Json.obj("index", story.index(), "say", r.say, "mood", r.mood)); return; }
+                case "/api/forward": { Story.Result r = story.forward(); json(ex, Json.obj("index", story.index(), "say", r.say, "mood", r.mood, "replay", Json.raw(Json.arr(r.replay)))); return; }
                 case "/api/restart": story.restart(); json(ex, Json.obj("index", 0)); return;
                 default: send(ex, 404, "text/plain", "not found".getBytes(StandardCharsets.UTF_8));
             }

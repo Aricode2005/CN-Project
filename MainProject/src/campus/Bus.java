@@ -85,6 +85,7 @@ public final class Bus implements CampusHooks {
     private final Map<String, DhcpSnoopingTable.Binding> displaced = new java.util.HashMap<>();   // binding a lease replaced, restored if the lease is declined
     public volatile long sniffEpoch = System.currentTimeMillis();
     public volatile String lastTranscript = "";
+    public final Recorder rec = new Recorder(ADMIN_MAC, ADMIN_NAME);
 
     public Bus(File dataDir) throws Exception {
         dhcpData = new File(dataDir, "dhcp"); dhcpData.mkdirs();
@@ -113,7 +114,7 @@ public final class Bus implements CampusHooks {
     private static NetworkInterface nic(String mac, String ip) { return new NetworkInterface("eth0", MacAddress.parse(mac), ip == null ? IpAddress.ANY : IpAddress.parse(ip), null, null); }
 
     private void startDhcp() throws Exception {
-        Consumer<String> logger = msg -> { dhcpLogs.add(msg); if (dhcpLogs.size() > 200) dhcpLogs.remove(0); ev("DHCP", msg); };
+        Consumer<String> logger = msg -> { dhcpLogs.add(msg); if (dhcpLogs.size() > 200) dhcpLogs.remove(0); ev("DHCP", msg); rec.dhcpLog(msg, hashedNode()); };
         List<DhcpServerNode> ns = new ArrayList<>();
         for (int i = 0; i < 3; i++)
             ns.add(new DhcpServerNode("DHCP-Node-" + (i + 1), "10.0.0." + (i + 1), NODE_PORTS[i], SUBNET, GATEWAY, GATEWAY, new File(dhcpData, "leases_node" + (i + 1) + ".db"), logger));
@@ -125,6 +126,12 @@ public final class Bus implements CampusHooks {
         nodes = ns; lb = l; sim = new DhcpClientSimulator(LB_PORT, logger);
         dhcpDash = new dhcp.dashboard.DashboardServer(DHCP_HTTP, l, ns, sim, dhcpLogs);
         dhcpDash.start();
+    }
+
+    /** Which cluster node the load balancer's consistent hash sends the laptop to (1..3), or 0 if unknown. */
+    int hashedNode() {
+        try { Integer p = lb.getRouter().selectBackendPort(ADMIN_MAC); for (int i = 0; i < NODE_PORTS.length; i++) if (p != null && p == NODE_PORTS[i]) return i + 1; } catch (RuntimeException e) { }
+        return 0;
     }
 
     private void stopDhcp() {
@@ -223,7 +230,7 @@ public final class Bus implements CampusHooks {
         HostNode a = admin; String ip = adminIp;
         if (a == null || ip == null) return;
         String text = tls ? "TLS record, " + n + " bytes (encrypted)" : printable(b, n);
-        if (text.isEmpty()) return;
+        if (text.isEmpty()) text = "(Telnet option negotiation: IAC commands only)";
         if (text.length() > 160) text = text.substring(0, 160) + "…";
         String payload = "TELNET " + (toRouter ? ip + " > " + GATEWAY + ":23" : GATEWAY + ":23 > " + ip) + " | " + text;
         HostNode from = toRouter ? a : router;
@@ -231,6 +238,8 @@ public final class Bus implements CampusHooks {
         MacAddress mac = from.getArpTable().lookupMac(dst);
         if (mac == null) { from.sendArpRequest(dst); mac = from.getArpTable().lookupMac(dst); }
         if (mac == null) return;
+        int toPort = mac.equals(attacker.getNic().getMac()) ? 5 : toRouter ? 4 : ADMIN_PORT;
+        rec.telnet(toRouter, b, n, tls, toPort, ip);
         from.getNic().send(new EthernetFrame(mac, from.getNic().getMac(), EthernetFrame.ETHERTYPE_IPV4, payload.getBytes(StandardCharsets.UTF_8)));
     }
 
