@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routing Signal Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#101418; --panel:#161c21; --panel2:#1c242a; --line:#2a343c; --ink:#e7e3d8; --muted:#8d98a1; --track:#c9c2b0;
+  --amber:#f2b33d; --red:#ef5b5b; --green:#4cc38a; --cyan:#5ccfe6; --flap:#0a0c0e; --flaptext:#f6d58e;
+  --s0:#f2b33d; --s1:#5ccfe6; --s2:#4cc38a; --s3:#ef7bb5; --s4:#a98bf2; --s5:#e7e3d8;
+  --cond:"Barlow Condensed","Arial Narrow",sans-serif; --sans:"Barlow",system-ui,sans-serif; --mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#ebe6da; --panel:#f6f2e9; --panel2:#efe9dd; --line:#d0c7b6; --ink:#1d2328; --muted:#5f6870; --track:#3b4046;
+  --amber:#b07400; --red:#c43d3d; --green:#1f8a5b; --cyan:#17809a; --flap:#1d2328; --flaptext:#f6d58e;
+  --s0:#b07400; --s1:#17809a; --s2:#1f8a5b; --s3:#b8417d; --s4:#6d4fc2; --s5:#1d2328;}}
+:root[data-theme="light"]{--bg:#ebe6da; --panel:#f6f2e9; --panel2:#efe9dd; --line:#d0c7b6; --ink:#1d2328; --muted:#5f6870; --track:#3b4046;
+  --amber:#b07400; --red:#c43d3d; --green:#1f8a5b; --cyan:#17809a; --flap:#1d2328; --flaptext:#f6d58e;
+  --s0:#b07400; --s1:#17809a; --s2:#1f8a5b; --s3:#b8417d; --s4:#6d4fc2; --s5:#1d2328;}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);padding-bottom:80px}
+code,.mono{font-family:var(--mono);font-size:.85em}
+button,select,input{font:inherit;color:inherit}
+b{font-weight:600}
+
+/* ---------------- header: the box nameboard */
+header.box{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 30px;padding:28px 32px 20px;border-bottom:6px solid var(--track);position:relative}
+header.box::after{content:"";position:absolute;left:0;right:0;bottom:-12px;border-bottom:2px solid var(--track)}
+.box h1{margin:0;font:700 clamp(2.4rem,6vw,4.6rem)/.9 var(--cond);letter-spacing:.01em;text-transform:uppercase}
+.box h1 span{color:var(--amber)}
+.box .sub{grid-column:1;max-width:72ch;color:var(--muted);margin-top:8px}
+.lamps{display:grid;gap:6px;align-content:start;font:500 .85rem var(--mono)}
+.lamp{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.lamp i{width:11px;height:11px;border-radius:50%;background:var(--line);box-shadow:0 0 0 2px var(--panel)}
+.lamp.on i{background:var(--green);box-shadow:0 0 10px var(--green)}
+.lamp b{color:var(--ink);font-weight:600}
+.theme{justify-self:start;margin-top:6px;border:1px solid var(--line);background:none;padding:3px 10px;cursor:pointer;font:600 .74rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------------- lever frame (navigation) */
+nav.levers{position:sticky;top:0;z-index:4;background:var(--bg);display:flex;gap:0;overflow-x:auto;border-bottom:1px solid var(--line);margin-top:12px;padding:0 20px}
+nav.levers a{flex:0 0 auto;display:grid;justify-items:center;gap:2px;text-decoration:none;color:var(--muted);padding:10px 12px 8px;font:600 .74rem/1 var(--cond);letter-spacing:.1em;text-transform:uppercase;border-bottom:3px solid transparent}
+nav.levers a b{font:700 1.15rem/1 var(--cond);color:var(--ink);width:30px;height:30px;display:grid;place-items:center;border:2px solid var(--track);border-radius:3px 3px 12px 12px}
+nav.levers a.on{color:var(--ink);border-bottom-color:var(--amber)} nav.levers a.on b{background:var(--amber);color:#111;border-color:var(--amber)}
+
+main{max-width:1380px;margin:0 auto;padding:0 32px}
+section{padding:46px 0 38px;border-bottom:1px solid var(--line)}
+.sh{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:end;margin-bottom:8px}
+.plate{font:700 1.5rem/1 var(--cond);background:var(--track);color:var(--bg);padding:8px 12px 6px;border-radius:2px;min-width:52px;text-align:center}
+.sh h2{margin:0;font:600 clamp(1.6rem,3vw,2.4rem)/1.05 var(--cond);letter-spacing:.01em}
+.sh .ref{font:500 .8rem var(--mono);color:var(--muted);text-align:right}
+.lede{max-width:78ch;margin:10px 0 18px;color:var(--ink)}
+.lede em{color:var(--amber);font-style:normal;font-weight:600}
+
+/* ---------------- controls */
+.ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:0 0 16px}
+.btn{border:2px solid var(--track);background:transparent;padding:6px 14px;cursor:pointer;font:600 .86rem var(--cond);letter-spacing:.12em;text-transform:uppercase;border-radius:2px}
+.btn:hover{background:var(--track);color:var(--bg)}
+.btn.go{background:var(--amber);border-color:var(--amber);color:#141414}
+.btn.go:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:wait}
+.tog{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:600 .86rem var(--cond);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tog input{appearance:none;width:38px;height:20px;border:2px solid var(--track);border-radius:10px;position:relative;cursor:pointer;margin:0}
+.tog input::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform .15s}
+.tog input:checked{border-color:var(--green)} .tog input:checked::after{transform:translateX(18px);background:var(--green)}
+.tog input:checked + span{color:var(--ink)}
+select.sel{background:var(--panel);border:2px solid var(--track);padding:5px 8px;font:600 .9rem var(--mono)}
+
+/* ---------------- the board layout */
+.stage{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:start}
+.mapbox{background:var(--panel);border:1px solid var(--line);position:relative}
+.mapbox svg{display:block;width:100%;height:auto}
+.mapcap{position:absolute;left:12px;top:10px;font:600 .72rem var(--cond);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.narr{background:var(--panel2);border-left:4px solid var(--amber);padding:10px 14px;margin:14px 0 0;min-height:52px}
+.narr .r{font:700 .78rem var(--cond);letter-spacing:.16em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:2px}
+.narr.alarm{border-left-color:var(--red)} .narr.alarm .r{color:var(--red)}
+.narr.ok{border-left-color:var(--green)} .narr.ok .r{color:var(--green)}
+
+/* SVG map styling */
+.trk{stroke:var(--track);stroke-width:7;stroke-linecap:round}
+.trk2{stroke:var(--panel);stroke-width:2.5;stroke-linecap:round}
+.trk.down{stroke:var(--red);stroke-dasharray:3 9;stroke-width:4}
+.cost rect{fill:var(--bg);stroke:var(--track);stroke-width:1.5}
+.cost text{fill:var(--ink);font:600 13px var(--mono)}
+.nd circle.body{fill:var(--panel2);stroke:var(--track);stroke-width:3}
+.nd.settled circle.body{fill:var(--green);stroke:var(--green)}
+.nd.cur circle.ring{stroke:var(--amber);stroke-width:3;fill:none}
+.nd.dest circle.body{stroke:var(--cyan);stroke-width:4}
+.nd.loop circle.body{stroke:var(--red);stroke-width:4}
+.nd text.nm{fill:var(--ink);font:700 19px var(--cond)}
+.nd.settled text.nm{fill:#0d1a12}
+.nd text.tag{fill:var(--muted);font:600 11px var(--mono)}
+.lab rect{fill:var(--flap);rx:2}
+.lab text{fill:var(--flaptext);font:600 12px var(--mono)}
+.arrow{stroke:var(--amber);stroke-width:3;fill:none}
+.arrow.loop{stroke:var(--red)}
+.pkt{fill:var(--cyan)}
+.pkt.loop{fill:var(--red)}
+
+/* ---------------- split-flap boards */
+.boards{display:grid;gap:10px}
+.board{background:var(--flap);padding:10px 12px 12px;border-radius:3px;border:1px solid #000}
+.board h4{margin:0 0 8px;font:700 .8rem var(--cond);letter-spacing:.18em;text-transform:uppercase;color:#9aa3aa;display:flex;justify-content:space-between}
+.board h4 span{color:var(--flaptext)}
+.flaprow{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:4px;margin-top:4px}
+.flaprow.head .fl{background:none;color:#7c868e;font:600 .68rem var(--cond);letter-spacing:.14em;text-transform:uppercase;box-shadow:none;padding:0 2px}
+.fl{background:#1a1d20;color:var(--flaptext);font:600 .95rem/1 var(--mono);padding:7px 6px;text-align:center;border-radius:2px;position:relative;box-shadow:inset 0 -1px 0 #000,inset 0 1px 0 #2a2e32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid #000;opacity:.7}
+.fl.flip{animation:flip .38s ease-out}
+.fl.bad{color:#ff8f8f}
+.fl.good{color:#8ff0b8}
+@keyframes flip{0%{transform:perspective(200px) rotateX(-90deg);filter:brightness(1.8)}100%{transform:perspective(200px) rotateX(0)}}
+
+/* ---------------- chart */
+.chartbox{background:var(--panel);border:1px solid var(--line);margin-top:16px;padding:8px 10px 4px;position:relative}
+.chartbox svg{display:block;width:100%;height:auto}
+.chartbox .mapcap{position:static;display:block;margin:2px 0 4px}
+.keys{display:flex;flex-wrap:wrap;gap:4px 16px;font:600 .8rem var(--cond);letter-spacing:.08em;margin:2px 0 6px}
+.keys i{display:inline-block;width:18px;height:4px;margin-right:6px;vertical-align:middle}
+
+/* ---------------- tables */
+table.tt{border-collapse:collapse;width:100%;font:13px/1.35 var(--mono)}
+table.tt th{font:600 .72rem var(--cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:2px solid var(--track);padding:6px 6px}
+table.tt td{border-bottom:1px solid var(--line);padding:6px 6px;white-space:nowrap}
+table.tt tr.new td{animation:rowin .5s ease-out}
+table.tt td.min{color:var(--amber);font-weight:600}
+table.tt td.done{color:var(--muted)}
+table.tt td.chg{background:color-mix(in srgb,var(--amber) 22%,transparent)}
+table.tt td.inf{color:var(--muted)}
+@keyframes rowin{from{background:color-mix(in srgb,var(--amber) 30%,transparent)}to{background:transparent}}
+.scroll{overflow-x:auto}
+.mats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.mat{background:var(--panel);border:1px solid var(--line);padding:8px 10px}
+.mat h4{margin:0 0 4px;font:700 1rem var(--cond);letter-spacing:.06em}
+.mat h4 small{font:500 .74rem var(--mono);color:var(--muted);margin-left:6px}
+.mat table.tt td,.mat table.tt th{padding:3px 5px}
+.mat tr.self td{color:var(--amber);font-weight:600}
+.mat tr.unk td{color:var(--muted)}
+
+/* ---------------- messages + inspector */
+.msgs{margin-top:14px;max-height:260px;overflow:auto;border-top:2px solid var(--track)}
+.msg{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:10px;border-bottom:1px solid var(--line);padding:5px 4px;font:12.5px/1.45 var(--mono);cursor:pointer;background:none;border-left:0;border-right:0;border-top:0;text-align:left;width:100%}
+.msg:hover{background:var(--panel2)}
+.msg .who{color:var(--amber);font-weight:600}
+.msg.loop .who,.msg.loop .what{color:var(--red)}
+.msg .by{color:var(--muted)}
+aside.insp{position:fixed;top:0;right:0;bottom:62px;width:min(480px,100vw);background:var(--panel);border-left:3px solid var(--amber);z-index:6;transform:translateX(105%);transition:transform .25s ease-out;display:flex;flex-direction:column}
+aside.insp.open{transform:none}
+aside.insp header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+aside.insp h3{margin:0;font:700 1.3rem var(--cond);letter-spacing:.04em}
+aside.insp .body{overflow:auto;padding:12px 16px}
+.hex{font:12px/1.7 var(--mono);white-space:pre}
+.hex span.b{padding:0 1px}
+.hex span.b.hl{background:var(--amber);color:#111}
+.hex .off{color:var(--muted)}
+.fields td{cursor:default}
+.fields tr:hover td{background:var(--panel2)}
+
+/* ---------------- comparison */
+.cmp{display:grid;gap:10px;margin-top:10px}
+.cmprow{display:grid;grid-template-columns:240px minmax(0,1fr) 120px;gap:14px;align-items:center}
+.cmprow .nm{font:600 1.05rem var(--cond);letter-spacing:.04em}
+.cmprow .nm small{display:block;font:500 .78rem var(--mono);color:var(--muted);letter-spacing:0}
+.bar{height:22px;background:var(--panel2);position:relative;border:1px solid var(--line)}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--amber);transition:width .8s ease-out}
+.bar.bad i{background:var(--red)} .bar.good i{background:var(--green)}
+.cmprow .v{font:600 .95rem var(--mono)}
+table.cmpt td:first-child{font:600 1rem var(--cond);letter-spacing:.04em;white-space:normal}
+table.cmpt td{white-space:normal;vertical-align:top}
+
+/* ---------------- player */
+.player{position:fixed;left:0;right:0;bottom:0;z-index:7;background:#07090b;color:#e7e3d8;display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:3px solid var(--amber)}
+.player .btn{border-color:#c9c2b0;color:#e7e3d8}
+.player .btn:hover{background:#c9c2b0;color:#07090b}
+.player .btn.fwd{background:var(--amber);border-color:var(--amber);color:#111}
+.player .btn[aria-pressed=true]{background:#e7e3d8;color:#07090b}
+.player select{background:#07090b;color:#e7e3d8;border:2px solid #c9c2b0;padding:4px 6px;font:600 .82rem var(--mono)}
+.player .ps{flex:1;min-width:0;font:500 .9rem var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9c2b0}
+.player .ps b{color:var(--amber)}
+
+@media (max-width:980px){
+  main{padding:0 16px} header.box{padding:22px 16px 18px;grid-template-columns:1fr} .stage{grid-template-columns:1fr}
+  .sh{grid-template-columns:auto 1fr} .sh .ref{grid-column:1/-1;text-align:left} .cmprow{grid-template-columns:1fr} .player{flex-wrap:wrap} .player .ps{flex-basis:100%;order:9}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="box">
+  <div>
+    <h1>Signal <span>Box</span><br>how routers find the way</h1>
+    <p class="sub">Link state with <b>Dijkstra</b> (OSPF), distance vector with <b>Bellman-Ford</b> (RIP), path vector (BGP). Each router here is a real socket on its own loopback address, and each step sends real packets. Nothing moves until you press <b>Forward ▶</b>.</p>
+  </div>
+  <div class="lamps">
+    <div class="lamp" id="lRip"><i></i>RIP · UDP <b>520</b></div>
+    <div class="lamp on"><i></i>OSPF · UDP <b>8900</b> (stands in for IP proto 89)</div>
+    <div class="lamp" id="lBgp"><i></i>BGP · TCP <b>179</b></div>
+    <div class="lamp on"><i></i>routers <b>127.0.0.20–25</b></div>
+    <button class="theme" id="theme">light / dark</button>
+  </div>
+</header>
+
+<nav class="levers" id="levers">
+  <a href="#ways"><b>1</b>Three ways</a>
+  <a href="#dij"><b>2</b>Dijkstra</a>
+  <a href="#bf"><b>3</b>Bellman-Ford</a>
+  <a href="#news"><b>4</b>Good / bad news</a>
+  <a href="#c2"><b>5</b>2-node loop</a>
+  <a href="#c3"><b>6</b>3-node loop</a>
+  <a href="#ospf"><b>7</b>OSPF fix</a>
+  <a href="#bgp"><b>8</b>BGP fix</a>
+  <a href="#score"><b>9</b>Scoreboard</a>
+</nav>
+
+<main>
+<!-- ============================================================ 1 -->
+<section id="ways">
+  <div class="sh"><div class="plate">1</div><h2>Three ways to find the way</h2><div class="ref">Forouzan ch. 20 · Kurose &amp; Ross §5.2–5.4</div></div>
+  <p class="lede">Every router must fill in one table: <em>for each destination, which neighbour do I send to?</em> The three families differ in <b>what each router knows</b> and <b>whom it talks to</b>.</p>
+  <div class="scroll"><table class="tt cmpt">
+    <thead><tr><th></th><th>Link state</th><th>Distance vector</th><th>Path vector</th></tr></thead>
+    <tbody>
+      <tr><td>What a router knows</td><td>the <b>whole map</b>: every link and its cost</td><td>only its neighbours' <b>distances</b> (a number per destination)</td><td>the <b>whole path</b> (list of ASes) each neighbour uses</td></tr>
+      <tr><td>Whom it tells</td><td>everyone (flooding), only about its own links</td><td>only its neighbours, about everything it knows</td><td>only its neighbours (BGP peers), its chosen path</td></tr>
+      <tr><td>Algorithm</td><td>Dijkstra, run by each router on the map</td><td>Bellman-Ford: D<sub>x</sub>(y) = min<sub>v</sub> { c(x,v) + D<sub>v</sub>(y) }</td><td>Bellman-Ford over paths + policy; reject paths containing my AS</td></tr>
+      <tr><td>Protocol</td><td>OSPF, IS-IS (inside an AS)</td><td>RIP (inside an AS, max 15 hops)</td><td>BGP (between ASes: the Internet)</td></tr>
+      <tr><td>When a link breaks</td><td>new LSAs flood; everyone recomputes. <b>Fast</b></td><td>good news fast, bad news slowly: <b>count to infinity</b></td><td>loops are visible in the path itself. <b>No counting</b></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="dij">
+  <div class="sh"><div class="plate">2</div><h2>Dijkstra: settle the nearest router, one at a time</h2><div class="ref">link state · OSPF's SPF calculation</div></div>
+  <p class="lede">A link-state router has the full map (its LSDB). It starts with N' = {itself} and repeats: <em>pick the not-yet-settled router with the smallest D</em>, settle it, then check whether going through it gives any neighbour a cheaper path. Each Forward adds one row to the textbook table.</p>
+  <div class="ctl"><label class="tog" style="color:var(--ink)">Source router <select class="sel" id="dSrc"><option>u</option><option>v</option><option>w</option><option>x</option><option>y</option><option>z</option></select></label><button class="btn go" id="dLoad">Load Dijkstra</button></div>
+  <div class="stage">
+    <div><div class="mapbox"><span class="mapcap">the six-router network · costs on the plates</span><svg id="dMap" viewBox="0 0 660 400"></svg></div><div class="narr" id="dNarr"><span class="r">ready</span>Press Load, then Forward ▶.</div></div>
+    <div><div class="scroll"><table class="tt" id="dTable"></table></div><div id="dFwd" style="margin-top:16px"></div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="bf">
+  <div class="sh"><div class="plate">3</div><h2>Bellman-Ford: neighbours swap vectors</h2><div class="ref">distance vector · RIPv2 responses on UDP 520</div></div>
+  <p class="lede">A distance-vector router knows nothing about the map, only its links. Each round, every router sends its <b>distance vector</b> (one number per destination) to each neighbour as a real RIPv2 packet, then recomputes <em>D<sub>x</sub>(y) = min over neighbours v of c(x,v) + D<sub>v</sub>(y)</em>. Each box below is that router's table: its own row (amber), and the rows its neighbours sent. Changed cells light up.</p>
+  <div class="ctl"><button class="btn go" id="bLoad">Cold start: load the rounds</button><span class="mono" style="color:var(--muted)" id="bInfo"></span></div>
+  <div class="stage">
+    <div><div class="mapbox"><span class="mapcap">same network · watch the packets fly each round</span><svg id="bMap" viewBox="0 0 660 400"></svg></div><div class="narr" id="bNarr"><span class="r">ready</span>Press Load, then Forward ▶.</div>
+      <div class="msgs" id="bMsgs"></div></div>
+    <div class="mats" id="bMats"></div>
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="news">
+  <div class="sh"><div class="plate">4</div><h2>Good news travels fast, bad news travels slowly</h2><div class="ref">Kurose &amp; Ross Fig. 5.7 · the routing loop</div></div>
+  <p class="lede">Three routers, settled. Then the x–y link changes cost. When it gets <b>cheaper</b> (4 → 1), the news spreads in a couple of rounds. When it gets <b>dearer</b> (4 → 60), y thinks "z can reach x for 5, so I'll go via z for 6". But z's 5 went <i>through y</i>. y and z now point at each other, a <em>routing loop</em>, and raise their prices by one each round until z's direct link (50) is finally cheaper.</p>
+  <div class="ctl">
+    <button class="btn go" data-dv="costchange" data-cost="1" data-root="news">x–y: 4 → 1 (good news)</button>
+    <button class="btn go" data-dv="costchange" data-cost="60" data-root="news">x–y: 4 → 60 (bad news)</button>
+    <label class="tog"><input type="checkbox" id="nPoison"><span>poison reverse</span></label>
+  </div>
+  <div class="dvview" id="news-view"></div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="c2">
+  <div class="sh"><div class="plate">5</div><h2>Count to infinity: two routers</h2><div class="ref">RIP · infinity = 16 · split horizon</div></div>
+  <p class="lede">A – B – C in a line, every link cost 1. The link B–C fails. B has no direct route to C any more, but A just said "C: 2". B believes it and picks "via A, 3". A hears B's 3, so A says 4, then B says 5… <em>Each router is the other's next hop.</em> RIP caps infinity at <b>16</b> precisely so this ends. <b>Split horizon</b> ("never tell a neighbour about a route you learned from it") stops it outright.</p>
+  <div class="ctl"><button class="btn go" data-dv="count2" data-root="c2">B–C fails</button><label class="tog"><input type="checkbox" id="c2Split"><span>split horizon</span></label></div>
+  <div class="dvview" id="c2-view"></div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="c3">
+  <div class="sh"><div class="plate">6</div><h2>Three routers beat split horizon</h2><div class="ref">RIP with split horizon + poison reverse</div></div>
+  <p class="lede">A, B and C form a triangle; D hangs off C. The link C–D fails. Split horizon and poison reverse are both <b>on</b>, and the network still counts to 16. A learned D from C, so it never tells C, but it <i>does</i> tell B. B tells C, and C tells A. The bad route travels <em>round the triangle</em>, A → B → C → A, and no rule about a single neighbour can see a loop of three. That is the case distance vector cannot fix.</p>
+  <div class="ctl"><button class="btn go" data-dv="count3" data-root="c3">C–D fails</button><label class="tog"><input type="checkbox" id="c3Split" checked><span>split horizon</span></label><label class="tog"><input type="checkbox" id="c3Poison" checked><span>poison reverse</span></label></div>
+  <div class="dvview" id="c3-view"></div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section id="ospf">
+  <div class="sh"><div class="plate">7</div><h2>The same failure with link state (OSPF)</h2><div class="ref">LS Update · Router-LSA · sequence numbers</div></div>
+  <p class="lede">With link state, C and D each send a <b>new Router-LSA</b> (sequence number + 1) that simply omits the dead link. Flooding carries the fact itself ("the C–D link is gone"), not anyone's opinion of a distance. A copy with a sequence number a router already has is dropped. A link counts only if <b>both</b> ends list it. Everyone re-runs Dijkstra on the same map: no loop, no counting.</p>
+  <div class="ctl"><button class="btn go" id="oLoad">C–D fails</button></div>
+  <div class="stage">
+    <div><div class="mapbox"><span class="mapcap">watched destination: D · plates show each router's own SPF result</span><svg id="oMap" viewBox="0 0 660 400"></svg></div><div class="narr" id="oNarr"><span class="r">ready</span>Press “C–D fails”, then Forward ▶.</div><div class="msgs" id="oMsgs"></div></div>
+    <div><p class="mono" style="color:var(--muted);margin:0 0 6px">Link-state database at each router (LSA sequence numbers)</p><div class="scroll"><table class="tt" id="oDb"></table></div>
+      <div class="chartbox"><span class="mapcap">distance to D, per router, per round</span><div class="keys" id="oKeys"></div><svg id="oChart" viewBox="0 0 640 210"></svg></div><div id="oSpf" style="margin-top:14px"></div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section id="bgp">
+  <div class="sh"><div class="plate">8</div><h2>The same failure with path vector (BGP)</h2><div class="ref">UPDATE · AS_PATH · loop detection · TCP 179</div></div>
+  <p class="lede">Now every router is an autonomous system (A = AS 100 … D = AS 400, which owns 10.4.0.0/16). An announcement carries the <b>whole AS_PATH</b>. A router that finds <em>its own AS number</em> in a received path rejects it. When C–D fails, A and B briefly fall back on each other's old paths (path exploration), but the next UPDATE they send says <code>[100 200 300 400]</code>, and B sees AS 200 in it. The loop is caught after one round instead of counting to 16.</p>
+  <div class="ctl"><button class="btn go" id="gLoad">Open sessions · announce · fail C–D</button></div>
+  <div class="stage">
+    <div><div class="mapbox"><span class="mapcap">plates: best AS_PATH to 10.4.0.0/16</span><svg id="gMap" viewBox="0 0 660 400"></svg></div><div class="narr" id="gNarr"><span class="r">ready</span>Press the button, then Forward ▶.</div><div class="msgs" id="gMsgs"></div></div>
+    <div><div class="boards" id="gRib"></div><div class="chartbox"><span class="mapcap">AS-path length to 10.4.0.0/16, per round</span><div class="keys" id="gKeys"></div><svg id="gChart" viewBox="0 0 640 210"></svg></div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section id="score">
+  <div class="sh"><div class="plate">9</div><h2>Scoreboard: one failure, four protocols</h2><div class="ref">the triangle, link C–D fails</div></div>
+  <p class="lede">The same break, measured four ways: how many rounds until the network is right again, and how many routing messages crossed the wire.</p>
+  <div class="ctl"><button class="btn go" id="sRun">Run all four</button></div>
+  <div class="cmp" id="sRows"></div>
+</section>
+</main>
+
+<aside class="insp" id="insp" aria-label="packet inspector">
+  <header><h3 id="iTitle">Packet</h3><button class="btn" id="iClose">Close</button></header>
+  <div class="body"><p class="mono" id="iMeta" style="color:var(--muted);margin-top:0"></p><div class="hex" id="iHex"></div><table class="tt fields" id="iFields" style="margin-top:14px"></table></div>
+</aside>
+
+<div class="player" role="region" aria-label="step player">
+  <button class="btn" id="pRestart">⟲ Restart</button>
+  <button class="btn fwd" id="pFwd" title="Next round (→ / space)">Forward ▶</button>
+  <button class="btn" id="pAuto" aria-pressed="false">Auto-play ▶▶</button>
+  <select id="pSpeed" aria-label="speed"><option value="1400">1×</option><option value="600">2×</option><option value="220">fast</option></select>
+  <button class="btn" id="pEnd">Skip to end ⇥</button>
+  <span class="ps" id="pStat">Pick an experiment, then press <b>Forward ▶</b>. Nothing moves until you do.</span>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+async function api(path, params = {}) {
+  const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(params) });
+  return r.json();
+}
+const NS = 'http://www.w3.org/2000/svg';
+const COLORS = ['var(--s0)','var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)'];
+
+/* theme */
+$('theme').onclick = () => { const d = document.documentElement; const cur = d.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); d.dataset.theme = cur === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('rtTheme', d.dataset.theme); } catch (e) {} };
+try { const t = localStorage.getItem('rtTheme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+/* ================================================================ player: nothing moves until Forward */
+const PLAY = { st:null, auto:false, busy:false };
+function status(html) { $('pStat').innerHTML = html; }
+function setStepper(st) { PLAY.st = st; PLAY.auto = false; $('pAuto').setAttribute('aria-pressed', 'false'); status('<b>' + esc(st.label) + '</b>: ' + st.total + ' steps loaded. Press Forward ▶.'); }
+async function forward(fast) {
+  if (PLAY.busy) return; const st = PLAY.st;
+  if (!st) { status('Pick an experiment first.'); return; }
+  if (st.done()) { status('<b>' + esc(st.label) + '</b>: finished. ⟲ Restart to replay.'); PLAY.auto = false; $('pAuto').setAttribute('aria-pressed', 'false'); return; }
+  PLAY.busy = true;
+  try { await st.next(fast); } finally { PLAY.busy = false; }
+  if (PLAY.auto && !st.done()) setTimeout(() => forward(), +$('pSpeed').value);
+  else if (st.done()) { PLAY.auto = false; $('pAuto').setAttribute('aria-pressed', 'false'); }
+}
+$('pFwd').onclick = () => forward();
+$('pAuto').onclick = () => { PLAY.auto = !PLAY.auto; $('pAuto').setAttribute('aria-pressed', PLAY.auto); if (PLAY.auto) forward(); };
+$('pRestart').onclick = () => { if (PLAY.st) PLAY.st.restart(); };
+$('pEnd').onclick = async () => { const st = PLAY.st; if (!st) return; PLAY.auto = false; while (!st.done()) { PLAY.busy = true; try { await st.next(true); } finally { PLAY.busy = false; } } };
+document.addEventListener('keydown', e => { if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return; if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); forward(); } if (e.key === 'Escape') $('insp').classList.remove('open'); });
+
+/* ================================================================ map drawing */
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+const BENDS = { 'six:0-2': -255 };          // u–w is drawn as an arc over v, as in the textbook figure
+function drawMap(svg, topo, opt = {}) {
+  svg.innerHTML = '';
+  const defs = el('defs', {}, svg);
+  for (const [id, c] of [['ah', 'var(--amber)'], ['ahr', 'var(--red)']]) { const m = el('marker', { id: svg.id + id, viewBox:'0 0 10 10', refX:8, refY:5, markerWidth:5, markerHeight:5, orient:'auto' }, defs); el('path', { d:'M0,0 L10,5 L0,10 z', fill:c }, m); }
+  const gL = el('g', {}, svg), gA = el('g', {}, svg), gN = el('g', {}, svg), gP = el('g', { id: svg.id + '-pk' }, svg);
+  const down = opt.down || [];
+  const allLinks = topo.links.concat(down.map(([a, b]) => ({ a, b, cost:'✕', down:true })));
+  allLinks.forEach(l => {
+    const A = topo.nodes[l.a], B = topo.nodes[l.b], bend = BENDS[topo.id + ':' + l.a + '-' + l.b] || 0;
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy), cx = (A.x + B.x) / 2 - dy / L * bend, cy = (A.y + B.y) / 2 + dx / L * bend;
+    const d = 'M' + A.x + ',' + A.y + ' Q' + cx + ',' + cy + ' ' + B.x + ',' + B.y;
+    el('path', { d, fill:'none', class:'trk' + (l.down ? ' down' : '') }, gL);
+    if (!l.down) el('path', { d, fill:'none', class:'trk2' }, gL);
+    const mx = .25 * A.x + .5 * cx + .25 * B.x, my = .25 * A.y + .5 * cy + .25 * B.y, g = el('g', { class:'cost' }, gL);
+    const txt = String(opt.costOverride && opt.costOverride[l.a + '-' + l.b] !== undefined ? opt.costOverride[l.a + '-' + l.b] : l.cost);
+    el('rect', { x:mx - 13 - (txt.length - 1) * 4, y:my - 11, width:26 + (txt.length - 1) * 8, height:22, rx:2 }, g);
+    const t = el('text', { x:mx, y:my + 5, 'text-anchor':'middle' }, g); t.textContent = txt;
+    if (l.down) { t.setAttribute('fill', 'var(--red)'); }
+  });
+  (opt.arrows || []).forEach(([a, b, bad]) => {
+    const A = topo.nodes[a], B = topo.nodes[b], dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, ox = -uy * 13, oy = ux * 13;
+    el('line', { x1:A.x + ux * 30 + ox, y1:A.y + uy * 30 + oy, x2:A.x + ux * Math.min(L * .55, L - 34) + ox, y2:A.y + uy * Math.min(L * .55, L - 34) + oy, class:'arrow' + (bad ? ' loop' : ''), 'marker-end':'url(#' + svg.id + (bad ? 'ahr' : 'ah') + ')' }, gA);
+  });
+  topo.nodes.forEach((n, i) => {
+    const cls = ['nd']; if ((opt.settled || []).includes(i)) cls.push('settled'); if (opt.cur === i) cls.push('cur'); if (opt.dest === i) cls.push('dest'); if ((opt.loop || []).includes(i)) cls.push('loop');
+    const g = el('g', { class:cls.join(' ') }, gN);
+    el('circle', { cx:n.x, cy:n.y, r:30, class:'ring' }, g);
+    el('circle', { cx:n.x, cy:n.y, r:23, class:'body' }, g);
+    const t = el('text', { x:n.x, y:n.y + 7, 'text-anchor':'middle', class:'nm' }, g); t.textContent = n.name;
+    if (opt.tags && opt.tags[i]) { const left = n.x < 200; const tg = el('text', { x:left ? n.x - 34 : n.x, y:left ? n.y + 4 : n.y - 34, 'text-anchor':left ? 'end' : 'middle', class:'tag' }, g); tg.textContent = opt.tags[i]; }
+    if (opt.labels && opt.labels[i] != null && opt.labels[i] !== '') {
+      const s = String(opt.labels[i]), w = 12 + s.length * 7.4, below = n.y < 330, y = below ? n.y + 32 : n.y - 56;
+      const lg = el('g', { class:'lab' }, g); el('rect', { x:n.x - w / 2, y, width:w, height:20 }, lg);
+      const lt = el('text', { x:n.x, y:y + 14, 'text-anchor':'middle' }, lg); lt.textContent = s;
+    }
+  });
+}
+async function flyPackets(svg, topo, msgs, opt = {}) {
+  if (reduced || !msgs.length) return;
+  const g = $(svg.id + '-pk'); if (!g) return;
+  const dur = opt.dur || 650;
+  msgs.forEach(m => {
+    const A = topo.nodes[m.from], B = topo.nodes[m.to];
+    const c = el('circle', { r:6, class:'pkt' + (m.loop ? ' loop' : ''), cx:A.x, cy:A.y }, g);
+    const t0 = performance.now();
+    const tick = now => { const k = Math.min(1, (now - t0) / dur); c.setAttribute('cx', A.x + (B.x - A.x) * k); c.setAttribute('cy', A.y + (B.y - A.y) * k); if (k < 1) requestAnimationFrame(tick); else c.remove(); };
+    requestAnimationFrame(tick);
+    setTimeout(() => c.remove(), dur + 400);
+  });
+  await sleep(dur);
+}
+
+/* ================================================================ chart: distance per router per round */
+function drawChart(svg, keysEl, topo, series, upto, opt) {
+  // series[i] = array over steps of number|null(∞); opt.inf, opt.watch, opt.label
+  const W = 640, H = 210, L = 44, R = 12, T = 12, B = 26;
+  svg.innerHTML = '';
+  const steps = series[0] ? series[0].length : 1;
+  let max = 0; series.forEach(s => s.forEach(v => { if (v != null && v < opt.inf) max = Math.max(max, v); }));
+  const top = opt.inf <= 20 ? opt.inf : Math.max(4, Math.ceil(max * 1.15));
+  const x = k => L + (W - L - R) * (steps <= 1 ? 0 : k / (steps - 1)), y = v => T + (H - T - B) * (1 - Math.min(v, top) / top);
+  for (let v = 0; v <= top; v += top <= 20 ? 2 : Math.ceil(top / 6 / 5) * 5) { el('line', { x1:L, x2:W - R, y1:y(v), y2:y(v), stroke:'var(--line)', 'stroke-width':1 }, svg); const t = el('text', { x:L - 6, y:y(v) + 4, 'text-anchor':'end', 'font-size':10, 'font-family':'JetBrains Mono', fill:'var(--muted)' }, svg); t.textContent = v; }
+  el('line', { x1:L, x2:W - R, y1:y(top), y2:y(top), stroke:'var(--red)', 'stroke-dasharray':'4 4', 'stroke-width':1.5 }, svg);
+  const it = el('text', { x:W - R, y:y(top) - 4, 'text-anchor':'end', 'font-size':11, 'font-family':'JetBrains Mono', fill:'var(--red)' }, svg); it.textContent = opt.inf <= 20 ? '∞ = ' + opt.inf + ' (unreachable)' : '∞ / off the chart';
+  for (let k = 0; k < steps; k++) if (steps < 30 || k % 5 === 0) { const t = el('text', { x:x(k), y:H - 8, 'text-anchor':'middle', 'font-size':10, 'font-family':'JetBrains Mono', fill:'var(--muted)' }, svg); t.textContent = k; }
+  series.forEach((s, i) => {
+    if (i === opt.watch || !s.length) return;
+    let d = '';
+    for (let k = 0; k <= Math.min(upto, steps - 1); k++) {
+      const v = s[k] == null || s[k] >= opt.inf ? top : s[k];
+      d += (k === 0 ? 'M' : 'H' + x(k) + 'V') + (k === 0 ? x(k) + ',' + y(v) : y(v));
+    }
+    el('path', { d, stroke:COLORS[i % 6], 'stroke-width':2.6, fill:'none', 'stroke-linejoin':'round' }, svg);
+  });
+  if (upto < steps) el('line', { x1:x(Math.min(upto, steps - 1)), x2:x(Math.min(upto, steps - 1)), y1:T, y2:H - B, stroke:'var(--amber)', 'stroke-width':1, 'stroke-dasharray':'2 3' }, svg);
+  keysEl.innerHTML = topo.nodes.map((n, i) => i === opt.watch ? '' : '<span><i style="background:' + COLORS[i % 6] + '"></i>' + esc(n.name) + '</span>').join('');
+}
+
+/* ================================================================ split-flap boards */
+function flapBoard(container, key, title, head, rows, tpl) {
+  let b = container.querySelector('[data-k="' + key + '"]');
+  if (!b) {
+    b = document.createElement('div'); b.className = 'board'; b.dataset.k = key;
+    b.innerHTML = '<h4>' + title + '</h4><div class="flaprow head" style="--cols:' + head.length + (tpl ? ';grid-template-columns:' + tpl : '') + '">' + head.map(h => '<div class="fl">' + esc(h) + '</div>').join('') + '</div><div class="rows"></div>';
+    container.appendChild(b);
+  } else b.querySelector('h4').innerHTML = title;
+  const box = b.querySelector('.rows');
+  rows.forEach((r, ri) => {
+    let row = box.children[ri];
+    if (!row) { row = document.createElement('div'); row.className = 'flaprow'; row.style.setProperty('--cols', head.length); if (tpl) row.style.gridTemplateColumns = tpl; row.innerHTML = r.map(() => '<div class="fl"></div>').join(''); box.appendChild(row); }
+    r.forEach((cell, ci) => {
+      const c = row.children[ci], txt = typeof cell === 'object' ? cell.t : cell, cls = typeof cell === 'object' ? cell.c || '' : '';
+      if (c.textContent !== String(txt)) { c.textContent = txt; c.classList.remove('flip'); void c.offsetWidth; c.classList.add('flip'); }
+      c.className = 'fl' + (c.classList.contains('flip') ? ' flip' : '') + (cls ? ' ' + cls : '');
+    });
+  });
+  while (box.children.length > rows.length) box.lastChild.remove();
+}
+
+/* ================================================================ messages list + inspector */
+function msgList(box, round, topo, proto, describe) {
+  box.innerHTML = '';
+  if (!round.msgs.length) { box.innerHTML = '<div class="msg" style="cursor:default"><span class="by">—</span><span class="by">' + (round.kind === 'event' ? 'the change itself: no packets yet' : 'no messages this round') + '</span><span></span></div>'; return; }
+  round.msgs.forEach(m => {
+    const b = document.createElement('button'); b.className = 'msg' + (m.loop ? ' loop' : '');
+    b.innerHTML = '<span class="who">' + esc(topo.nodes[m.from].name) + ' → ' + esc(topo.nodes[m.to].name) + '</span><span class="what">' + describe(m) + '</span><span class="by">' + m.bytes + ' B ⌕</span>';
+    b.onclick = () => inspect(proto, m.hex, topo.id, topo.nodes[m.from].name + ' → ' + topo.nodes[m.to].name);
+    box.appendChild(b);
+  });
+}
+async function inspect(proto, hex, topoId, title) {
+  const r = await api('/api/decode', { proto, hex, topo: topoId });
+  $('iTitle').textContent = ({ rip:'RIPv2 response', ospf:'OSPF LS Update', bgp:'BGP message' })[proto] + ' · ' + title;
+  $('iMeta').textContent = r.bytes + ' bytes, exactly as they arrived on the receiving router\'s socket' + (proto === 'rip' ? ' (UDP 520)' : proto === 'bgp' ? ' (TCP 179)' : ' (UDP, standing in for IP protocol 89)');
+  const bytes = hex.match(/../g) || [];
+  let h = '';
+  for (let i = 0; i < bytes.length; i += 16) h += '<span class="off">' + i.toString(16).padStart(4, '0') + '  </span>' + bytes.slice(i, i + 16).map((x, j) => '<span class="b" data-i="' + (i + j) + '">' + x + '</span>').join(' ') + '\n';
+  $('iHex').innerHTML = h;
+  $('iFields').innerHTML = '<tr><th>offset</th><th>field</th><th>value</th></tr>' + r.fields.map(f => '<tr data-o="' + f.off + '" data-l="' + f.len + '"><td>' + f.off + '</td><td>' + esc(f.name) + '</td><td>' + esc(f.value) + '</td></tr>').join('');
+  $('iFields').querySelectorAll('tr[data-o]').forEach(tr => {
+    tr.onmouseenter = () => { const o = +tr.dataset.o, l = +tr.dataset.l; $('iHex').querySelectorAll('.b').forEach(b => b.classList.toggle('hl', +b.dataset.i >= o && +b.dataset.i < o + l)); };
+    tr.onmouseleave = () => $('iHex').querySelectorAll('.b').forEach(b => b.classList.remove('hl'));
+  });
+  $('insp').classList.add('open');
+}
+$('iClose').onclick = () => $('insp').classList.remove('open');
+
+function narr(id, round, text, mood) {
+  const n = $(id); n.className = 'narr' + (mood ? ' ' + mood : '');
+  n.innerHTML = '<span class="r">' + esc(round) + '</span>' + text;
+}
+
+/* ================================================================ 2. Dijkstra */
+$('dLoad').onclick = async () => {
+  const r = await api('/api/run', { scn:'dijkstra', src:$('dSrc').value });
+  const topo = r.topo, dj = r.dijkstra, src = dj.source, others = topo.nodes.map((_, i) => i).filter(i => i !== src);
+  const tbl = $('dTable');
+  tbl.innerHTML = '<thead><tr><th>step</th><th>N\'</th>' + others.map(i => '<th>D(' + topo.nodes[i].name + '), p(' + topo.nodes[i].name + ')</th>').join('') + '</tr></thead><tbody></tbody>';
+  $('dFwd').innerHTML = '';
+  drawMap($('dMap'), topo, { cur:src, settled:[src] });
+  narr('dNarr', 'loaded', 'Source <b>' + esc(topo.nodes[src].name) + '</b>. ' + dj.steps.length + ' steps. Press Forward ▶.');
+  let k = 0;
+  const show = () => {
+    const s = dj.steps[k - 1], nP = s.nPrime, body = tbl.querySelector('tbody');
+    const tr = document.createElement('tr'); tr.className = 'new';
+    tr.innerHTML = '<td>' + s.step + '</td><td>' + nP.map(i => topo.nodes[i].name).join('') + '</td>' + others.map(i => {
+      const settledBefore = nP.includes(i) && i !== s.added;
+      if (settledBefore) return '<td class="done"></td>';
+      const d = s.dist[i]; const txt = d == null ? '∞' : d + ', ' + topo.nodes[s.prev[i]].name;
+      return '<td class="' + (i === s.added ? 'min' : d == null ? 'inf' : '') + '">' + txt + '</td>';
+    }).join('');
+    body.appendChild(tr);
+    const labels = topo.nodes.map((_, i) => s.dist[i] == null ? '∞' : (i === src ? '0' : s.dist[i] + ' via ' + topo.nodes[s.prev[i]].name));
+    const arrows = [];
+    topo.nodes.forEach((_, i) => { if (i !== src && s.dist[i] != null && nP.includes(i)) arrows.push([s.prev[i], i]); });
+    drawMap($('dMap'), topo, { settled:nP, cur:s.added, labels, arrows });
+    const rel = s.relaxed.map(x => x.kept ? topo.nodes[x.v].name + ': ' + x.tried + ' via ' + topo.nodes[s.added].name + ' is not better than ' + x.old + ' (kept)' : topo.nodes[x.v].name + ': ' + (x.old == null ? '∞' : x.old) + ' → <b>' + x.new + '</b> via ' + topo.nodes[x.via].name).join(' · ');
+    narr('dNarr', 'step ' + s.step, esc(s.why) + (rel ? '<br>' + rel : ''));
+    if (k === dj.steps.length) {
+      $('dFwd').innerHTML = '<p class="mono" style="color:var(--muted);margin:0 0 6px">forwarding table of ' + esc(topo.nodes[src].name) + '</p><table class="tt"><tr><th>destination</th><th>cost</th><th>send to (next hop)</th><th>shortest path</th></tr>' + dj.table.map(t => '<tr><td>' + topo.nodes[t.dest].name + '</td><td>' + (t.cost ?? '∞') + '</td><td><b>' + (t.next >= 0 ? topo.nodes[t.next].name : '—') + '</b></td><td>' + t.path.map(i => topo.nodes[i].name).join(' → ') + '</td></tr>').join('') + '</table>';
+      narr('dNarr', 'done', 'All routers settled. The <b>amber arrows form the shortest-path tree</b>. The forwarding table only needs the <b>first hop</b> of each path.', 'ok');
+    }
+    status('<b>Dijkstra from ' + esc(topo.nodes[src].name) + '</b>: step ' + s.step + ' of ' + (dj.steps.length - 1) + ', settled ' + esc(topo.nodes[s.added].name));
+  };
+  setStepper({ label:'Dijkstra from ' + topo.nodes[src].name, total:dj.steps.length, done:() => k >= dj.steps.length, restart:() => $('dLoad').click(), next: async () => { k++; show(); } });
+};
+
+/* ================================================================ 3. Bellman-Ford cold start */
+$('bLoad').onclick = async () => {
+  $('bLoad').disabled = true; const r = await api('/api/run', { scn:'bf' }); $('bLoad').disabled = false;
+  if (r.error) { narr('bNarr', 'error', esc(r.error), 'alarm'); return; }
+  const topo = r.topo; let k = 0;
+  $('bInfo').textContent = r.converged + ' exchanges to converge · ' + r.messages + ' RIP packets over real UDP' + (r.wire.rip520 ? ' (port 520)' : '');
+  const render = async (fast) => {
+    const rd = r.rounds[k], prev = k > 0 ? r.rounds[k - 1] : null;
+    drawMap($('bMap'), topo, {});
+    if (!fast && rd.msgs.length) await flyPackets($('bMap'), topo, rd.msgs, { dur:700 });
+    const changed = new Set(rd.changed.map(p => p[0] + ':' + p[1]));
+    $('bMats').innerHTML = rd.tables.map((t, x) => {
+      const head = '<tr><th></th>' + topo.nodes.map(n => '<th>' + esc(n.name) + '</th>').join('') + '</tr>';
+      const own = '<tr class="self"><td>' + esc(topo.nodes[x].name) + '</td>' + t.dist.map((v, d) => '<td class="' + (changed.has(x + ':' + d) ? 'chg' : '') + '">' + (v == null ? '∞' : v) + '</td>').join('') + '</tr>';
+      const rows = t.rows.map(row => '<tr class="' + (row.known ? '' : 'unk') + '"><td>' + esc(topo.nodes[row.via].name) + '</td>' + row.vec.map(v => '<td>' + (v == null ? '∞' : v) + '</td>').join('') + '</tr>').join('');
+      return '<div class="mat"><h4>' + esc(topo.nodes[x].name) + '<small>own row + rows from ' + t.rows.map(rw => topo.nodes[rw.via].name).join(', ') + '</small></h4><table class="tt">' + head + own + rows + '</table></div>';
+    }).join('');
+    msgList($('bMsgs'), rd, topo, 'rip', m => m.entries.map(e => topo.nodes[e.d].name + ':' + (e.m == null ? '∞' : e.m)).join(' '));
+    narr('bNarr', rd.kind === 'start' ? 'time 0' : 'exchange ' + rd.round, esc(rd.note) + (rd.kind !== 'start' ? ' Click a packet below to see its bytes.' : ''), rd.changed.length || rd.kind === 'start' ? '' : 'ok');
+    status('<b>Bellman-Ford</b>: ' + (rd.kind === 'start' ? 'time 0' : 'after exchange ' + rd.round) + ' · ' + rd.changed.length + ' table entries changed');
+  };
+  await render(true);
+  setStepper({ label:'Bellman-Ford cold start', total:r.rounds.length - 1, done:() => k >= r.rounds.length - 1, restart:() => $('bLoad').click(), next: async fast => { k++; await render(fast); } });
+};
+
+/* ================================================================ 4–6. distance-vector instability views */
+function dvView(root, r) {
+  const view = $(root + '-view'), topo = r.topo, w = r.watch, inf = r.inf;
+  view.innerHTML = '<div class="stage"><div><div class="mapbox"><span class="mapcap">' + esc(r.title) + ' · plates: cost to ' + esc(topo.nodes[w].name) + ' and next hop</span><svg id="' + root + 'Map" viewBox="0 0 660 400"></svg></div><div class="narr" id="' + root + 'Narr"></div><div class="msgs" id="' + root + 'Msgs"></div></div>'
+    + '<div><div class="boards" id="' + root + 'Boards"></div><div class="chartbox"><span class="mapcap">cost to ' + esc(topo.nodes[w].name) + ' over rounds</span><div class="keys" id="' + root + 'Keys"></div><svg id="' + root + 'Chart" viewBox="0 0 640 210"></svg></div>'
+    + '<p class="mono" style="color:var(--muted);margin:10px 0 0">' + r.converged + ' exchange' + (r.converged === 1 ? '' : 's') + ' after the change · ' + r.messages + ' RIP packets over UDP' + (r.wire.rip520 ? ' 520' : '') + (r.split ? ' · split horizon' : '') + (r.poison ? ' + poison reverse' : '') + '</p></div></div>';
+  const series = topo.nodes.map((_, x) => r.rounds.map(rd => rd.tables[x].dist[w]));
+  const failed = []; const costOverride = {};
+  let k = 0;
+  const render = async (fast) => {
+    const rd = r.rounds[k];
+    // the link event: mark down / new cost from this step on
+    const ev = r.rounds.slice(0, k + 1).find(x => x.kind === 'event');
+    let down = [], co = {};
+    if (ev) {
+      const m = ev.note.match(/Link (\S+)–(\S+) (fails|changes cost (\d+) → (\d+))/);
+      if (m) { const a = topo.nodes.findIndex(n => n.name === m[1]), b = topo.nodes.findIndex(n => n.name === m[2]); if (m[3] === 'fails') down = [[a, b]]; else co[Math.min(a, b) + '-' + Math.max(a, b)] = m[5]; }
+    }
+    const t = { ...topo, links: topo.links.filter(l => !down.some(([a, b]) => (l.a === a && l.b === b) || (l.a === b && l.b === a))) };
+    const loopNodes = new Set(); (rd.loops || []).forEach(([d, cyc]) => { if (d === w) cyc.forEach(i => loopNodes.add(i)); });
+    const arrows = [], labels = [];
+    rd.tables.forEach((tb, x) => {
+      if (x === w) { labels.push('destination'); return; }
+      const d = tb.dist[w], nh = tb.next[w];
+      labels.push(d == null ? '∞ unreachable' : d + ' via ' + topo.nodes[nh].name);
+      if (nh >= 0 && nh !== x) arrows.push([x, nh, loopNodes.has(x) && loopNodes.has(nh)]);
+    });
+    drawMap($(root + 'Map'), t, { down, costOverride:co, labels, arrows, dest:w, loop:[...loopNodes] });
+    if (!fast && rd.msgs.length) await flyPackets($(root + 'Map'), t, rd.msgs.map(m => ({ ...m, loop: loopNodes.has(m.from) && loopNodes.has(m.to) })), { dur:520 });
+    topo.nodes.forEach((n, x) => {
+      if (x === w) return;
+      const tb = rd.tables[x], d = tb.dist[w], nh = tb.next[w];
+      const rows = [[topo.nodes[w].name, nh >= 0 ? topo.nodes[nh].name : '—', { t: d == null ? '∞' : String(d), c: d == null ? 'bad' : loopNodes.has(x) ? 'bad' : '' }]];
+      flapBoard($(root + 'Boards'), 'r' + x, 'router <span>' + esc(n.name) + '</span><span style="color:#7c868e">' + (loopNodes.has(x) ? '⟲ in a loop' : '') + '</span>', ['to', 'via', 'cost'], rows);
+    });
+    drawChart($(root + 'Chart'), $(root + 'Keys'), topo, series, k, { inf, watch:w });
+    msgList($(root + 'Msgs'), rd, topo, 'rip', m => m.entries.filter(e => e.d === w).map(e => 'says ' + topo.nodes[w].name + ': ' + (e.m == null ? '∞' : e.m) + (e.poisoned ? ' (poisoned)' : '')).join('') + (m.omitted.includes(w) ? 'says nothing about ' + topo.nodes[w].name + ' (split horizon)' : ''));
+    const looping = loopNodes.size > 0;
+    const last = k === r.rounds.length - 1;
+    narr(root + 'Narr', rd.kind === 'start' ? 'before' : rd.kind === 'event' ? 'the change' : 'round ' + rd.round,
+      esc(rd.note) + (looping ? ' <b>Routing loop: ' + [...loopNodes].map(i => topo.nodes[i].name).join(' ⇄ ') + '</b>: packets for ' + esc(topo.nodes[w].name) + ' bounce between them.' : '') + (last ? ' <b>Finished after ' + r.converged + ' exchanges.</b>' : ''),
+      looping ? 'alarm' : last ? 'ok' : '');
+    status('<b>' + esc(r.title) + '</b>: ' + (rd.kind === 'exchange' ? 'round ' + rd.round : rd.kind) + ' of ' + (r.rounds.length - 1) + (looping ? ' · <b style="color:var(--red)">loop</b>' : ''));
+  };
+  render(true);
+  setStepper({ label:r.title, total:r.rounds.length - 1, done:() => k >= r.rounds.length - 1, restart:() => dvView(root, r), next: async fast => { k++; await render(fast); } });
+}
+document.querySelectorAll('[data-dv]').forEach(b => b.onclick = async () => {
+  const root = b.dataset.root, p = { scn:b.dataset.dv };
+  if (b.dataset.cost) { p.cost = b.dataset.cost; p.poison = $('nPoison').checked ? 1 : 0; }
+  if (root === 'c2') p.split = $('c2Split').checked ? 1 : 0;
+  if (root === 'c3') { p.split = $('c3Split').checked || $('c3Poison').checked ? 1 : 0; p.poison = $('c3Poison').checked ? 1 : 0; }
+  b.disabled = true; const r = await api('/api/run', p); b.disabled = false;
+  if (r.error) { status(esc(r.error)); return; }
+  dvView(root, r);
+  $(root).scrollIntoView({ block:'start' });
+});
+
+/* ================================================================ 7. OSPF */
+$('oLoad').onclick = async () => {
+  $('oLoad').disabled = true; const r = await api('/api/run', { scn:'ospf' }); $('oLoad').disabled = false;
+  if (r.error) { narr('oNarr', 'error', esc(r.error), 'alarm'); return; }
+  const topo = r.topo, w = r.watch; let k = 0;
+  const series = topo.nodes.map((_, x) => r.rounds.map(rd => rd.routers[x].dist[w]));
+  const render = async fast => {
+    const rd = r.rounds[k], ev = k >= 1;
+    const t = { ...topo, links: ev ? topo.links.filter(l => !(l.a === 2 && l.b === 3)) : topo.links };
+    const labels = rd.routers.map((ro, x) => x === w ? 'destination' : ro.dist[w] == null ? '∞ unreachable' : ro.dist[w] + ' via ' + topo.nodes[ro.next[w]].name);
+    const arrows = rd.routers.map((ro, x) => x !== w && ro.next[w] >= 0 && ro.next[w] !== x ? [x, ro.next[w], false] : null).filter(Boolean);
+    drawMap($('oMap'), t, { down: ev ? [[2, 3]] : [], labels, arrows, dest:w });
+    if (!fast && rd.msgs.length) await flyPackets($('oMap'), t, rd.msgs, { dur:650 });
+    $('oDb').innerHTML = '<tr><th>router</th>' + topo.nodes.map(n => '<th>LSA from ' + esc(n.name) + '</th>').join('') + '</tr>' + rd.routers.map((ro, x) => {
+      const p = k > 0 ? r.rounds[k - 1].routers[x] : null;
+      return '<tr><td><b>' + esc(topo.nodes[x].name) + '</b></td>' + ro.lsdb.map((l, o) => '<td class="' + (p && p.lsdb[o] && l && p.lsdb[o].seq !== l.seq ? 'chg' : '') + '">' + (l ? l.seq.replace('0x8000000', '…') + ' · ' + l.links + 'L' : '—') + '</td>').join('') + '</tr>';
+    }).join('');
+    drawChart($('oChart'), $('oKeys'), topo, series, k, { inf:16, watch:w });
+    msgList($('oMsgs'), rd, topo, 'ospf', m => 'LSA of ' + esc(topo.nodes[m.origin].name) + ' seq …' + m.seq.slice(-1) + ' → ' + esc(m.action));
+    const last = k === r.rounds.length - 1;
+    narr('oNarr', rd.kind === 'start' ? 'before' : rd.kind === 'event' ? 'the change' : 'flood ' + rd.round, esc(rd.note) + (last ? ' <b>Done in ' + r.converged + ' flooding rounds, ' + r.messages + ' LS Updates. No loop at any point.</b>' : ''), last ? 'ok' : '');
+    if (last) $('oSpf').innerHTML = '<p class="mono" style="color:var(--muted);margin:0 0 6px">A\'s Dijkstra on its new LSDB</p><table class="tt"><tr><th>to</th><th>cost</th><th>next hop</th></tr>' + r.spf.table.map(x => '<tr><td>' + topo.nodes[x.dest].name + '</td><td>' + (x.cost ?? '∞') + '</td><td>' + (x.next >= 0 ? topo.nodes[x.next].name : '— (unreachable)') + '</td></tr>').join('') + '</table>';
+    else $('oSpf').innerHTML = '';
+    status('<b>OSPF</b>: ' + (rd.kind === 'flood' ? 'flooding round ' + rd.round : rd.kind));
+  };
+  await render(true);
+  setStepper({ label:'OSPF: C–D fails', total:r.rounds.length - 1, done:() => k >= r.rounds.length - 1, restart:() => $('oLoad').click(), next: async fast => { k++; await render(fast); } });
+};
+
+/* ================================================================ 8. BGP */
+$('gLoad').onclick = async () => {
+  $('gLoad').disabled = true; const r = await api('/api/run', { scn:'bgp' }); $('gLoad').disabled = false;
+  if (r.error) { narr('gNarr', 'error', esc(r.error), 'alarm'); return; }
+  const topo = r.topo, w = r.watch; let k = 0;
+  const tags = topo.nodes.map(n => 'AS ' + n.as);
+  const series = topo.nodes.map((_, x) => r.rounds.map(rd => rd.routers[x].hops));
+  const render = async fast => {
+    const rd = r.rounds[k], failed = k >= r.failAt;
+    const t = { ...topo, links: failed ? topo.links.filter(l => !(l.a === 2 && l.b === 3)) : topo.links };
+    const loop = new Set((rd.loops || []).flat());
+    const labels = rd.routers.map((ro, x) => x === w ? 'origin 10.4.0.0/16' : ro.best == null ? 'no route' : '[' + ro.best.join(' ') + ']');
+    const arrows = rd.routers.map((ro, x) => x !== w && ro.via >= 0 ? [x, ro.via, loop.has(x)] : null).filter(Boolean);
+    drawMap($('gMap'), t, { down: failed ? [[2, 3]] : [], labels, arrows, dest:w, tags, loop:[...loop] });
+    if (!fast && rd.msgs.length) await flyPackets($('gMap'), t, rd.msgs, { dur:700 });
+    topo.nodes.forEach((n, x) => {
+      const ro = rd.routers[x];
+      const rows = ro.rib.map(e => [topo.nodes[e.from].name + ' (AS ' + topo.nodes[e.from].as + ')', { t: e.path ? '[' + e.path.join(' ') + ']' : (e.note || '—'), c: e.note && e.note.startsWith('rejected') ? 'bad' : e.path && ro.via === e.from ? 'good' : '' }]);
+      flapBoard($('gRib'), 'b' + x, 'router <span>' + esc(n.name) + ' · AS ' + n.as + '</span><span style="color:#7c868e">best: ' + (x === w ? 'origin' : ro.best ? '[' + ro.best.join(' ') + ']' : 'none') + '</span>', ['heard from', 'AS_PATH (RIB-In)'], rows, '1fr 2.3fr');
+    });
+    drawChart($('gChart'), $('gKeys'), topo, series, k, { inf:16, watch:w });
+    msgList($('gMsgs'), rd, topo, 'bgp', m => m.type === 'OPEN' || m.type === 'KEEPALIVE' ? esc(m.text) : (m.type === 'WITHDRAW' ? 'WITHDRAW 10.4.0.0/16' : 'UPDATE [' + m.path.join(' ') + ']') + ' → ' + esc(m.action));
+    const loopMsg = rd.msgs.some(m => m.loop);
+    const last = k === r.rounds.length - 1;
+    narr('gNarr', rd.kind === 'open' ? 'sessions' : rd.kind === 'event' ? 'the failure' : 'round ' + rd.round,
+      esc(rd.note) + (loop.size ? ' <b>A and B point at each other for one round</b> (path exploration), but their next UPDATE exposes the loop.' : '') + (loopMsg ? ' <b>Loop detected from the AS_PATH and rejected.</b>' : '') + (last ? ' <b>Converged ' + r.converged2 + ' rounds after the failure.</b>' : ''),
+      loopMsg || loop.size ? 'alarm' : last ? 'ok' : '');
+    status('<b>BGP</b>: ' + (rd.kind === 'update' ? 'round ' + rd.round : rd.kind) + (failed ? ' · after the failure' : ''));
+  };
+  await render(true);
+  setStepper({ label:'BGP: announce, then C–D fails', total:r.rounds.length - 1, done:() => k >= r.rounds.length - 1, restart:() => $('gLoad').click(), next: async fast => { k++; await render(fast); } });
+};
+
+/* ================================================================ 9. scoreboard */
+$('sRun').onclick = async () => {
+  $('sRun').disabled = true; $('sRows').innerHTML = '<p class="mono" style="color:var(--muted)">running four real experiments…</p>';
+  const runs = [
+    ['RIP', 'no split horizon', await api('/api/run', { scn:'count3', split:0, poison:0 }), 'bad'],
+    ['RIP + split horizon + poison reverse', 'the 3-node loop survives', await api('/api/run', { scn:'count3', split:1, poison:1 }), 'bad'],
+    ['OSPF', 'link state: flood the fact, rerun Dijkstra', await api('/api/run', { scn:'ospf' }), 'good'],
+    ['BGP', 'path vector: AS_PATH loop check', await api('/api/run', { scn:'bgp' }), 'good'] ];
+  $('sRun').disabled = false;
+  const roundsOf = x => x.converged2 ?? x.converged, msgsOf = x => x.scn === 'bgp' ? x.rounds.slice(x.failAt).reduce((s, r) => s + r.msgs.length, 0) : x.messages;
+  const maxR = Math.max(...runs.map(x => roundsOf(x[2]))), maxM = Math.max(...runs.map(x => msgsOf(x[2])));
+  $('sRows').innerHTML = '<div class="cmprow"><span></span><span class="mono" style="color:var(--muted)">rounds until correct again</span><span></span></div>'
+    + runs.map(([n, s, x, c]) => '<div class="cmprow"><div class="nm">' + esc(n) + '<small>' + esc(s) + '</small></div><div class="bar ' + c + '"><i style="width:' + Math.max(1.5, 100 * roundsOf(x) / maxR) + '%"></i></div><div class="v">' + roundsOf(x) + ' rounds</div></div>').join('')
+    + '<div class="cmprow" style="margin-top:12px"><span></span><span class="mono" style="color:var(--muted)">routing messages after the failure</span><span></span></div>'
+    + runs.map(([n, s, x, c]) => '<div class="cmprow"><div class="nm">' + esc(n) + '</div><div class="bar ' + c + '"><i style="width:' + Math.max(1.5, 100 * msgsOf(x) / maxM) + '%"></i></div><div class="v">' + msgsOf(x) + ' msgs</div></div>').join('');
+};
+
+/* lamps + lever highlight */
+(async () => { try { const t = await api('/api/state'); $('lRip').classList.toggle('on', t.rip520); $('lBgp').classList.toggle('on', t.bgp179); } catch (e) {} })();
+const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) document.querySelectorAll('#levers a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin:'-35% 0px -60% 0px' });
+document.querySelectorAll('main section').forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
