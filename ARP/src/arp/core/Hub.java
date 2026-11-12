@@ -84,12 +84,14 @@ public final class Hub {
                     : String.format("0x%04X", frame.getEtherType());
 
             if (frame.isArp() || frame.isRarp()) {
+                String arpSummary;   // a final field may be assigned only once, so set it after the try/catch
                 try {
                     ArpPacket arp = ArpPacket.fromBytes(frame.getPayload());
-                    this.summary = vlanPrefix + arp.toDetailedString();
+                    arpSummary = vlanPrefix + arp.toDetailedString();
                 } catch (Exception e) {
-                    this.summary = vlanPrefix + "ARP/RARP: [Malformed Payload]";
+                    arpSummary = vlanPrefix + "ARP/RARP: [Malformed Payload]";
                 }
+                this.summary = arpSummary;
             } else if (frame.isIpv4()) {
                 this.summary = vlanPrefix + "[IPv4 / ICMP] Payload " + frame.getPayload().length + " bytes";
             } else {
