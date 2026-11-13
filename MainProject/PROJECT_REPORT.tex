@@ -24,7 +24,7 @@
     citecolor=black,
     urlcolor=blue!70!black,
     pdftitle={Integrated Main Project: ARP + DHCP + Telnet},
-    pdfauthor={Subham Bhat}
+    pdfauthor={Hrishikesh Bhanja, Aritra Dutta, Subham Bhat}
 }
 
 \definecolor{codebg}{rgb}{0.96,0.96,0.96}
@@ -84,10 +84,15 @@
 
     \vspace{3.8cm}
 
+    {\large \textbf{Group members}}\\[0.8em]
     {\large
-    \textbf{Name:} Subham Bhat\\[0.55em]
+    \begin{tabular}{@{}ll@{}}
+    Hrishikesh Bhanja & ARP module \\[0.35em]
+    Aritra Dutta & DHCP module \\[0.35em]
+    Subham Bhat & Telnet module and the integration \\
+    \end{tabular}}\\[1.4em]
+    {\large
     \textbf{Class:} BCSE III\\[0.55em]
-    \textbf{Roll:} 002410501020\\[0.55em]
     \textbf{Group:} A1\\[0.55em]
     \textbf{College:} Jadavpur University
     }
@@ -119,7 +124,7 @@
 \end{enumerate}
 The three are also linked by security. ARP is unauthenticated, so an attacker can poison caches and redirect traffic. The most valuable traffic to steal is a Telnet login, which is clear text. The standard defence, \textbf{Dynamic ARP Inspection} (DAI), needs a trusted table of which MAC owns which IP, and that table is built by \textbf{DHCP snooping}. Finally, the administrator switches DAI on through the router's Telnet CLI.
 
-The three modules were built separately (ARP and DHCP by my teammates, Telnet by me). This report describes the \textbf{integration} I wrote in \texttt{MainProject}: one campus LAN, 192.168.1.0/24, on which the three modules run together and depend on one another, with a ten-step story that shows each dependency for real.
+The three modules were built separately by the members of Group A1: \textbf{ARP} by Hrishikesh Bhanja, \textbf{DHCP} by Aritra Dutta, and \textbf{Telnet} by Subham Bhat. This report describes the \textbf{integration}, written by Subham Bhat, in \texttt{MainProject}: one campus LAN, 192.168.1.0/24, on which the three modules run together and depend on one another, with a ten-step story that shows each dependency for real.
 
 \subsection{What Was Built}
 \begin{enumerate}[leftmargin=2em]
