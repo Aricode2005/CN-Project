@@ -454,6 +454,8 @@ void replicate(Snapshot x) {
 }
 \end{lstlisting}
 
+\textbf{A box in the middle reads plaintext.} The balancer does not terminate Telnet; it copies bytes between the client and the chosen node. Because Telnet is plaintext, it can still read everything, exactly like the wire tap: it runs the same NVT decoder on both directions and recovers the user name and password typed at the login prompts. The dashboard therefore shows cluster sessions the same way as tapped ones, and the whole demonstration (sniffing, failover and RADIUS logins) runs from another computer through one port, 2330. In a real network this is a reason never to send management traffic in clear text through load balancers or proxies.
+
 \textbf{Measured behaviour.} In the verification run an administrator logged in through port 2330 and landed on R1, ran \texttt{show clock} and entered configuration mode; the snapshot was present on all three nodes. R1 was then killed: the client's TCP connection dropped at once, and 1.5 s later the balancer had removed R1. The reconnection landed on R2, and \texttt{resume} continued the session \emph{in configuration mode}, with \texttt{show clock} and \texttt{configure terminal} in its history. After logout no copy of the snapshot remained, and the revived R1 rejoined the rotation.
 
 \shot[0.9\textwidth]{13_ha_cluster_failover.png}{Chapter 08 of the dashboard after R1 was killed: R1 is out of the rotation, and the sessions continue on R2 and R3.}
@@ -561,6 +563,8 @@ run.bat                 # compile and start server, taps and dashboard (http://l
 run.bat --verify        # 59 automated end-to-end checks
 run.bat client          # console client through the wire tap
 telnet localhost 2323   # any Telnet client works (Windows: enable "Telnet Client")
+telnet <this-PC> 2330   # from a second computer: the whole demo through one port
+                        # (load balancer: sniffed, failover + resume, RADIUS logins)
 \end{lstlisting}
 
 \subsection{Automated Verification}
@@ -598,6 +602,7 @@ LINEMODE experiment: one segment per key in character mode; fewer segments but s
     \item \textbf{Character mode costs one segment per keystroke.} With ECHO and SUPPRESS-GO-AHEAD on, each key is a separate TCP segment and its echo another, which is why the sniffer sees the password one character at a time.
     \item \textbf{RFC 1143 terminates where the naive rule does not.} Under simultaneous changes the naive endpoints exchanged messages until the experiment's cap; the Q-method needed four.
     \item \textbf{Plaintext is the real problem.} The same login through the plaintext tap reveals the credentials; through TLS it reveals nothing but record lengths.
+    \item \textbf{One port, real network.} From a second laptop on the same Wi-Fi, \texttt{telnet <IP> 2330} reached the cluster; the dashboard showed that laptop's address, its negotiation and its sniffed password, a RADIUS-only user logged in through the same port with privilege 15, and the accounting record carried the laptop's address as Calling-Station-Id.
     \item \textbf{Interoperation.} Windows \texttt{telnet.exe} and PuTTY log in to the server and negotiate the same options as our client. In Wireshark (loopback adapter, \texttt{tcp.port == 2324}, \emph{Decode As TELNET}) the negotiation and the password appear exactly as on the dashboard.
 \end{enumerate}
 
