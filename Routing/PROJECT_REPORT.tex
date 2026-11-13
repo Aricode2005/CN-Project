@@ -1,0 +1,416 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue!70!black,
+    pdftitle={Routing: RIP, OSPF and BGP},
+    pdfauthor={Subham Bhat}
+}
+
+\definecolor{codebg}{rgb}{0.96,0.96,0.96}
+\definecolor{codeframe}{rgb}{0.25,0.25,0.25}
+\definecolor{codenum}{rgb}{0.45,0.45,0.45}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{codenum}\itshape,
+    keywordstyle=\bfseries,
+    numberstyle=\tiny\color{codenum},
+    numbers=left,
+    numbersep=8pt,
+    frame=single,
+    rulecolor=\color{codeframe},
+    tabsize=4,
+    columns=flexible,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    xleftmargin=14pt,
+    xrightmargin=4pt,
+    literate={→}{{$\rightarrow$}}1 {←}{{$\leftarrow$}}1 {–}{{--}}1 {—}{{---}}1 {·}{{$\cdot$}}1 {✓}{{OK}}2 {✗}{{X}}1
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% screenshot from docs/screenshots (skipped quietly if the file is missing)
+\newcommand{\shot}[3][0.92\textwidth]{%
+  \IfFileExists{docs/screenshots/#2}{%
+  \begin{figure}[H]\centering
+  \includegraphics[width=#1,keepaspectratio]{docs/screenshots/#2}
+  \caption{#3}\end{figure}}{}}
+
+\emergencystretch=3em
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.4em}
+
+\begin{document}
+
+% ==============================================================================
+% TITLE PAGE
+% ==============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{4.2cm}
+
+    {\LARGE \textbf{Routing Algorithms and Protocols: Dijkstra,}}\\[0.7em]
+    {\LARGE \textbf{Bellman-Ford, Count to Infinity, and How}}\\[0.7em]
+    {\LARGE \textbf{OSPF and BGP Avoid Routing Loops}}\\[1.4em]
+
+    {\large for Computer Networks Laboratory}
+
+    \vspace{3.8cm}
+
+    {\large
+    \textbf{Name:} Subham Bhat\\[0.55em]
+    \textbf{Class:} BCSE III\\[0.55em]
+    \textbf{Roll:} 002410501020\\[0.55em]
+    \textbf{Group:} A1\\[0.55em]
+    \textbf{College:} Jadavpur University
+    }
+
+    \vfill
+    {\normalsize 1}
+\end{titlepage}
+
+% ==============================================================================
+% TABLE OF CONTENTS
+% ==============================================================================
+\pagenumbering{roman}
+\setcounter{page}{2}
+\tableofcontents
+\newpage
+
+% ==============================================================================
+% MAIN CONTENT
+% ==============================================================================
+\pagenumbering{arabic}
+\setcounter{page}{3}
+
+\section{Introduction}
+\noindent Routers build their forwarding tables with a routing algorithm. Two families dominate inside an organisation, and a third connects organisations:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Link state} (OSPF, RFC 2328): every router floods the state of its own links to all others, so every router holds the same map and computes shortest paths with \textbf{Dijkstra's algorithm}.
+    \item \textbf{Distance vector} (RIP, RFC 2453): a router knows only its neighbours and tells them its current distance to every destination. Each router applies the \textbf{Bellman--Ford} equation
+    \[ D_x(y) = \min_{v \in \text{neighbours}(x)} \{\, c(x,v) + D_v(y) \,\}. \]
+    Good news spreads quickly, but bad news spreads slowly: after a failure, routers can keep using each other's stale distances and \textbf{count to infinity} (16 in RIP) while packets loop between them. \emph{Split horizon} and \emph{poison reverse} fix loops between two routers but not loops through three.
+    \item \textbf{Path vector} (BGP-4, RFC 4271), used between autonomous systems (ASes): every advertisement carries the full \textbf{AS\_PATH}, and a router rejects any path that already contains its own AS. Loops therefore cannot form.
+\end{itemize}
+
+\subsection{What Was Built}
+This module demonstrates all three families on small networks and puts every routing message on the wire, in pure Java 11 with no external libraries:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Dijkstra} step by step on the textbook's six-router network, recording $N'$, $D(v)$ and $p(v)$ after every step.
+    \item \textbf{Synchronous Bellman--Ford} with RIP's infinity of 16, optional split horizon and poison reverse, on the six-router network (cold start), a three-router network (good and bad news), a line of three routers and a triangle with a stub.
+    \item \textbf{OSPF} reacting to the same failure: new Router-LSAs with higher sequence numbers are flooded, then Dijkstra is rerun.
+    \item \textbf{BGP} reacting to the same failure with AS\_PATH loop detection.
+    \item \textbf{Real packets:} every distance vector is sent as a RIPv2 response over UDP 520, every LSA as an OSPF LS Update (with both checksums) carried in UDP 8900, and every BGP OPEN, UPDATE and KEEPALIVE over a real TCP session on port 179, between six loopback addresses 127.0.0.20--25. Wireshark decodes them.
+    \item \textbf{A dashboard} on \texttt{http://localhost:8088} designed as a railway signal box, with one lever per experiment and a \textbf{Forward} control that advances one round at a time.
+\end{enumerate}
+
+\shot{01_signal_box.png}{The Routing dashboard.}
+
+% ==============================================================================
+\section{The Packets}
+
+\begin{table}[H]
+\centering
+\caption{The three message formats sent on the wire}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Protocol} & \textbf{Format} \\ \midrule
+RIPv2 response (UDP 520) & 4-byte header (command 2 = response, version 2) followed by 20 bytes per route: address family, route tag, IP address, mask, next hop, metric (1--16, 16 = unreachable). \\
+OSPFv2 LS Update (UDP 8900) & 24-byte OSPF header with a one's-complement checksum, then Router-LSAs: a 20-byte LSA header (age, type, link-state ID, advertising router, \textbf{sequence number}, Fletcher checksum, length), 4 bytes, and 12 bytes per link. \\
+BGP-4 (TCP 179) & 16-byte marker of \texttt{0xFF}, length, type. OPEN is 29 bytes and KEEPALIVE 19; UPDATE carries withdrawn routes, path attributes (ORIGIN, \textbf{AS\_PATH}, NEXT\_HOP) and the reachable prefixes. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent OSPF normally runs directly on IP (protocol 89), which needs raw sockets; the module carries the identical bytes inside UDP 8900 so that it runs without administrator rights.
+
+\shot[0.85\textwidth]{14_packet_inspector.png}{The packet inspector: a RIPv2 response decoded field by field.}
+
+% ==============================================================================
+\section{Architecture}
+\begin{table}[H]
+\centering
+\caption{Source files}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{File} & \textbf{Responsibility} \\ \midrule
+\texttt{sim/Topo.java} & The test networks: six routers u--z, three routers x--z, a line A--B--C, a triangle A--B--C with stub D, and four ASes 100--400. \\
+\texttt{sim/Dijkstra.java} & Dijkstra with the textbook table recorded at each step. \\
+\texttt{sim/DistanceVector.java} & Synchronous Bellman--Ford with infinity, split horizon and poison reverse. \\
+\texttt{sim/LinkState.java} & OSPF flooding with sequence numbers, then Dijkstra on the LSDB. \\
+\texttt{sim/PathVector.java} & BGP route exchange with AS\_PATH loop rejection. \\
+\texttt{wire/Rip.java}, \texttt{Ospf.java}, \texttt{Bgp.java} & Encoders and decoders for the three packet formats, including checksums. \\
+\texttt{net/Wire.java} & UDP and TCP sockets on 127.0.0.20 + $i$ for router $i$. \\
+\texttt{sim/Scenarios.java} & The experiments, returned to the dashboard round by round. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+% ==============================================================================
+\section{Dijkstra's Algorithm (Link State)}
+Starting from the source, the algorithm repeatedly settles the unsettled router with the smallest known distance and then checks whether going through it shortens the path to each of its unsettled neighbours.
+
+\begin{lstlisting}[language=Java, caption={The main loop of \texttt{sim/Dijkstra.java}.}]
+dist[src] = 0; done[src] = true;
+for (int v : t.neighbours(src)) { dist[v] = t.cost[src][v]; prev[v] = src; }   // step 0
+for (int k = 1; k < n; k++) {
+    int w = -1;                                                  // closest unsettled router
+    for (int v = 0; v < n; v++) if (!done[v] && dist[v] < Topo.NONE && (w < 0 || dist[v] < dist[w])) w = v;
+    if (w < 0) break;                                            // the rest is unreachable
+    done[w] = true;                                              // add w to N'
+    for (int v : t.neighbours(w)) {
+        if (done[v]) continue;
+        int alt = dist[w] + t.cost[w][v];
+        if (alt < dist[v]) { dist[v] = alt; prev[v] = w; }        // a shorter path through w
+    }
+}
+\end{lstlisting}
+
+On the textbook network (links u--v 2, u--x 1, u--w 5, v--x 2, v--w 3, x--w 3, x--y 1, y--w 1, y--z 2, w--z 5) from source u, the recorded table is:
+
+\begin{table}[H]
+\centering
+\caption{Dijkstra from u, as produced by the module ($\infty$ = not yet reachable)}
+\small
+\begin{tabular}{@{}clccccc@{}}
+\toprule
+\textbf{Step} & $N'$ & $D(v),p(v)$ & $D(w),p(w)$ & $D(x),p(x)$ & $D(y),p(y)$ & $D(z),p(z)$ \\ \midrule
+0 & u & 2,u & 5,u & 1,u & $\infty$ & $\infty$ \\
+1 & ux & 2,u & 4,x & & 2,x & $\infty$ \\
+2 & uxv & & 4,x & & 2,x & $\infty$ \\
+3 & uxvy & & 3,y & & & 4,y \\
+4 & uxvyw & & & & & 4,y \\
+5 & uxvywz & & & & & \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The result is $D(v)=2$, $D(x)=1$, $D(y)=2$, $D(w)=3$, $D(z)=4$, and u's forwarding table sends traffic for v directly to v and for every other router to x.
+
+\shot[0.85\textwidth]{04_dijkstra_done.png}{Dijkstra finished: the shortest-path tree from u and its forwarding table.}
+
+% ==============================================================================
+\section{Bellman--Ford (Distance Vector)}
+In every exchange each router sends its whole distance vector to each neighbour as a RIPv2 response; then every router recomputes its table from the vectors it last heard. Split horizon omits the routes whose next hop is the neighbour being told; poison reverse sends them with metric $\infty$ instead.
+
+\begin{lstlisting}[language=Java, caption={What router x tells neighbour v (\texttt{sim/DistanceVector.java}).}]
+private List<Rip.Entry> advert(int x, int v, List<Integer> omitted, List<Integer> poisoned) {
+    List<Rip.Entry> e = new ArrayList<>();
+    for (int d = 0; d < n; d++) {
+        if (d != x && next[x][d] == v && split) {                   // this route goes through v
+            if (poison) { e.add(new Rip.Entry(d, inf)); poisoned.add(d); }   // poison reverse: say "infinity"
+            else omitted.add(d);                                   // split horizon: say nothing
+            continue;
+        }
+        e.add(new Rip.Entry(d, D[x][d]));
+    }
+    return e;
+}
+\end{lstlisting}
+
+\textbf{Cold start.} On the six-router network, starting from direct links only, 16 table entries changed in the first exchange, 6 in the second and none in the third: converged in 3 exchanges with 60 RIP packets, and every distance equals Dijkstra's.
+
+\subsection{Good News and Bad News}
+Three routers x, y, z with links x--y 4, x--z 50, y--z 1; the table shows each router's distance to x and its next hop.
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{x--y drops from 4 to 1}: converged in 2 exchanges.
+    \item \textbf{x--y rises from 4 to 60}: y recomputes using z's old distance 5 (which goes through y itself) and chooses 6 via z. The two now point at each other, and their distances climb by 2 per exchange until z's count exceeds its direct link of 50.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Bad news (x--y: 4 $\rightarrow$ 60), distance to x / next hop}
+\small
+\begin{tabular}{@{}lccl@{}}
+\toprule
+\textbf{Round} & \textbf{y} & \textbf{z} & \\ \midrule
+before & 4 / x & 5 / y & \\
+the change & 6 / z & 5 / y & loop y $\leftrightarrow$ z \\
+exchange 2 & 6 / z & 7 / y & loop \\
+exchange 3 & 8 / z & 7 / y & loop \\
+exchange 4 & 8 / z & 9 / y & loop \\
+\ldots & \ldots & \ldots & \\
+exchange 48 & 51 / z & 50 / x & settled after \textbf{47 exchanges} \\ \midrule
+with poison reverse & 60 / x $\rightarrow$ 51 / z & 50 / x & settled in \textbf{3 exchanges}, no loop \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\shot[0.85\textwidth]{06_bad_news_loop.png}{Bad news: y and z point at each other while their distances climb.}
+
+\subsection{Count to Infinity with Two Routers}
+A line A--B--C, watching C; the link B--C fails. B has lost C, but A last said ``C at 2'', so B chooses 3 via A, and the two count up together.
+
+\begin{table}[H]
+\centering
+\caption{Two routers count to infinity (distance to C / next hop)}
+\small
+\begin{tabular}{@{}lccl@{}}
+\toprule
+\textbf{Round} & \textbf{A} & \textbf{B} & \\ \midrule
+before & 2 / B & 1 / C & \\
+B--C fails & 2 / B & 3 / A & loop A $\leftrightarrow$ B \\
+exchange 2 & 4 / B & 3 / A & \\
+exchange 3 & 4 / B & 5 / A & \\
+\ldots & \ldots & \ldots & \\
+exchange 16 & unreachable & unreachable & after \textbf{15 exchanges} (16 = infinity) \\ \midrule
+with split horizon & unreachable & unreachable & \textbf{2 exchanges}: A never told B about C \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Three Routers Defeat Split Horizon and Poison Reverse}
+A triangle A, B, C with a stub D on C, watching D, with \textbf{both} split horizon and poison reverse on; the link C--D fails. B's route to D went through C, not A, so split horizon still lets B tell A ``D at 2''. A ghost route then circles A $\rightarrow$ B $\rightarrow$ C:
+
+\begin{table}[H]
+\centering
+\caption{Triangle with split horizon and poison reverse (distance to D / next hop)}
+\small
+\begin{tabular}{@{}lcccl@{}}
+\toprule
+\textbf{Round} & \textbf{A} & \textbf{B} & \textbf{C} & \\ \midrule
+before & 2 / C & 2 / C & 1 / D & \\
+C--D fails & 2 / C & 2 / C & unreachable & \\
+exchange 2 & 3 / B & 3 / A & unreachable & loop A $\leftrightarrow$ B \\
+exchange 3 & unreachable & unreachable & 4 / A & \\
+exchange 4 & unreachable & 5 / C & unreachable & \\
+exchange 5 & 6 / B & unreachable & unreachable & \\
+\ldots & & & & \\
+exchange 16 & unreachable & unreachable & unreachable & \textbf{15 exchanges} \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\shot[0.85\textwidth]{09_three_node_loop.png}{The three-router loop survives split horizon and poison reverse.}
+
+% ==============================================================================
+\section{The Same Failure with OSPF and BGP}
+
+\subsection{OSPF}
+When C--D fails, C and D each originate a new Router-LSA listing only their working links, with the sequence number raised from \texttt{0x80000001} to \texttt{0x80000002}, and flood it. A router installs and forwards an LSA only if its sequence number is newer than the copy it holds; a duplicate is acknowledged and not forwarded, so flooding stops by itself. In the first flooding round 2 LS Updates were delivered and passed on; in the second, the duplicates were dropped. Every router then held the same LSDB and Dijkstra marked D unreachable: \textbf{2 rounds, 4 LS Updates, no loop at any time}. Every packet passed both the OSPF one's-complement checksum and the LSA Fletcher checksum.
+
+\shot[0.85\textwidth]{10_ospf_fix.png}{OSPF floods the new LSAs and reruns Dijkstra: no counting.}
+
+\subsection{BGP}
+Four ASes in the same triangle-plus-stub shape: A = AS 100, B = AS 200, C = AS 300, and D = AS 400, which owns 10.4.0.0/16. A path is stored only if it does not already contain the receiving router's own AS.
+
+\begin{lstlisting}[language=Java, caption={Importing an UPDATE with the AS\_PATH loop check (\texttt{sim/PathVector.java}).}]
+if (u.path == null) {                                  // a withdrawal
+    ribIn[v][x] = null; ribNote[v][x] = "withdrawn";
+} else if (u.path.contains(t.as[v])) {                 // my own AS is already in the path
+    ribIn[v][x] = null;
+    ribNote[v][x] = "rejected: loop (AS " + t.as[v] + " already in " + u.path + ")";
+} else {
+    ribIn[v][x] = u.path;                              // store it; best path chosen afterwards
+}
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{BGP announcement and failure, as recorded}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Round} & \textbf{Events} \\ \midrule
+sessions & TCP to port 179 on every link; OPEN and KEEPALIVE each way; all sessions Established \\
+1 & D $\rightarrow$ C: [400]. C stores it. \\
+2 & C $\rightarrow$ A and B: [300 400], stored. C $\rightarrow$ D: \textbf{rejected}, D sees its own AS 400. \\
+3 & A $\rightarrow$ B: [100 300 400], B $\rightarrow$ A: [200 300 400], kept as backups. Both offers to C are \textbf{rejected} (AS 300). \\
+4 & Converged: A and B reach 10.4.0.0/16 via [300 400]. \\
+C--D fails & The TCP session closes; C drops every route learned over it and withdraws. \\
+6--7 & A and B fall back on their backups, which go through C; they offer each other [100 200 300 400] and [200 100 300 400], and each is \textbf{rejected: loop}. \\
+8--9 & Withdrawals; converged. Only D has a route: no counting and no stale loop, \textbf{3 rounds after the failure}. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\shot[0.85\textwidth]{11_bgp_loop_rejected.png}{BGP rejects a path that contains the router's own AS.}
+
+% ==============================================================================
+\section{Verification and Results}
+
+\begin{lstlisting}[language=bash, caption={Running the lab, the checks and the independent decoder.}]
+cd Routing
+run.bat                  # dashboard (http://localhost:8088); routers on 127.0.0.20 - 127.0.0.25
+run.bat --verify         # 30 automated checks
+python interop_test.py   # an independent Python decoder checks our RIP, OSPF and BGP bytes (15 checks)
+# Wireshark: capture on the loopback adapter, display filter  rip || bgp
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Scoreboard for the triangle-plus-stub failure}
+\small
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Protocol} & \textbf{Rounds after the failure} & \textbf{Loop?} \\ \midrule
+RIP, no split horizon & 15 & yes \\
+RIP + split horizon + poison reverse & 15 & yes (3-router loop) \\
+OSPF (link state) & 2 & no \\
+BGP (path vector) & 3 & no (own-AS paths rejected) \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\shot[0.8\textwidth]{13_scoreboard.png}{The scoreboard.}
+
+\begin{table}[H]
+\centering
+\caption{Selected verification checks (all 30 passed)}
+\small
+\begin{tabularx}{\textwidth}{@{}Y@{}}
+\toprule
+Dijkstra from u: $D(v)=2$, $D(w)=3$, $D(x)=1$, $D(y)=2$, $D(z)=4$; forwarding table v via v, all others via x; path u x y z \\
+Cold start converges and every distance equals Dijkstra's; every vector crossed a real UDP socket as a RIPv2 response \\
+Good news converges in $\leq 3$ rounds; bad news bounces for $\geq 40$ rounds with a y $\leftrightarrow$ z loop, then settles at 50 / 51 \\
+Poison reverse fixes the three-router cost change in $\leq 3$ rounds \\
+Two routers count to 16 and point at each other; split horizon gives up at once \\
+Three routers: split horizon + poison reverse still count to 16 \\
+OSPF flooding ends within 3 rounds; all checksums verify; D unreachable with no counting \\
+BGP converges after the failure in $\leq 4$ rounds; a router rejected a path containing its own AS; only D keeps a route \\
+RIPv2, Router-LSA, OSPF and BGP (UPDATE, withdrawal, OPEN 29 bytes, KEEPALIVE 19) encodings verified byte by byte \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent An independent Python decoder, written separately from the Java code, parsed the RIP, OSPF and BGP bytes produced by the module and agreed on every field (15 checks). A loopback capture (\texttt{docs/rip\_bgp\_loopback\_capture.pcapng}) shows Wireshark decoding the RIP responses with metric 16 and the BGP UPDATEs with their AS\_PATH.
+
+% ==============================================================================
+\section{Conclusion}
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Dijkstra and Bellman--Ford reach the same answer by different routes.} The cold-start distance vectors converged to exactly Dijkstra's distances, but distance vector needs only neighbours' vectors while link state needs the whole map.
+    \item \textbf{Distance vector is fragile after failures.} Bad news took 47 exchanges on three routers, and two routers counted to infinity in 15. Split horizon and poison reverse helped only when the loop involved two routers; a three-router loop still counted to 16.
+    \item \textbf{More information removes the loops.} OSPF floods the changed link and recomputes from a complete map (2 rounds), and BGP's AS\_PATH lets each router recognise a path through itself (3 rounds). Neither counted to infinity.
+\end{enumerate}
+
+\section*{AI Acknowledgement}
+\addcontentsline{toc}{section}{AI Acknowledgement}
+Artificial Intelligence tools were used as an aid during this project. Specifically, AI assistance was used for:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Protocol cross-checking:} comparing message formats, reply codes, state machines and byte offsets against the RFCs cited in this report.
+    \item \textbf{Code review and testing:} suggesting edge cases for the automated verification suite and reviewing concurrency and error handling.
+    \item \textbf{Writing and visualization:} drafting, structuring and refining the explanations, tables, diagrams and \LaTeX{} source of this report.
+\end{itemize}
+All protocol implementations, Java source code, experiments, measurements and final conclusions were run, reviewed and verified by the author, who takes full responsibility for the content of this report.
+
+\end{document}

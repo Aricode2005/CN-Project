@@ -1,0 +1,384 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue!70!black,
+    pdftitle={HTTP/1.1 Server, Client and Caching Proxy},
+    pdfauthor={Subham Bhat}
+}
+
+\definecolor{codebg}{rgb}{0.96,0.96,0.96}
+\definecolor{codeframe}{rgb}{0.25,0.25,0.25}
+\definecolor{codenum}{rgb}{0.45,0.45,0.45}
+
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{codenum}\itshape,
+    keywordstyle=\bfseries,
+    numberstyle=\tiny\color{codenum},
+    numbers=left,
+    numbersep=8pt,
+    frame=single,
+    rulecolor=\color{codeframe},
+    tabsize=4,
+    columns=flexible,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    xleftmargin=14pt,
+    xrightmargin=4pt,
+    literate={→}{{$\rightarrow$}}1 {←}{{$\leftarrow$}}1 {–}{{--}}1 {—}{{---}}1 {·}{{$\cdot$}}1 {✓}{{OK}}2 {✗}{{X}}1
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% screenshot from docs/screenshots (skipped quietly if the file is missing)
+\newcommand{\shot}[3][0.92\textwidth]{%
+  \IfFileExists{docs/screenshots/#2}{%
+  \begin{figure}[H]\centering
+  \includegraphics[width=#1,keepaspectratio]{docs/screenshots/#2}
+  \caption{#3}\end{figure}}{}}
+
+\emergencystretch=3em
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.4em}
+
+\begin{document}
+
+% ==============================================================================
+% TITLE PAGE
+% ==============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{4.2cm}
+
+    {\LARGE \textbf{HTTP/1.1 from the RFCs: Persistent,}}\\[0.7em]
+    {\LARGE \textbf{Non-Persistent and Pipelined Connections,}}\\[0.7em]
+    {\LARGE \textbf{Conditional GET, and a Caching Proxy}}\\[1.4em]
+
+    {\large for Computer Networks Laboratory}
+
+    \vspace{3.8cm}
+
+    {\large
+    \textbf{Name:} Subham Bhat\\[0.55em]
+    \textbf{Class:} BCSE III\\[0.55em]
+    \textbf{Roll:} 002410501020\\[0.55em]
+    \textbf{Group:} A1\\[0.55em]
+    \textbf{College:} Jadavpur University
+    }
+
+    \vfill
+    {\normalsize 1}
+\end{titlepage}
+
+% ==============================================================================
+% TABLE OF CONTENTS
+% ==============================================================================
+\pagenumbering{roman}
+\setcounter{page}{2}
+\tableofcontents
+\newpage
+
+% ==============================================================================
+% MAIN CONTENT
+% ==============================================================================
+\pagenumbering{arabic}
+\setcounter{page}{3}
+
+\section{Introduction}
+\noindent The \textbf{HyperText Transfer Protocol} (\textbf{HTTP}) is the request/response protocol of the web. A client opens a TCP connection to a server (port 80), sends a \textbf{request} (a method, a path, header fields and an optional body), and receives a \textbf{response} (a status code, header fields and usually a body). The current HTTP/1.1 specification is split into \textbf{RFC 9110} (semantics), \textbf{RFC 9111} (caching) and \textbf{RFC 9112} (message syntax and connection management); cookies are defined in \textbf{RFC 6265}.
+
+A web page is rarely one object: a base HTML file references images, scripts and style sheets, each fetched with its own request. How those requests share TCP connections therefore decides how long a page takes to load:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Non-persistent} (the HTTP/1.0 default): one TCP connection per object, so every object costs a handshake round trip plus a request round trip.
+    \item \textbf{Persistent} (the HTTP/1.1 default, \emph{keep-alive}): one connection for all objects, one round trip per object.
+    \item \textbf{Pipelined}: the client sends all requests back to back without waiting; the responses return in order, so the whole page costs about one extra round trip.
+\end{itemize}
+HTTP is stateless; \textbf{cookies} add state. Unchanged content does not have to be transferred again thanks to \textbf{conditional GET} (a \texttt{304 Not Modified} reply) and \textbf{caching proxies}.
+
+\subsection{What Was Built}
+Everything in this module is written from the RFCs in pure Java 11 with no external libraries:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{An HTTP/1.1 origin server} with two virtual hosts, persistent and non-persistent connections, pipelining, conditional GET, byte ranges, chunked transfer coding, \texttt{Expect: 100-continue}, gzip, cookies, Basic authentication, redirects and a full set of status codes.
+    \item \textbf{A browser-like client} that loads a page with four connection strategies.
+    \item \textbf{A WAN emulator} that adds a real round-trip time and a bandwidth limit between client and server, so that measured page-load times can be compared with the textbook formulas.
+    \item \textbf{A caching proxy} with freshness, validation and \texttt{CONNECT} tunnels, usable from a real browser.
+    \item \textbf{A dashboard} on \texttt{http://localhost:8087} designed as a library reading room: requests are slips, responses are stamped, and the four strategies are drawn as connection waterfalls.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Ports used by the HTTP module}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Port} & \textbf{Role} \\ \midrule
+TCP 8800 (and 80 when free) & Origin server: \texttt{www.cse.myuniv.edu} and \texttt{intranet.cse.myuniv.edu} \\
+TCP 8801 & WAN emulator in front of the origin (default RTT 100 ms, 4 Mbit/s) \\
+TCP 3128 & Caching proxy (set it as a browser's HTTP proxy) \\
+HTTP 8087 & Dashboard \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\shot{01_reading_room.png}{The HTTP dashboard.}
+
+% ==============================================================================
+\section{Message Formats}
+
+\begin{lstlisting}[numbers=none, caption={A request and its response. Every line ends in CRLF; an empty line ends the header section.}]
+GET /news.html HTTP/1.1                  request line: method, target, version
+Host: www.cse.myuniv.edu                 mandatory in HTTP/1.1 (virtual hosting)
+User-Agent: ju-client/1.0
+If-None-Match: "news-1"                  conditional: "only if it changed"
+                                         empty line
+HTTP/1.1 304 Not Modified                status line: version, code, reason
+Date: Thu, 12 Nov 2026 10:15:02 GMT
+ETag: "news-1"
+Cache-Control: max-age=30
+                                         empty line; a 304 never has a body
+\end{lstlisting}
+
+The length of a body is given either by \texttt{Content-Length} or by \textbf{chunked} transfer coding, where each chunk is its size in hexadecimal, \texttt{CRLF}, the data and \texttt{CRLF}, and a chunk of size 0 ends the body. Chunking lets a server start sending before it knows the total length.
+
+\begin{table}[H]
+\centering
+\caption{Status-code classes, with codes produced by the server}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Class} & \textbf{Examples} \\ \midrule
+1xx Informational & 100 Continue \\
+2xx Success & 200 OK, 201 Created, 204 No Content, 206 Partial Content \\
+3xx Redirection & 301, 302, 303 See Other (after POST), 304 Not Modified \\
+4xx Client error & 400 (no Host), 401, 403, 404, 405, 411, 416 \\
+5xx Server error & 500, 501 (unknown method), 505 (version not supported) \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+% ==============================================================================
+\section{System Architecture}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.1cm, box/.style={draw, rounded corners=2pt, minimum width=2.5cm, minimum height=0.9cm, align=center, font=\small}, >=Stealth]
+\node[box] (cl) {Client\\(WebClient,\\browser, curl)};
+\node[box, right=of cl] (px) {Caching proxy\\3128};
+\node[box, right=of px] (wan) {WAN emulator\\8801\\RTT, bandwidth};
+\node[box, right=of wan] (or) {Origin\\8800 / 80\\two virtual hosts};
+\draw[<->] (cl) -- (px); \draw[<->] (px) -- (wan); \draw[<->] (wan) -- (or);
+\draw[<->, dashed] (cl.south) -- ++(0,-0.6) -| node[below, pos=0.25, font=\footnotesize]{page-load measurements go straight through the WAN emulator} (wan.south);
+\end{tikzpicture}
+\caption{Components of the HTTP module.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Source files}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{File} & \textbf{Responsibility} \\ \midrule
+\texttt{core/Msg.java} & One HTTP/1.x message: start line, header fields, body framing (Content-Length, chunked, or read until close). \\
+\texttt{server/Origin.java} & One thread per TCP connection; answers requests strictly in order; keep-alive timeout, \texttt{Connection: close}, HTTP/1.0 rules. \\
+\texttt{server/Site.java} & The virtual hosts and every feature above. \\
+\texttt{link/Link.java} & WAN emulator: holds the first bytes for 1 RTT (the handshake), delays every chunk by RTT/2 each way, serialises at the link rate. \\
+\texttt{client/WebClient.java}, \texttt{PageLoad.java} & Client and the four page-load strategies with their formulas. \\
+\texttt{proxy/Proxy.java} & Freshness, validation, \texttt{no-store}/\texttt{private}, \texttt{CONNECT} tunnels. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+% ==============================================================================
+\section{Implementation}
+
+\subsection{Connections: Persistence, Pipelining and Head-of-Line Blocking}
+The origin server reads requests from a connection one after another and writes each response before reading the next request. A client may still write several requests at once: they wait in the TCP receive buffer and are answered \textbf{in order}. This is what makes pipelining work, and it is also the cause of \textbf{head-of-line blocking}: a slow first response delays every response behind it. The connection is kept open if the request asks for it (HTTP/1.1 by default, HTTP/1.0 only with \texttt{Connection: keep-alive}) and closed otherwise.
+
+\subsection{Page-Load Strategies and Their Formulas}
+For a base page with $N$ referenced objects, ignoring transmission time, the textbook gives:
+
+\begin{table}[H]
+\centering
+\caption{Page-load time for a base file plus $N$ objects}
+\small
+\begin{tabularx}{\textwidth}{@{}lcY@{}}
+\toprule
+\textbf{Strategy} & \textbf{Connections} & \textbf{Time} \\ \midrule
+Non-persistent & $N+1$ & $(N+1) \times 2\,\mathrm{RTT}$ \\
+Non-persistent, $k$ parallel & $N+1$ & $2\,\mathrm{RTT} + \lceil N/k \rceil \times 2\,\mathrm{RTT}$ \\
+Persistent (keep-alive) & 1 & $2\,\mathrm{RTT} + N \times \mathrm{RTT}$ \\
+Persistent + pipelining & 1 & $2\,\mathrm{RTT} + 1\,\mathrm{RTT} = 3\,\mathrm{RTT}$ \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{lstlisting}[language=Java, caption={The formulas used for comparison (\texttt{client/PageLoad.java}); transmission time at the link rate is added.}]
+switch (mode) {
+    case NONPERSISTENT: res.theoryRtts = 2.0 * (n + 1);
+                        res.formula = "(N+1) x 2.RTT"; break;
+    case PARALLEL:      res.theoryRtts = 2 + 2.0 * Math.ceil(n / (double) parallel);
+                        res.formula = "2.RTT + ceil(N/k) x 2.RTT"; break;
+    case PERSISTENT:    res.theoryRtts = 2 + n;
+                        res.formula = "2.RTT + N x RTT"; break;
+    default:            res.theoryRtts = 3;
+                        res.formula = "2.RTT + 1 RTT = 3 RTTs";
+}
+res.theoryMs = res.theoryRtts * rtt + txMs;
+\end{lstlisting}
+
+\subsection{The Caching Proxy}
+For a cacheable GET the proxy looks up the URL. A \textbf{fresh} copy is answered locally (\textbf{HIT}). A \textbf{stale} copy is \textbf{revalidated}: the request is sent to the origin with \texttt{If-None-Match} and \texttt{If-Modified-Since}, and a \texttt{304} reply lets the proxy reuse its stored body (\textbf{REVALIDATED}). Otherwise the response is fetched and stored if it is a cacheable 200 (\textbf{MISS}). The freshness lifetime comes from \texttt{max-age}, else \texttt{Expires}, else 10\% of the time since \texttt{Last-Modified} (the RFC 9111 heuristic). Responses with \texttt{Set-Cookie}, \texttt{no-store} or \texttt{private}, and requests with \texttt{Authorization}, are never stored.
+
+\begin{lstlisting}[language=Java, caption={HIT, revalidation and MISS in \texttt{proxy/Proxy.java} (abridged).}]
+Entry e = cacheableReq ? cache.get(key) : null;
+if (e != null && e.fresh() && !clientNoCache) {                       // HIT
+    e.hits++;
+    return copy(e.resp).set("Age", e.ageMs() / 1000).set("X-Cache", "HIT").set("Via", "1.1 ju-proxy");
+}
+boolean conditional = false;
+if (e != null) {                                                       // stale: revalidate instead of refetching
+    if (e.resp.has("ETag"))          { up.set("If-None-Match", e.resp.get("ETag")); conditional = true; }
+    if (e.resp.has("Last-Modified")) { up.set("If-Modified-Since", e.resp.get("Last-Modified")); conditional = true; }
+}
+Msg r = fetch(host, port, up);
+if (conditional && r.status() == 304 && e != null) {                   // REVALIDATED
+    e.storedAt = System.currentTimeMillis(); e.freshMs = freshness(r, e.freshMs);
+    return copy(e.resp).set("Age", 0).set("X-Cache", "REVALIDATED").set("Via", "1.1 ju-proxy");
+}
+long fresh = freshness(r, -1);                                         // MISS
+boolean store = cacheableReq && r.status() == 200 && fresh > 0 && !r.has("Set-Cookie")
+        && !r.headerHas("Cache-Control", "no-store") && !r.headerHas("Cache-Control", "private");
+if (store) cache.put(key, new Entry(key, r, fresh));
+
+/** Freshness lifetime: max-age, else Expires, else 10% of the time since Last-Modified. */
+static long freshness(Msg r, long fallback) {
+    String cc = r.get("Cache-Control");
+    if (cc != null) {
+        if (cc.contains("no-cache")) return 0;
+        for (String p : cc.split(",")) { p = p.trim(); if (p.startsWith("max-age=")) return Long.parseLong(p.substring(8)) * 1000; }
+    }
+    if (r.has("Expires")) { long x = Msg.parseDate(r.get("Expires")); if (x > 0) return Math.max(0, x - System.currentTimeMillis()); }
+    if (r.has("Last-Modified")) { long lm = Msg.parseDate(r.get("Last-Modified")); if (lm > 0) return Math.min(60_000, (System.currentTimeMillis() - lm) / 10); }
+    return fallback;
+}
+\end{lstlisting}
+
+The proxy also answers \texttt{CONNECT} by opening a TCP tunnel, so HTTPS sites still work through it, although their content cannot be cached. From a real browser with the proxy set to \texttt{127.0.0.1:3128}, \texttt{http://www.cse.myuniv.edu/gallery.html} is served from the lab server: the first load is a MISS and the second a HIT.
+
+\subsection{State, Authentication and Other Features}
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Cookies:} \texttt{POST /login} returns \texttt{303 See Other} with \texttt{Set-Cookie: sid=\ldots; HttpOnly}. The client sends \texttt{Cookie: sid=\ldots} with every later request, and the server looks the session up: the state lives on the server, the cookie is only its key.
+    \item \textbf{Basic authentication:} \texttt{/private/} answers \texttt{401} with \texttt{WWW-Authenticate: Basic}; the retry carries \texttt{Authorization: Basic YWxpY2U6YWxpY2UxMjM=}, which is only base64 of \texttt{alice:alice123}: encoding, not encryption.
+    \item \textbf{Virtual hosting:} the same IP and port serve two sites chosen by the \texttt{Host} header; an HTTP/1.1 request without \texttt{Host} is a \texttt{400}.
+    \item \textbf{Ranges:} \texttt{Range: bytes=1000-1999} returns \texttt{206 Partial Content} with \texttt{Content-Range}; a range past the end returns \texttt{416}. This is how downloads resume (compare FTP's \texttt{REST}).
+    \item \textbf{Chunked}, \textbf{100-continue}, \textbf{gzip} (with \texttt{Vary}), redirects 301/302/303, and the methods GET, HEAD, POST, PUT (201/204), DELETE and OPTIONS.
+\end{itemize}
+
+\shot[0.85\textwidth]{05_conditional_get_304.png}{Conditional GET: 200 with an ETag, then 304 with no body, then 200 with a new ETag after the page changed.}
+
+% ==============================================================================
+\section{Experiments, Verification and Results}
+
+\subsection{Running the Module}
+\begin{lstlisting}[language=bash, caption={Starting the servers, running the checks, and testing with curl.}]
+cd HTTP
+run.bat                  # origin, WAN link, proxy and dashboard (http://localhost:8087)
+run.bat --verify         # 52 automated checks
+python interop_test.py   # Python http.client / urllib and curl against our server and proxy (11 checks)
+
+curl -v http://localhost:8800/
+curl -x 127.0.0.1:3128 http://www.cse.myuniv.edu/news.html     # through the caching proxy
+\end{lstlisting}
+
+\subsection{Page-Load Measurements}
+The page \texttt{gallery.html} references 10 images ($N = 10$, 11 objects). With RTT = 100 ms, $k = 5$ and a 4 Mbit/s link, all four strategies were run for real through the WAN emulator:
+
+\begin{table}[H]
+\centering
+\caption{Measured page-load times against the formulas (RTT 100 ms, 4 Mbit/s)}
+\small
+\begin{tabularx}{\textwidth}{@{}Ycrr@{}}
+\toprule
+\textbf{Strategy} & \textbf{TCP connections} & \textbf{Predicted} & \textbf{Measured} \\ \midrule
+Non-persistent (HTTP/1.0) & 11 & 2287 ms & 2472 ms \\
+Non-persistent, 5 parallel & 11 & 687 ms & 693 ms \\
+Persistent (keep-alive) & 1 & 1287 ms & 1459 ms \\
+Persistent + pipelining & 1 & 387 ms & 436 ms \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent The predicted values include transmission time at 4 Mbit/s; the remaining difference is the server's processing and the operating system's scheduling. The ordering non-persistent $>$ persistent $>$ parallel $>$ pipelined matches the theory.
+
+\shot{03_four_ways_waterfall.png}{The four strategies drawn as connection waterfalls; hatched bars are TCP handshakes.}
+
+\subsection{The Proxy}
+Loading the gallery through the proxy with an empty cache took about 2.4 s (11 MISSes, about 220 ms each across the WAN). The second load took about 10 ms (11 HITs, about 0.3 ms each). After every copy was made stale, the third load again took about 2.4 s but every object was REVALIDATED with a \texttt{304}: revalidation saves bytes, not round trips.
+
+\shot[0.85\textwidth]{06_proxy_hits.png}{The proxy's reserve shelf: MISS, then HIT, then REVALIDATED.}
+
+\subsection{Automated Verification}
+All \textbf{52 checks} of \texttt{Verify.java} and all \textbf{11} interoperation checks pass. A selection:
+
+\begin{table}[H]
+\centering
+\caption{Selected verification checks (all passed)}
+\small
+\begin{tabularx}{\textwidth}{@{}Y@{}}
+\toprule
+GET $\rightarrow$ 200 with a matching Content-Length; HEAD has the same headers and no body; 404, 405 + Allow, 501, 500, 505 \\
+HTTP/1.1 without Host $\rightarrow$ 400; HTTP/1.0 without Host $\rightarrow$ 200 and the connection closes; virtual hosting by Host \\
+Three pipelined requests in one write $\rightarrow$ three responses in order; four requests on one keep-alive connection \\
+Non-persistent uses 11 connections; each strategy within tolerance of its formula; the order of the four is correct \\
+ETag and Last-Modified; If-None-Match and If-Modified-Since $\rightarrow$ 304; after a change $\rightarrow$ 200 with a new ETag \\
+Range $\rightarrow$ 206 with exactly those bytes; suffix range; beyond the end $\rightarrow$ 416 \\
+gzip is smaller and decodes to the same page; PUT $\rightarrow$ 201 then 204; chunked request body stored intact \\
+\texttt{Expect: 100-continue} $\rightarrow$ 100 then 201; \texttt{/clock} is chunked with no Content-Length; POST without length $\rightarrow$ 411 \\
+Cookies: unknown without a cookie, 303 + Set-Cookie on login, remembered afterwards; wrong password $\rightarrow$ 403 \\
+Basic authentication: 401 + WWW-Authenticate, then 200 with the right credentials \\
+Proxy: MISS, then HIT ($\geq 5\times$ faster) with Via and Age, then 304 $\rightarrow$ REVALIDATED \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+% ==============================================================================
+\section{Conclusion}
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Round trips, not bandwidth, dominate small-object pages.} Measured through a real 100 ms link, non-persistent connections took about 2.5 s for 11 objects, keep-alive about 1.5 s and pipelining about 0.44 s, each close to its textbook formula.
+    \item \textbf{In-order responses explain both pipelining and head-of-line blocking.} Because a connection answers requests strictly in sequence, pipelining is possible, but one slow response delays all that follow; this motivated multiplexing in HTTP/2.
+    \item \textbf{Caching and validation save traffic.} A proxy HIT avoided the WAN entirely, and a conditional GET returned 304 with no body; together they explain why repeat visits to a site are fast.
+    \item \textbf{State is added on top of a stateless protocol.} Cookies give the server a key to its own session table, and Basic authentication shows why credentials must travel over TLS.
+\end{enumerate}
+
+\section*{AI Acknowledgement}
+\addcontentsline{toc}{section}{AI Acknowledgement}
+Artificial Intelligence tools were used as an aid during this project. Specifically, AI assistance was used for:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Protocol cross-checking:} comparing message formats, reply codes, state machines and byte offsets against the RFCs cited in this report.
+    \item \textbf{Code review and testing:} suggesting edge cases for the automated verification suite and reviewing concurrency and error handling.
+    \item \textbf{Writing and visualization:} drafting, structuring and refining the explanations, tables, diagrams and \LaTeX{} source of this report.
+\end{itemize}
+All protocol implementations, Java source code, experiments, measurements and final conclusions were run, reviewed and verified by the author, who takes full responsibility for the content of this report.
+
+\end{document}
