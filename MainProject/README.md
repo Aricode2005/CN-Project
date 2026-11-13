@@ -49,7 +49,7 @@ All three are compiled from their own folders (`run.bat` uses `-sourcepath ..\AR
 Each **Forward ▶** runs one step for real, then **replays every packet it produced** on the topology, the way Packet Tracer's simulation mode does:
 - **DHCP DORA:** the DISCOVER and REQUEST are layer-2 broadcasts. The envelope fans out to every port: PCs drop it (✕) and the router relays it to the load balancer, which hashes the MAC to one cluster node. The OFFER and ACK come back to the laptop.
 - **ARP:** a request floods all ports, with ✓ at the owner and ✕ elsewhere; the reply is unicast back. Probes, gratuitous ARPs, forged replies, and drops by inspection at the switch are all shown.
-- **Telnet:** each TCP segment travels down the client's stack (terminal → terminal driver → Telnet client/NVT → TCP → IP → Ethernet) and up the router's (Ethernet → IP → TCP → Telnet server → **pseudo-terminal driver** → shell). The real NVT bytes are shown (e.g. `IAC DO ECHO` = `FF FD 01`). When the cache is poisoned, the frames detour through the attacker.
+- **Telnet:** each TCP segment travels down the client's stack (terminal → terminal driver → Telnet client/NVT → TCP → IP → Ethernet) and up the router's (Ethernet → IP → TCP → Telnet server → **pseudo-terminal driver** → shell). The real NVT bytes ride under each envelope as it travels: one cell per byte with its name, its 8 bits and its hex (e.g. `IAC DO ECHO` = `FF FD 01`, then the typed `c i s c o`). Control bytes, whose top bit is 1, are dark red; data bytes, top bit 0, are light. When the cache is poisoned, the frames detour through the attacker.
 - **PDU information:** the OSI layers (L7 to L1) of the packet on screen, with its fields.
 - **Event list:** every packet of the step: last device, at device, type.
 

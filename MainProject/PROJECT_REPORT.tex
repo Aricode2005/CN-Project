@@ -269,7 +269,7 @@ After each step, \texttt{Recorder} returns the packets it produced. The dashboar
 \begin{itemize}[leftmargin=2em]
     \item a DHCP DISCOVER or REQUEST fans out to every port (PCs drop it with \texttt{X}; the router relays it to the load balancer, which hashes the MAC to one node);
     \item an ARP request floods every port (\texttt{OK} at the owner) and the reply returns as unicast;
-    \item a Telnet segment walks down the laptop's stack (terminal, terminal driver, Telnet client and NVT, TCP, IP, Ethernet) and up the router's to the \textbf{pseudo-terminal driver} and the shell, showing the real NVT bytes, for example \texttt{IAC DO ECHO} = \texttt{FF FD 01}.
+    \item a Telnet segment walks down the laptop's stack (terminal, terminal driver, Telnet client and NVT, TCP, IP, Ethernet) and up the router's to the \textbf{pseudo-terminal driver} and the shell, showing the real NVT bytes, for example \texttt{IAC DO ECHO} = \texttt{FF FD 01}. The bytes also ride under the envelope as it crosses the topology: one cell per byte with its name, its 8 bits and its hex value, control bytes (most significant bit 1) in dark red and data bytes (most significant bit 0) in light colour, so the password can be watched travelling one character per segment.
 \end{itemize}
 
 \shot{07_dhcp_discover_broadcast.png}{DHCP DISCOVER as a layer-2 broadcast, relayed to the cluster.}

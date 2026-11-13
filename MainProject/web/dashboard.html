@@ -347,13 +347,48 @@ function envelope(g, color) {
   el('path', { d:'M-14,-10 L0,2 L14,-10', fill:'none', stroke:'#222', 'stroke-width':1.3 }, g);
 }
 const cssColor = c => c.startsWith('var(') ? ({ 'var(--dhcp)':COL.dhcp, 'var(--arp)':COL.arp, 'var(--tel)':COL.tel, 'var(--bad)':COL.bad })[c] || c : c;
-function fly(pts, color, label, ms) {
+/* Telnet: the NVT bytes a segment carries, as cells that ride under the envelope (like chapter 02 of the Telnet lab):
+   name, the 8 bits (MSB highlighted: 1 = control, 0 = data), and the hex value. */
+const NVT_CTL = { 0xFF:'IAC', 0xFE:'DONT', 0xFD:'DO', 0xFC:'WONT', 0xFB:'WILL', 0xFA:'SB', 0xF0:'SE', 0xF1:'NOP', 0xF2:'DM', 0xF4:'IP', 0xF5:'AO', 0xF6:'AYT', 0xF7:'EC', 0xF8:'EL', 0xF9:'GA' };
+function nvtCells(r, max) {
+  const out = [];
+  for (const t of r.tokens || []) {
+    if (t.k === 'tls') { out.push({ l:'TLS', b:-1 }); continue; }
+    if (t.hex) {
+      const hs = t.hex.split(/\s+/).filter(h => /^[0-9A-F]{2}$/i.test(h)), words = t.t.split(' '), neg = hs.length === 3 && words.length === 3;
+      hs.forEach((h, i) => { const b = parseInt(h, 16); out.push({ l: neg && i === 2 ? words[2] : (NVT_CTL[b] || words[i] || h), b }); });
+      continue;
+    }
+    for (const ch of t.t || '') { if (ch === '⏎') out.push({ l:'CR', b:13 }, { l:'LF', b:10 }); else out.push({ l: ch === ' ' ? '␠' : ch, b: ch.charCodeAt(0) & 255 }); }
+  }
+  const cells = out.slice(0, max);
+  if (out.length > max) cells.push({ l:'+' + (out.length - max), b:-2 });
+  return cells;
+}
+function byteStrip(g, cells) {
+  const w = 27, x0 = -cells.length * w / 2, sg = el('g', { transform:'translate(0,34)' }, g);
+  const font = (px, fill, wt) => 'font:' + (wt || 700) + ' ' + px + 'px "IBM Plex Mono", monospace;fill:' + fill + ';stroke:none';
+  cells.forEach((c, i) => {
+    const x = x0 + i * w, ctl = c.b >= 128, tls = c.b === -1, more = c.b === -2;
+    el('rect', { x, y:0, width:w - 2, height:31, rx:2, fill: tls ? '#4a4a4a' : ctl ? '#7a2418' : more ? '#e8e3d3' : '#fffdf6', stroke:'#222', 'stroke-width':1 }, sg);
+    const tt = el('text', { x:x + (w - 2) / 2, y:11, 'text-anchor':'middle', style:font(8.5, tls || ctl ? '#fff' : '#111') }, sg);
+    tt.textContent = c.l.length > 4 ? c.l.slice(0, 4) : c.l;
+    if (c.b >= 0) for (let k = 7; k >= 0; k--) {
+      const on = (c.b >> k) & 1;
+      el('rect', { x:x + 1.8 + (7 - k) * 2.8, y:16, width:2.2, height:5, fill: on ? (k === 7 ? '#ff6b4a' : ctl ? '#fff' : '#111') : ctl ? '#a85a4f' : '#d9d4c3' }, sg);
+    }
+    const hx = el('text', { x:x + (w - 2) / 2, y:29, 'text-anchor':'middle', style:font(6.5, tls || ctl ? '#ffd9d0' : '#444', 600) }, sg);
+    hx.textContent = c.b >= 0 ? c.b.toString(16).toUpperCase().padStart(2, '0') : tls ? '????' : '';
+  });
+}
+function fly(pts, color, label, ms, cells) {
   return new Promise(resolve => {
     const layer = $('pk'); if (!layer) return resolve();
     if (SKIP || reduced) return resolve();
     const g = el('g', { class:'pkt' }, layer);
     envelope(g, cssColor(color));
     const t = el('text', { x:0, y:25, 'text-anchor':'middle' }, g); t.textContent = label;
+    if (cells && cells.length) byteStrip(g, cells);
     const L = pathLen(pts), dur = ms * K(), t0 = performance.now();
     const step = () => { if (SKIP) { g.remove(); return resolve(); } const k = Math.min(1, (performance.now() - t0) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, p = at(pts, L * e);
       g.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')'); if (k < 1) setTimeout(step, 16); else { g.remove(); resolve(); } };
@@ -493,14 +528,15 @@ async function playTel(r, i, n, compact) {
   $('s0').textContent = up && data.includes('⏎') ? 'runs: ' + data.split('⏎').filter(Boolean).pop() : up ? 'waiting for a full line' : 'output: ' + (data.split('⏎').filter(Boolean)[1] || data).slice(0, 50);
   const wire = $('wire'), dot = $('wireDot'); wire.className = 'w lit' + (r.port === 5 ? ' bad' : ''); $('wireNote').textContent = r.port === 5 ? 'via the attacker' : 'LAN';
   const lbl = r.tls ? 'TLS' : 'TCP:23';
+  const cells = nvtCells(r, compact ? 6 : 8);       // the NVT bytes ride along under the envelope
   if (compact) {                                    // a quick envelope: no stack walk
-    if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 260); await fly(route(5, up ? 4 : 6), col, lbl, 220); }
-    else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 300);
+    if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 420, cells); await fly(route(5, up ? 4 : 6), col, lbl, 360, cells); }
+    else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 520, cells);
     wire.className = 'w'; return;
   }
   const per = 85;
-  const net = (async () => { if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 700); flash(5, 'var(--bad)', r.tls ? 'only ciphertext' : 'reads: ' + (data.slice(0, 22) || 'IAC…'), 'var(--bad)'); await fly(route(5, up ? 4 : 6), col, lbl, 500); }
-                        else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 750); })();
+  const net = (async () => { if (r.port === 5) { await fly(route(up ? 6 : 4, 5), col, lbl, 900, cells); flash(5, 'var(--bad)', r.tls ? 'only ciphertext' : 'reads: ' + (data.slice(0, 22) || 'IAC…'), 'var(--bad)'); await fly(route(5, up ? 4 : 6), col, lbl, 700, cells); }
+                        else await fly(route(up ? 6 : 4, up ? 4 : 6), col, lbl, 1000, cells); })();
   if (up) { await walk(LAYERS_UP, per); await moveDot(dot, true); await walk(LAYERS_SRV, per); }
   else { await walk(LAYERS_SRV.slice().reverse(), per); await moveDot(dot, false); await walk(LAYERS_UP.slice().reverse(), per); }
   await net;
