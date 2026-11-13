@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import telnet.core.Hub;
+import telnet.tap.WireTap;
 
 /**
  * Layer-4 TCP load balancer in front of the cluster (one public port, three VTY servers behind it).
@@ -122,16 +123,19 @@ final class Balancer {
         Hub.I.tap(new Hub.TapConn(conn.id, client, up.getLocalPort(), false, "lb"));
         cluster.event("LB: " + client + " -> " + n.name + " (" + describePolicy() + ")");
         Runnable done = () -> { if (conns.remove(conn)) { try { c.close(); } catch (IOException ignored) { } try { up.close(); } catch (IOException ignored) { } } };
-        daemon("lb-up", () -> { pump(c, up); done.run(); });
-        pump(up, c);
+        // The balancer is a relay in the middle of a plaintext protocol: it sees every byte, exactly like the wire tap.
+        // Decode it the same way, so the dashboard shows the NVT bytes and any password typed through the cluster.
+        WireTap.Sniffer sn = new WireTap.Sniffer(conn.id, false);
+        daemon("lb-up", () -> { pump(c, up, sn, true); done.run(); });
+        pump(up, c, sn, false);
         done.run();
     }
 
     String describePolicy() { return "rr".equals(policy) ? "round robin" : "hash".equals(policy) ? "source-IP hash" : "least connections"; }
 
-    private static void pump(Socket a, Socket b) {
+    private static void pump(Socket a, Socket b, WireTap.Sniffer sn, boolean c2s) {
         byte[] buf = new byte[8192];
-        try { InputStream in = a.getInputStream(); OutputStream out = b.getOutputStream(); int n; while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); out.flush(); } }
+        try { InputStream in = a.getInputStream(); OutputStream out = b.getOutputStream(); int n; while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); out.flush(); sn.chunk(c2s, buf, n); } }
         catch (IOException ignored) { }
     }
 

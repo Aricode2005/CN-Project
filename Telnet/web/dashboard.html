@@ -318,7 +318,7 @@ table.t tr.flash td { background: rgba(255, 216, 74, .5); transition: none; }
 
 /* §6 the intercept — a dark insert pasted onto the printout */
 .intercept { background: var(--crt); color: var(--phos-hi); padding: 22px 22px 18px; margin: 0 -14px; box-shadow: 0 18px 40px -20px rgba(0,0,0,.6); position: relative; }
-.intercept::before { content: "INTERCEPT · TAP :2324 / :9924"; position: absolute; top: -9px; left: 18px; background: var(--c2s); color: #fff; font: 600 10px/1 var(--mono); letter-spacing: .12em; padding: 4px 8px 3px; }
+.intercept::before { content: "INTERCEPT · TAP :2324 / :9924 · LB :2330"; position: absolute; top: -9px; left: 18px; background: var(--c2s); color: #fff; font: 600 10px/1 var(--mono); letter-spacing: .12em; padding: 4px 8px 3px; }
 .intercept .sub { color: var(--phos-dim); } .intercept .sub::after { border-color: var(--crt-rule); }
 .intercept .chk { color: var(--phos-dim); }
 .intercept .mini { border-color: var(--crt-rule); color: var(--phos-hi); } .intercept .mini:hover { background: var(--phos); color: var(--crt); }
@@ -459,7 +459,7 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
         <div class="counter"><div><b id="kCount">0</b>keystrokes sent</div><div><b id="eCount">0</b>echo / output chunks back</div><div><b id="segCount">0</b>TCP segments seen by the tap</div></div>
       </div>
       <div class="live1">
-        <div class="lc"><h4>Who is logged in</h4><div id="l1who" class="lcb">No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC's IP&gt; 2324</code></div></div>
+        <div class="lc"><h4>Who is logged in</h4><div id="l1who" class="lcb">No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC's IP&gt; 2330</code> (one port for the whole demo: sniffing, cluster failover and RADIUS)</div></div>
         <div class="lc"><h4>Option negotiation of this session</h4><div id="l1neg" class="lcb m"></div></div>
         <div class="lc"><h4>What a sniffer on the network reads</h4><div id="l1snif" class="lcb m"></div></div>
       </div>
@@ -534,7 +534,7 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
               <label class="chk"><input type="checkbox" id="hex"> hex</label>
               <label class="chk"><input type="checkbox" id="onlyCmd"> commands only</label>
               <button class="mini" id="wclear">clear</button></div>
-            <div class="frames" id="frames"><div style="padding:14px;color:#6f5a35">Traffic through TCP 2324 (plaintext) and 9924 (TLS) appears here, one row per TCP segment.</div></div>
+            <div class="frames" id="frames"><div style="padding:14px;color:#6f5a35">Traffic through the wire tap (2324, TLS 9924) and the HA load balancer (2330) appears here, one row per TCP segment.</div></div>
           </div>
           <div style="display:grid;gap:14px;align-content:start">
             <div class="cmp">
@@ -785,7 +785,7 @@ function trackFrame(f, c2s) {
 }
 function renderLiveWho(s) {
   const id = watchedSession(), w = whoOf(id), sess = s.sessions.find(x => x.id === id);
-  if (!w || !sess) { if (!s.sessions.length) $('l1who').innerHTML = 'No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC\'s IP&gt; 2324</code>'; renderLiveSniff(); return; }
+  if (!w || !sess) { if (!s.sessions.length) $('l1who').innerHTML = 'No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC\'s IP&gt; 2330</code> (one port for the whole demo)'; renderLiveSniff(); return; }
   $('l1who').innerHTML = `<div class="big">${esc(clientName(w))}</div>` +
     `<div>${w.local ? 'on this laptop' : '<b>another computer on the network</b>'}</div>` +
     `<div>user <b>${esc(w.user || '(logging in)')}</b> · VTY line ${w.line} · session ${w.session}</div>` +
@@ -798,13 +798,13 @@ function renderLiveWho(s) {
 function renderLiveSniff() {
   const w = whoOf(watchedSession()), el = $('l1snif');
   if (!w) { el.innerHTML = ''; return; }
-  if (w.via === 'lb') { el.innerHTML = 'This session came in through the <b>HA load balancer</b> (port 2330), not the wire tap, so the sniffer is not on its path. See chapter <a href="#c8">08</a> for the cluster.'; return; }
-  if (w.via !== 'tap') { el.innerHTML = 'This session bypasses the wire tap (direct to port 2323), so the sniffer is not on its path. Connect to port <b>2324</b> to be sniffed.'; return; }
+  if (w.via !== 'tap' && w.via !== 'lb') { el.innerHTML = 'This session bypasses the wire tap (direct to port 2323), so the sniffer is not on its path. Connect to port <b>2330</b> (or 2324) to be sniffed.'; return; }
   const cap = (A.lastState ? A.lastState.captures : []).filter(c => c.conn === w.conn).pop();
   const head = w.tls ? '<div class="ok">TLS: the sniffer sees only encrypted records. No password.</div>'
     : cap ? `<div class="pw">Password sniffed off the wire: <b>${esc(cap.user)}</b> / <b>${esc(cap.pass)}</b></div>` : '';
   const t = A.typed[w.conn];
-  el.innerHTML = head + `<div style="color:var(--muted);font-family:var(--text);font-size:11.5px;margin-bottom:4px">Keystrokes from ${esc(clientName(w))}, exactly as they cross the network:</div><div class="typed">${t ? t.html : ''}</div>`;
+  const where = w.via === 'lb' ? `Keystrokes from ${esc(clientName(w))} as the <b>HA load balancer</b> relays them to node ${esc(w.node)} (a box in the middle sees plaintext too):` : `Keystrokes from ${esc(clientName(w))}, exactly as they cross the network:`;
+  el.innerHTML = head + `<div style="color:var(--muted);font-family:var(--text);font-size:11.5px;margin-bottom:4px">${where}</div><div class="typed">${t ? t.html : ''}</div>`;
   el.scrollTop = 1e6;
 }
 function renderLiveNeg(events) {

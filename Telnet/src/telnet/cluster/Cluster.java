@@ -35,7 +35,8 @@ import telnet.server.VtyPool;
  */
 public final class Cluster {
 
-    public static final int LB_PORT = 2330, NODE_BASE = 2331, HEALTH_PORT = 2340, REPL_BASE = 2341;
+    /** Ports: 2330 balancer, 2331-2333 nodes, 2340 heartbeats, 2341-2343 replication (-Dtelnet.cluster=N moves them all to N..N+13). */
+    public static final int LB_PORT = Integer.getInteger("telnet.cluster", 2330), NODE_BASE = LB_PORT + 1, HEALTH_PORT = LB_PORT + 10, REPL_BASE = LB_PORT + 11;
     public static volatile Cluster I;
 
     final List<Node> nodes = new ArrayList<>();

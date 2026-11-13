@@ -83,8 +83,11 @@ public final class WireTap {
         t.start();
     }
 
-    /** Per-connection analyser: one decoder per direction + the credential state machine. */
-    static final class Sniffer {
+    /**
+     * Per-connection analyser: one decoder per direction + the credential state machine.
+     * Public so that any relay on the path (the HA load balancer too) can show what it sees.
+     */
+    public static final class Sniffer {
         final int conn; final boolean tls;
         final TelnetCodec[] dec = new TelnetCodec[2];
         final List<String>[] tokens;
@@ -97,7 +100,7 @@ public final class WireTap {
         final StringBuilder serverTail = new StringBuilder();
 
         @SuppressWarnings("unchecked")
-        Sniffer(int conn, boolean tls) {
+        public Sniffer(int conn, boolean tls) {
             this.conn = conn; this.tls = tls;
             tokens = new List[]{new ArrayList<String>(), new ArrayList<String>()};
             for (int d = 0; d < 2; d++) {
@@ -117,7 +120,7 @@ public final class WireTap {
             }
         }
 
-        synchronized void chunk(boolean c2s, byte[] b, int n) {
+        public synchronized void chunk(boolean c2s, byte[] b, int n) {
             int d = c2s ? 0 : 1;
             tokens[d].clear();
             if (tls) tlsRecords(d, b, n);
