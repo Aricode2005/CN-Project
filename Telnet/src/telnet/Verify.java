@@ -4,7 +4,14 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import telnet.aaa.Radius;
+import telnet.aaa.RadiusClient;
+import telnet.aaa.RadiusServer;
 import telnet.client.TelnetClient;
+import telnet.cluster.Cluster;
+import telnet.lab.ModeLab;
 import telnet.core.Hub;
 import telnet.dashboard.DashboardServer;
 import telnet.protocol.LoopExperiment;
@@ -33,6 +40,12 @@ final class Verify {
         serverTests(pool, p);
         System.out.println("\n--- 4. Security: sniffing, TLS, brute force, VTY limit -------------------");
         securityTests(pool, p, keystore);
+        System.out.println("\n--- 5. HA cluster: load balancer, failover, session resume --------------");
+        clusterTests();
+        System.out.println("\n--- 6. AAA: RADIUS authentication and accounting (RFC 2865 / 2866) ------");
+        radiusTests(pool, p);
+        System.out.println("\n--- 7. LINEMODE vs character mode vs Nagle (measured) --------------------");
+        modeTests(p);
         System.out.println("\n============================================================================");
         System.out.printf("  %d passed, %d failed%n", pass, fail);
         System.out.println("============================================================================");
@@ -250,5 +263,115 @@ final class Verify {
         d.close();
         pool.guard.unblock();
         check("clear login leaves quiet mode", pool.guard.quietSecondsLeft() == 0, "");
+    }
+
+    // ------------------------------------------------------------------ 5
+
+    private static void clusterTests() throws Exception {
+        Cluster cl = Cluster.I;
+        if (cl == null) { check("HA cluster is running", false, "not started"); return; }
+        Thread.sleep(1200);                                            // first heartbeats
+        TelnetClient c = new TelnetClient("127.0.0.1", Cluster.LB_PORT, false, null, new String[]{"XTERM"}, 80, 24, true, null);
+        long m = c.expect(0, "Username: ", 6000);
+        Matcher nm = Pattern.compile("cluster node (R\\d)").matcher(c.since(0));
+        String node = nm.find() ? nm.group(1) : "?";
+        check("load balancer hands the connection to a cluster node", m > 0 && !node.equals("?"), node);
+        c.line("admin"); long pw = c.expect(m, "Password: ", 3000); c.line("cisco");
+        long t = c.expect(pw, "Session token", 4000);
+        Matcher tm = Pattern.compile("Session token ([A-Z0-9]{4}-[A-Z0-9]{4})").matcher(c.since(pw));
+        String tok = tm.find() ? tm.group(1) : "?";
+        check("cluster login prints a resume token", t > 0 && !tok.equals("?"), tok);
+        long pr = c.expect(t, "#", 3000);
+        c.line("show clock"); pr = c.expect(pr, "#", 3000);
+        c.line("configure terminal"); c.expect(pr, "(config)#", 3000);
+        Thread.sleep(400);
+        check("session snapshot replicated to all three nodes (UDP)", cl.replicaCount(tok) == 3, cl.replicaCount(tok) + " copies");
+        cl.control("kill", node, "");
+        long end = System.currentTimeMillis() + 3000;
+        while (!c.isClosed() && System.currentTimeMillis() < end) Thread.sleep(50);
+        check("killing the node drops the client's TCP connection", c.isClosed(), "");
+        Thread.sleep(2000);
+        check("no heartbeat for 1.5 s: the balancer takes the node out", !cl.healthy(node), node);
+        TelnetClient c2 = new TelnetClient("127.0.0.1", Cluster.LB_PORT, false, null, new String[]{"XTERM"}, 80, 24, true, null);
+        long m2 = c2.expect(0, "Username: ", 6000);
+        Matcher nm2 = Pattern.compile("cluster node (R\\d)").matcher(c2.since(0));
+        String node2 = nm2.find() ? nm2.group(1) : "?";
+        check("reconnect lands on a surviving node", m2 > 0 && !node2.equals(node) && !node2.equals("?"), node + " -> " + node2);
+        c2.line("resume");
+        long rs = c2.expect(m2, "(config)#", 4000);
+        check("'resume' continues the session in configuration mode", rs > 0 && c2.since(m2).contains("RESUMED"), "");
+        c2.line("do show history");
+        long h = c2.expect(rs, "(config)#", 3000);
+        String hist = c2.since(rs);
+        check("command history survived the failover", h > 0 && hist.contains("show clock") && hist.contains("configure terminal"), "");
+        c2.line("end"); c2.expect(h, "#", 3000);
+        c2.line("exit"); Thread.sleep(600);
+        check("logout deletes the snapshot on every node", cl.replicaCount(tok) == 0, cl.replicaCount(tok) + " copies left");
+        c2.close();
+        cl.control("revive", node, "");
+        Thread.sleep(1500);
+        check("revived node rejoins the rotation", cl.healthy(node), node);
+    }
+
+    // ------------------------------------------------------------------ 6
+
+    private static void radiusTests(VtyPool pool, DashboardServer.Ports p) throws Exception {
+        byte[] secret = "testing123".getBytes(), ra = new byte[16];
+        new Random(2865).nextBytes(ra);
+        byte[] hidden = Radius.hidePassword("a-long-password-of-21", secret, ra);
+        check("User-Password hiding: 32 bytes, and it reverses with the secret", hidden.length == 32 && Radius.unhidePassword(hidden, secret, ra).equals("a-long-password-of-21"), "");
+        check("...but not with the wrong secret", !Radius.unhidePassword(hidden, "wrong".getBytes(), ra).equals("a-long-password-of-21"), "");
+        RadiusServer srv = RadiusClient.SERVER; RadiusClient cli = RadiusClient.I;
+        if (srv == null || cli == null) { check("RADIUS server is running", false, ""); return; }
+        pool.cfg.aaaRadius = true;
+        String out = login(p.telnet, "netops", "radius123", "#");
+        check("RADIUS-only user logs in with the privilege from Access-Accept", out.contains("Authenticated by RADIUS") && out.contains("privilege 15"), "");
+        out = login(p.telnet, "admin", "not-the-password", "Username: ");
+        check("wrong password -> Access-Reject (no fallback to local)", out.contains("Wrong password") && out.contains("Login invalid"), "");
+        srv.online = false;
+        long to = cli.timeouts;
+        out = login(p.telnet, "admin", "cisco", "#");
+        check("server silent: 3 tries, then fall back to local users", cli.timeouts > to && out.contains("local (RADIUS unreachable)"), "");
+        out = login(p.telnet, "netops", "radius123", "Username: ");
+        check("server silent: a RADIUS-only user cannot log in", out.contains("Login invalid"), "");
+        srv.online = true;
+        pool.cfg.radiusKey = "wrong-secret";
+        long bad = cli.badResponses;
+        login(p.telnet, "admin", "cisco", "#");
+        check("wrong shared secret: reply fails the Response Authenticator check", cli.badResponses > bad, "");
+        pool.cfg.radiusKey = "testing123";
+        Thread.sleep(1500);                                            // accounting is asynchronous
+        String acct = srv.json();
+        check("accounting Start and Stop recorded on the server", acct.contains("\"user\":\"netops\"") && Pattern.compile("\"user\":\"netops\".*?\"stop\":[1-9]").matcher(acct).find(), "");
+        check("accounting Interim-Update recorded the command", Pattern.compile("\"user\":\"netops\".*?\"commands\":\\[\"show users\"").matcher(acct).find(), "");
+        pool.cfg.aaaRadius = false;
+    }
+
+    /** Log in, run "show users", log out; returns everything the server printed. */
+    private static String login(int port, String user, String pass, String until) throws Exception {
+        TelnetClient c = new TelnetClient("127.0.0.1", port, false, null, new String[]{"VT100"}, 80, 24, true, null);
+        long m = c.expect(0, "Username: ", 6000);
+        c.line(user); long pw = c.expect(m, "Password: ", 3000); c.line(pass);
+        long r = c.expect(pw, until, 9000);
+        if (until.equals("#") && r > 0) { c.line("show users"); r = c.expect(r, "#", 3000); c.line("exit"); Thread.sleep(300); }
+        String s = c.since(0);
+        c.close();
+        return s;
+    }
+
+    // ------------------------------------------------------------------ 7
+
+    private static void modeTests(DashboardServer.Ports p) {
+        String j = ModeLab.run(p.telnet, 200, 60);
+        Matcher mm = Pattern.compile("\"mode\":\"(\\w+)\",\"keys\":(\\d+),\"segC2S\":(\\d+).*?\"echoAvg\":([\\d.]+)").matcher(j);
+        java.util.Map<String, double[]> r = new java.util.HashMap<>();
+        while (mm.find()) r.put(mm.group(1), new double[]{Double.parseDouble(mm.group(2)), Double.parseDouble(mm.group(3)), Double.parseDouble(mm.group(4))});
+        check("experiment ran in all three modes", r.size() == 3, r.keySet().toString());
+        if (r.size() < 3) return;
+        double[] ch = r.get("char"), ng = r.get("nagle"), ln = r.get("line");
+        check("character mode: one client segment per keystroke", ch[1] >= ch[0] * 0.95, (int) ch[1] + " segments / " + (int) ch[0] + " keys");
+        check("Nagle's rule sends fewer segments than character mode", ng[1] < ch[1] * 0.75, (int) ng[1] + " vs " + (int) ch[1]);
+        check("...but makes the echo slower", ng[2] > ch[2], ng[2] + " ms vs " + ch[2] + " ms");
+        check("LINEMODE: one segment per command line", ln[1] <= ModeLab.SCRIPT.length + 1, (int) ln[1] + " segments");
     }
 }

@@ -110,6 +110,18 @@ public final class Hub {
     }
     public final List<Capture> captures = new CopyOnWriteArrayList<>();
 
+    // ------------------------------------------------------------------ wire-tap connections (who is really on the other end)
+    /** One connection through a wire tap: the real client's address, and the local port the tap used towards the server. */
+    public static final class TapConn {
+        public final int conn, upPort; public final String client, kind; public final boolean tls;
+        public TapConn(int conn, String client, int upPort, boolean tls) { this(conn, client, upPort, tls, "tap"); }
+        /** kind = "tap" (wire tap: the bytes are sniffed) or "lb" (HA load balancer). */
+        public TapConn(int conn, String client, int upPort, boolean tls, String kind) { this.conn = conn; this.client = client; this.upPort = upPort; this.tls = tls; this.kind = kind; }
+    }
+    public final List<TapConn> taps = new CopyOnWriteArrayList<>();
+    public void tap(TapConn t) { taps.add(t); while (taps.size() > 64) taps.remove(0); }
+    public TapConn tapByUpPort(int port) { for (TapConn t : taps) if (t.upPort == port) return t; return null; }
+
     // ------------------------------------------------------------------ recordings of finished sessions
     public static final class Recording {
         public final int id; public final String user; public final String from; public final long start; public final String eventsJson;

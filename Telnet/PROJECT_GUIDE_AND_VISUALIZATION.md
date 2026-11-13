@@ -48,7 +48,8 @@ This module is a **pure Java (JDK 11+, zero dependencies)** implementation of Te
    - PBKDF2-SHA256 password hashes (Cisco type 8);
    - `login block-for` quiet mode, demonstrated against a live dictionary-attack bot.
 7. **Session recording and replay**, plus a **live dashboard** (`http://localhost:8081`) that follows the lecture slides chapter by chapter.
-8. **Automated verification**: 35 checks (`run.bat --verify`).
+8. **Automated verification**: 59 checks (`run.bat --verify`).
+9. **HA cluster** (R1–R3 behind a load balancer on 2330, heartbeats, replicated session state, `resume` after failover), **RADIUS AAA** (RFC 2865/2866, UDP 1812/1813) and a **LINEMODE vs character mode vs Nagle** experiment: see the README and dashboard chapters 08–10.
 
 | Port | Purpose |
 |:--|:--|
@@ -273,7 +274,7 @@ sequenceDiagram
 ```powershell
 cd Telnet
 .\run.bat              # compile + start everything, then open http://localhost:8081
-.\run.bat --verify     # 35 automated checks
+.\run.bat --verify     # 59 automated checks
 .\run.bat client       # console Telnet client through the wire tap
 ```
 

@@ -10,7 +10,10 @@ import java.util.List;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import telnet.aaa.RadiusClient;
+import telnet.aaa.RadiusServer;
 import telnet.client.TelnetClient;
+import telnet.cluster.Cluster;
 import telnet.core.Hub;
 import telnet.dashboard.DashboardServer;
 import telnet.server.DeviceConfig;
@@ -60,6 +63,18 @@ public final class Main {
             Hub.I.log("[TLS] keytool not available: telnets listener disabled");
         }
 
+        // ---- AAA: a RADIUS server (UDP 1812/1813) and the router's RADIUS client, used once "aaa ... group radius" is configured
+        RadiusServer radiusServer = new RadiusServer(cfg.radiusAuthPort, cfg.radiusAcctPort, cfg.radiusKey);
+        try { radiusServer.start(); } catch (java.io.IOException e) { Hub.I.log("[RADIUS] could not start the server: " + e.getMessage()); }
+        RadiusClient radius = new RadiusClient(cfg);
+        RadiusClient.I = radius; RadiusClient.SERVER = radiusServer;
+        pool.radius = radius; pool.events.add(radius);
+
+        // ---- HA cluster: R1-R3 behind a load balancer on 2330, with session resume
+        Cluster cluster = new Cluster(cfg, pool.dhcpDataDir);
+        for (VtyPool cp : cluster.pools()) { cp.radius = radius; cp.events.add(radius); }
+        try { cluster.start(); } catch (java.io.IOException e) { Hub.I.log("[CLUSTER] could not start: " + e.getMessage()); }
+
         DashboardServer.Ports p = new DashboardServer.Ports();
         p.telnet = TELNET; p.tap = TAP; p.tls = tls ? TLS : 0; p.tlsTap = tls ? TLS_TAP : 0; p.http = HTTP;
         DashboardServer dash = new DashboardServer(p, pool, new File("web"), KEYSTORE);
@@ -77,7 +92,9 @@ public final class Main {
         System.out.println("  Telnet ........... telnet localhost " + TELNET + "     (or PuTTY: Telnet, port " + TELNET + ")");
         System.out.println("  Via wire tap ..... telnet localhost " + TAP + "     (passwords appear in the sniffer)");
         if (tls) System.out.println("  Telnet over TLS .. run.bat client " + TLS_TAP + " --tls");
-        System.out.println("  Logins ........... admin / cisco (privilege 15), student / ju2026, enable secret: class");
+        System.out.println("  HA cluster ....... telnet localhost " + Cluster.LB_PORT + "     (load balancer -> R1-R3 :2331-2333; type 'resume' after a drop)");
+        System.out.println("  RADIUS server .... UDP 1812 / 1813, secret testing123   (conf t -> aaa authentication login default group radius local)");
+        System.out.println("  Logins ........... admin / cisco (privilege 15), student / ju2026, enable secret: class; RADIUS only: netops / radius123");
         System.out.println();
         System.out.println("  Commands: [s] sessions  [l] loop experiment  [u] unblock logins  [q] quit");
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));

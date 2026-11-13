@@ -34,6 +34,11 @@ public final class DeviceConfig {
     public volatile int blockForSec = 30, blockAttempts = 3, blockWithinSec = 60;
     public volatile String enableSecret;
     public final Map<String, User> users = new LinkedHashMap<>();
+    /** "aaa authentication login default group radius local" */
+    public volatile boolean aaaRadius;
+    /** "radius server host 127.0.0.1 auth-port 1812 acct-port 1813 key testing123" */
+    public volatile String radiusHost = "127.0.0.1", radiusKey = "testing123";
+    public volatile int radiusAuthPort = 1812, radiusAcctPort = 1813;
     private final File file;
 
     public DeviceConfig(File file) {
@@ -97,11 +102,16 @@ public final class DeviceConfig {
         for (User u : users.values()) {
             s.append("username ").append(u.name).append(" privilege ").append(u.privilege).append(" secret 8 ").append(u.secret).append('\n');
         }
+        s.append("!\naaa new-model\n");
+        s.append(aaaRadius ? "aaa authentication login default group radius local\naaa accounting exec default start-stop group radius\n"
+                : "aaa authentication login default local\n");
+        s.append("radius server host ").append(radiusHost).append(" auth-port ").append(radiusAuthPort).append(" acct-port ").append(radiusAcctPort)
+                .append(" key 7 ").append(Base64.getEncoder().encodeToString(radiusKey.getBytes(java.nio.charset.StandardCharsets.UTF_8))).append('\n');
         s.append("!\nlogin block-for ").append(blockForSec).append(" attempts ").append(blockAttempts).append(" within ").append(blockWithinSec).append("\n!\n");
         s.append("banner motd ^C").append(banner).append("^C\n!\n");
         s.append("line vty 0 ").append(vtyLines - 1).append('\n');
         s.append(" exec-timeout ").append(execTimeoutMin).append(" 0\n");
-        s.append(" login local\n transport input telnet\n");
+        s.append(aaaRadius ? " login authentication default\n" : " login local\n").append(" transport input telnet\n");
         s.append(" ! listening on TCP ").append(port).append(" (23 needs admin rights)\n!\nend\n");
         return s.toString();
     }
@@ -118,6 +128,8 @@ public final class DeviceConfig {
         StringBuilder u = new StringBuilder();
         for (User x : users.values()) u.append(x.name).append(':').append(x.privilege).append(':').append(x.secret).append(';');
         p.setProperty("users", u.toString());
+        p.setProperty("aaaRadius", String.valueOf(aaaRadius));
+        p.setProperty("radius", radiusHost + "," + radiusAuthPort + "," + radiusAcctPort + "," + radiusKey);
         file.getParentFile().mkdirs();
         try (OutputStream o = new FileOutputStream(file)) { p.store(o, "startup-config (write memory)"); }
     }
@@ -132,6 +144,9 @@ public final class DeviceConfig {
         String[] b = p.getProperty("block", "30,3,60").split(",");
         blockForSec = Integer.parseInt(b[0]); blockAttempts = Integer.parseInt(b[1]); blockWithinSec = Integer.parseInt(b[2]);
         enableSecret = p.getProperty("enable", enableSecret);
+        aaaRadius = Boolean.parseBoolean(p.getProperty("aaaRadius", "false"));
+        String[] r = p.getProperty("radius", "").split(",", 4);
+        if (r.length == 4) { radiusHost = r[0]; radiusAuthPort = Integer.parseInt(r[1]); radiusAcctPort = Integer.parseInt(r[2]); radiusKey = r[3]; }
         String us = p.getProperty("users");
         if (us != null && !us.isEmpty()) {
             users.clear();

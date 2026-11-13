@@ -131,6 +131,9 @@ This module is a complete Telnet laboratory written from the RFCs in pure Java 1
     \item \textbf{Wire tap} (\texttt{telnet.tap}): a man-in-the-middle relay that shows exactly what a sniffer on the path sees, including the reconstructed password.
     \item \textbf{Telnet over TLS} (``telnets'') on a second port, and a \textbf{brute-force guard} modelled on IOS \texttt{login block-for}.
     \item \textbf{Live dashboard} on \texttt{http://localhost:8081} that follows the lecture slides chapter by chapter.
+    \item \textbf{A high-availability cluster}: three routers behind a TCP load balancer with heartbeats, and \textbf{session resume} after a node fails, using session state replicated between the nodes.
+    \item \textbf{AAA with RADIUS} (RFC 2865 / 2866): our own RADIUS server and the router's RADIUS client, for central logins, privilege levels and accounting of every command.
+    \item \textbf{LINEMODE} (RFC 1184) and an experiment that measures character mode, Nagle's algorithm (RFC 896) and LINEMODE on the same typing.
 \end{enumerate}
 
 \begin{table}[H]
@@ -144,7 +147,10 @@ TCP 2323 & Telnet & The server (real port 23 needs administrator rights on Windo
 TCP 2324 & Telnet & Wire tap relaying to 2323: shows what a sniffer sees. \\
 TCP 9923 & Telnet over TLS & ``telnets'' (real port 992) with a self-signed certificate made by \texttt{keytool}. \\
 TCP 9924 & TLS & Wire tap relaying to 9923: shows that TLS hides everything. \\
-HTTP 8081 & HTTP & The dashboard. \\ \bottomrule
+HTTP 8081 & HTTP & The dashboard. \\
+TCP 2330 & Telnet & HA cluster: load balancer in front of routers R1--R3 (TCP 2331--2333). \\
+UDP 2340, 2341--2343 & cluster & Heartbeats to the balancer; session-state replication between nodes. \\
+UDP 1812 / 1813 & RADIUS & Authentication / accounting (shared secret \texttt{testing123}). \\ \bottomrule
 \end{tabularx}
 \end{table}
 
@@ -390,19 +396,175 @@ public synchronized boolean failure(String user, String from) {
 \shot[0.8\textwidth]{10_bruteforce_quiet_mode.png}{The dictionary attack is stopped after three guesses; the quiet-mode countdown starts.}
 
 % ==============================================================================
+\section{Advanced Features}
+
+\subsection{High Availability: A Router Cluster with Session Resume}
+\textbf{The problem.} A router is a single point of failure for management: if it reboots, every Telnet session on it is lost, and so is what the administrator was doing. Load balancing helps new connections, but a Telnet session is \emph{stateful TCP}: the connection's sequence numbers, buffers and the shell behind it live in one machine, and a TCP connection cannot be moved to another host.
+
+\textbf{The design.} Three routers (R1, R2, R3) run the same VTY server behind one \textbf{layer-4 TCP load balancer} on port 2330. What \emph{can} move is the session's state, so the cluster replicates it:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Health checking.} Each node sends a UDP heartbeat to the balancer every 400 ms. A node silent for 1.5 s is taken out of the rotation, and put back when its heartbeats return.
+    \item \textbf{Scheduling.} New connections go to the healthy node with the fewest connections (least connections), in turn (round robin), or by a rendezvous hash of the client address, so one client always lands on the same node while the node set is unchanged.
+    \item \textbf{State replication.} After login and after every command, the node sends a snapshot of the session (user, privilege, mode, command history, last screen) as one UDP datagram to its peers; the newest timestamp wins. A logout deletes the snapshot everywhere. A restarted node asks a peer for the whole table (anti-entropy).
+    \item \textbf{Resume.} When the connection is lost, the user reconnects to port 2330, lands on a healthy node, and types \texttt{resume} (or \texttt{resume TOKEN}) at the \texttt{Username:} prompt. That node already holds the snapshot and continues the session in the same mode with the same history. The token printed at login works like a session cookie; resuming by client address alone is a lab convenience.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[box/.style={draw, rounded corners=2pt, minimum width=2.4cm, minimum height=0.85cm, align=center, font=\small}, >=Stealth]
+\node[box] (c) at (0,0) {Client\\(any computer)};
+\node[box, fill=yellow!40] (lb) at (4,0) {Load balancer\\TCP 2330};
+\node[box, fill=green!15] (r1) at (8.5,1.5) {R1 :2331};
+\node[box, fill=green!15] (r2) at (8.5,0) {R2 :2332};
+\node[box, fill=green!15] (r3) at (8.5,-1.5) {R3 :2333};
+\draw[->, thick] (c) -- (lb);
+\draw[->] (lb) -- (r1); \draw[->] (lb) -- (r2); \draw[->] (lb) -- (r3);
+\draw[->, dashed, green!50!black] (r1.north) to[bend right=25] node[above, font=\footnotesize]{heartbeat (UDP 2340)} (lb.north);
+\draw[<->, dotted, thick] (r1.east) to[bend left=40] node[right, font=\footnotesize]{replication} (r2.east);
+\draw[<->, dotted, thick] (r2.east) to[bend left=40] node[right, font=\footnotesize]{UDP 2341--2343} (r3.east);
+\end{tikzpicture}
+\caption{The HA cluster: one public port, three routers, heartbeats and state replication.}
+\end{figure}
+
+\begin{lstlisting}[language=Java, caption={Choosing a node and replicating a snapshot (\texttt{cluster/Balancer.java}, \texttt{cluster/Node.java}).}]
+Node pick(String clientIp) {
+    List<Node> up = new ArrayList<>();
+    for (Node n : cluster.nodes) if (isHealthy(n)) up.add(n);    // heartbeat seen in the last 1.5 s
+    if (up.isEmpty()) return null;
+    switch (policy) {
+        case "rr":   return up.get(Math.floorMod(rr.getAndIncrement(), up.size()));
+        case "hash": {                                           // rendezvous hashing: stable when nodes come and go
+            Node best = null; long bestScore = Long.MIN_VALUE;
+            for (Node n : up) { long sc = mix((clientIp + "|" + n.name).hashCode()); if (sc > bestScore) { bestScore = sc; best = n; } }
+            return best;
+        }
+        default: {                                               // least connections
+            Node best = null; int bestN = Integer.MAX_VALUE;
+            for (Node n : up) { int k = count(n); if (k < bestN) { bestN = k; best = n; } }
+            return best;
+        }
+    }
+}
+
+/** Store locally and send to every other node. A crashed node sends nothing: it is dead. */
+void replicate(Snapshot x) {
+    if (!alive()) return;
+    store.put(x.token, x);
+    for (Node n : cluster.nodes) if (n != this) sendTo(n.replPort, x.encode());
+}
+\end{lstlisting}
+
+\textbf{Measured behaviour.} In the verification run an administrator logged in through port 2330 and landed on R1, ran \texttt{show clock} and entered configuration mode; the snapshot was present on all three nodes. R1 was then killed: the client's TCP connection dropped at once, and 1.5 s later the balancer had removed R1. The reconnection landed on R2, and \texttt{resume} continued the session \emph{in configuration mode}, with \texttt{show clock} and \texttt{configure terminal} in its history. After logout no copy of the snapshot remained, and the revived R1 rejoined the rotation.
+
+\shot[0.9\textwidth]{13_ha_cluster_failover.png}{Chapter 08 of the dashboard after R1 was killed: R1 is out of the rotation, and the sessions continue on R2 and R3.}
+
+\subsection{AAA: Central Login and Accounting with RADIUS}
+Storing passwords on every router does not scale: adding or removing an administrator means changing every device, and nobody can see who did what. Real networks use \textbf{AAA} (authentication, authorisation, accounting) against a central server. RADIUS (RFC 2865, UDP 1812) and RADIUS accounting (RFC 2866, UDP 1813) were implemented on both sides: a server with its own user table, and the router's client (the \emph{NAS}, network access server).
+
+\begin{table}[H]
+\centering
+\caption{RADIUS packet layout and the packets used}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Field} & \textbf{Content} \\ \midrule
+Header (20 bytes) & Code (1), Identifier (1), Length (2), Authenticator (16) \\
+Attributes & Type (1), Length (1), Value: User-Name, User-Password, NAS-IP-Address, NAS-Port, NAS-Port-Type (Virtual), Calling-Station-Id (client address), NAS-Identifier (router name), Service-Type, Reply-Message, Vendor-Specific (Cisco AV-pair), Acct-Status-Type, Acct-Session-Id, Acct-Session-Time, Acct-Input/Output-Octets, Acct-Terminate-Cause \\
+Codes & 1 Access-Request, 2 Access-Accept, 3 Access-Reject, 4 Accounting-Request, 5 Accounting-Response \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Security from a shared secret.} RADIUS does not encrypt the packet; it protects it with a secret $S$ known to the router and the server:
+\begin{itemize}[leftmargin=2em]
+    \item The password is hidden: $c_1 = p_1 \oplus \mathrm{MD5}(S \,\|\, \mathit{RequestAuthenticator})$, $c_i = p_i \oplus \mathrm{MD5}(S \,\|\, c_{i-1})$, in 16-byte blocks.
+    \item Every reply carries $\mathrm{MD5}(\mathit{Code}\,\|\,\mathit{ID}\,\|\,\mathit{Length}\,\|\,\mathit{RequestAuthenticator}\,\|\,\mathit{Attributes}\,\|\,S)$, so the router can tell a genuine reply from a forged one.
+    \item An Accounting-Request carries the same MD5 over the packet with 16 zero bytes in place of the authenticator, so the server can reject forged accounting records.
+\end{itemize}
+
+\begin{lstlisting}[language=Java, caption={Hiding the password and checking a reply (\texttt{aaa/Radius.java}, \texttt{aaa/RadiusClient.java}).}]
+/** RFC 2865 section 5.2 User-Password hiding. */
+public static byte[] hidePassword(String password, byte[] secret, byte[] requestAuth) {
+    byte[] p = password.getBytes(StandardCharsets.UTF_8);
+    int n = Math.max(16, (p.length + 15) / 16 * 16);
+    byte[] padded = new byte[n];
+    System.arraycopy(p, 0, padded, 0, p.length);
+    byte[] out = new byte[n], prev = requestAuth;
+    for (int i = 0; i < n; i += 16) {
+        byte[] b = md5(secret, prev);
+        for (int j = 0; j < 16; j++) out[i + j] = (byte) (padded[i + j] ^ b[j]);
+        prev = Arrays.copyOfRange(out, i, i + 16);
+    }
+    return out;
+}
+
+// on the router: accept a reply only if its authenticator proves the server knows the secret
+if (!MessageDigest.isEqual(r.auth, Radius.responseAuth(r, q.auth, key))) {
+    badResponses++;            // wrong shared secret or a forged reply: discard it
+    continue;
+}
+\end{lstlisting}
+
+\textbf{Login flow.} With \texttt{aaa authentication login default group radius local} configured, the router sends an Access-Request for every login and retransmits the identical packet after 1 s, up to three times. An Access-Accept carries the privilege level as the Cisco AV-pair \texttt{shell:priv-lvl=15}; an Access-Reject is final. Only if the server never answers does the router fall back to its local users. For each exec session the router sends an Accounting Start, one Interim-Update per command (with the command in a Cisco AV-pair), and a Stop with the session time, the byte counts and the terminate cause. Command accounting is normally done by Cisco with TACACS+; carrying it in RADIUS Interim-Updates is our extension to show the idea on the protocol we implemented.
+
+\begin{table}[H]
+\centering
+\caption{RADIUS behaviour observed in the verification run}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{Situation} & \textbf{Result} \\ \midrule
+User \texttt{netops} (exists only on the RADIUS server) & Access-Accept; logged in with privilege 15 from the AV-pair \\
+\texttt{admin} with a wrong password & Access-Reject (``Wrong password''); no fallback to the local password \\
+Server offline & Three retransmissions, then local login for \texttt{admin}; \texttt{netops} cannot log in \\
+Router configured with the wrong shared secret & Replies fail the Response Authenticator check and are discarded \\
+Accounting & Start, Interim-Update with \texttt{show users}, and Stop recorded on the server \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\shot[0.9\textwidth]{15_radius_aaa.png}{Chapter 09: the RADIUS packets between the router and the server, decoded field by field.}
+
+\subsection{LINEMODE, Nagle's Algorithm and Tinygrams}
+In character mode every keystroke is sent as its own TCP segment and echoed in another: one byte of data inside 40 bytes of TCP/IP header, a \emph{tinygram}. Two classic remedies were measured:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Nagle's algorithm} (RFC 896): while sent data is unacknowledged, hold new small data and send it together when the acknowledgement arrives. In character mode the echo plays the role of the acknowledgement.
+    \item \textbf{LINEMODE} (RFC 1184): the client offers \texttt{WILL LINEMODE}; the server answers \texttt{DO LINEMODE} and \texttt{SB LINEMODE MODE EDIT}, and gives up remote echo. The client then edits and echoes the line itself and sends it complete.
+\end{itemize}
+The server was extended to accept LINEMODE. A scripted client typed the same three commands (\texttt{show clock}, \texttt{who}, \texttt{show history}, 28 keystrokes) into the real server three times, through a link that delays every chunk by RTT/2 and counts every segment.
+
+\begin{table}[H]
+\centering
+\caption{Measured at RTT 200 ms and 60 ms per keystroke}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & \textbf{Character mode} & \textbf{+ Nagle's rule} & \textbf{LINEMODE} \\ \midrule
+Segments client $\rightarrow$ server & 29 & 12 & 4 \\
+Segments server $\rightarrow$ client & 38 & 32 & 10 \\
+Bytes on the wire (with 40-byte headers) & 3074 & 2154 & 923 \\
+Header share of the traffic & 87\% & 82\% & 61\% \\
+Average echo delay per keystroke & 218 ms & 309 ms & 0 ms (local) \\
+Command answer time (Enter $\rightarrow$ prompt) & 217 ms & 268 ms & 218 ms \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Character mode sent one segment per key and its echo took a full round trip. Nagle's rule cut the client's segments by more than half but made each echo wait for the previous one. LINEMODE sent one segment per command and cut the traffic to under a third, with no echo delay at all; the price is that the server no longer sees each key, so character-level features such as \texttt{?} help and Tab completion stop working while it is on.
+
+\shot[0.9\textwidth]{17_linemode_experiment.png}{Chapter 10: the three modes measured side by side, with a timeline of every segment.}
+
+% ==============================================================================
 \section{Experiments, Verification and Results}
 
 \subsection{Running the Module}
 \begin{lstlisting}[language=bash, caption={Starting the lab, running the checks, and connecting by hand.}]
 cd Telnet
 run.bat                 # compile and start server, taps and dashboard (http://localhost:8081)
-run.bat --verify        # 35 automated end-to-end checks
+run.bat --verify        # 59 automated end-to-end checks
 run.bat client          # console client through the wire tap
 telnet localhost 2323   # any Telnet client works (Windows: enable "Telnet Client")
 \end{lstlisting}
 
 \subsection{Automated Verification}
-\texttt{Verify.java} starts the real server and taps and drives them over TCP. All \textbf{35 checks pass}. A selection:
+\texttt{Verify.java} starts the real server, taps, cluster and RADIUS server, and drives them over TCP and UDP. All \textbf{59 checks pass}: 35 for the protocol, server and security, 10 for the cluster, 9 for RADIUS and 5 for the LINEMODE experiment. A selection:
 
 \begin{table}[H]
 \centering
@@ -424,7 +586,10 @@ Textbook embedding: \texttt{cat filea} \texttt{IAC EC} \texttt{1} runs \texttt{c
 STATUS (RFC 859): \texttt{SB STATUS SEND} answered with \texttt{SB STATUS IS} \\
 Wire tap sniffs \texttt{admin / cisco} from plaintext Telnet; through TLS it captures no credentials \\
 Sixth connection refused: all five VTY lines busy \\
-Three failed logins trigger quiet mode; the next connection is refused; \texttt{clear login} ends it \\ \bottomrule
+Three failed logins trigger quiet mode; the next connection is refused; \texttt{clear login} ends it \\
+Cluster: snapshot on all three nodes; killing the node drops the client; the balancer removes it after 1.5 s; \texttt{resume} on another node restores configuration mode and history \\
+RADIUS: password hiding reverses only with the right secret; RADIUS-only login; Reject is final; fallback when the server is silent; wrong secret detected; accounting recorded \\
+LINEMODE experiment: one segment per key in character mode; fewer segments but slower echo with Nagle; one segment per line in LINEMODE \\ \bottomrule
 \end{tabularx}
 \end{table}
 
@@ -445,6 +610,9 @@ Building Telnet from the RFCs made its design concrete:
 \begin{enumerate}[leftmargin=2em]
     \item \textbf{In-band signalling needs a stateful decoder.} Because commands share the byte stream with data and TCP has no message boundaries, the NVT decoder must be a state machine that survives any segmentation, and data byte 255 must be escaped.
     \item \textbf{Symmetric negotiation needs RFC 1143.} Labelling each WILL/WONT/DO/DONT with its meaning and tracking four states plus a queue per option prevents negotiation loops that the naive rule cannot avoid.
+    \item \textbf{State can survive what TCP cannot.} A TCP connection dies with its server, but replicating the session's state lets another node continue it; the cluster resumed a session in configuration mode after its node was killed.
+    \item \textbf{Management belongs on a central AAA server.} With RADIUS, one server decided who could log in to the routers and with what privilege, recorded every command, and the shared-secret authenticators exposed a misconfigured router.
+    \item \textbf{Character-at-a-time costs bandwidth, and every fix costs something else.} Nagle's algorithm halved the segments at the price of echo delay; LINEMODE cut the traffic to under a third at the price of per-key features.
     \item \textbf{Remote log-in must be encrypted.} The wire tap recovered the administrator password from plaintext Telnet, while Telnet over TLS exposed nothing. Rate-limited logins slow guessing attacks but do not replace encryption, which is the reason SSH superseded Telnet.
 \end{enumerate}
 

@@ -87,12 +87,15 @@ cd DHCP
 - **RFC 1143 Q-Method Option Negotiation**: ECHO, SGA, STATUS, TIMING-MARK, TTYPE, NAWS, TSPEED.
 - **Cisco IOS-style Command Shell**: Privilege levels, enable password, configuration modes, command history, and auto-completion.
 - **Plaintext vs TLS Sniffer (Wire Tap)**: Demonstrates why Telnet was replaced by SSH.
+- **HA cluster with session resume**: routers R1–R3 behind a TCP load balancer (port 2330), UDP heartbeats, session state replicated between nodes; after a node dies, reconnect and type `resume`.
+- **RADIUS AAA (RFC 2865 / 2866)**: our own RADIUS server and router client: central logins, privilege from the Access-Accept, fallback to local users, accounting of every command.
+- **LINEMODE (RFC 1184) vs character mode vs Nagle (RFC 896)**: the same typing measured three ways: segments, wire bytes, echo delay.
 - **Live Lecture-Slide Dashboard**: Runs on **http://localhost:8081**.
 
 ```powershell
 cd Telnet
 .\run.bat           # Start server, wire tap, and dashboard
-.\run.bat --verify  # Run 35 automated checks
+.\run.bat --verify  # Run 59 automated checks
 ```
 
 ---

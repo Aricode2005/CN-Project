@@ -27,7 +27,8 @@ public final class LanRelay {
     public LanRelay start() throws IOException {
         ss = new ServerSocket();
         ss.setReuseAddress(true);
-        ss.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), listenPort), 16);
+        // all interfaces: a second laptop on the same network can be the campus admin's PC (telnet <this PC> 2325)
+        ss.bind(new InetSocketAddress(listenPort), 16);
         Thread t = new Thread(() -> {
             while (running) {
                 try { Socket c = ss.accept(); Thread w = new Thread(() -> carry(c), "lan-relay-conn"); w.setDaemon(true); w.start(); }

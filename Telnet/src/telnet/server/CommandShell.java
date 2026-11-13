@@ -76,6 +76,15 @@ final class CommandShell {
         add("clear arp-cache", 15, false, "Flush dynamic ARP entries on the LAN (needs MainProject)", (a, r) -> campus(h -> h.clearArpCache()));
         add("show ip interface brief", 1, false, "Brief summary of IP status and configuration", (a, r) -> showIpBrief());
         add("show running-config", 15, false, "Current operating configuration", (a, r) -> out(s.pool.cfg.runningConfig(VtyPool.LINES, s.pool.plainPort)));
+        add("show aaa servers", 1, false, "RADIUS server status and counters", (a, r) -> {
+            RemoteAuth ra = s.pool.radius;
+            out("Authentication: " + (s.pool.cfg.aaaRadius ? "group radius, then local" : "local only") + "\n" + (ra == null ? "% No RADIUS client in this build\n" : ra.status()));
+        });
+        add("show session", 1, false, "This session: node, token, how it was authenticated", (a, r) -> out(
+                "Session " + s.id + " on " + (s.pool.node.isEmpty() ? "stand-alone router" : "HA cluster node " + s.pool.node) + ", line vty " + s.line + "\n"
+                + "Client " + s.clientIp() + ", user " + s.user + " (privilege " + s.priv + "), authenticated by " + s.authBy + "\n"
+                + (s.token == null ? "No resume token (not on the HA cluster)\n" : "Resume token " + s.token + " : if the connection drops, reconnect and type  resume " + s.token + "\n")
+                + "Input mode: " + (s.linemode ? "LINEMODE (RFC 1184, client edits locally)" : "character at a time (server echo)") + "\n"));
         add("dir", 1, false, "List files in flash:", (a, r) -> dir());
         add("cat <file>", 1, false, "Show a file (try: cat file1)", (a, r) -> cat(a.get(0)));
         add("who", 1, false, "List active sessions", (a, r) -> showUsers());
@@ -113,6 +122,13 @@ final class CommandShell {
         add("do <text>", 15, true, "Run an EXEC command from configuration mode", (a, r) -> {
             TelnetSession.Mode m = s.mode; s.mode = TelnetSession.Mode.EXEC; execute(r); if (s.mode == TelnetSession.Mode.EXEC) s.mode = m;
         });
+        // ---------------- AAA (RADIUS, RFC 2865 / 2866)
+        add("aaa authentication login default group radius local", 15, true, "Log in through the RADIUS server; local users only if it does not answer",
+                (a, r) -> { s.pool.cfg.aaaRadius = true; out("% AAA: logins now go to RADIUS " + s.pool.cfg.radiusHost + ":" + s.pool.cfg.radiusAuthPort + ", accounting to :" + s.pool.cfg.radiusAcctPort + "\n"); });
+        add("aaa authentication login default local", 15, true, "Log in with the local user database only", (a, r) -> s.pool.cfg.aaaRadius = false);
+        add("no aaa authentication login default", 15, true, "Back to local logins", (a, r) -> s.pool.cfg.aaaRadius = false);
+        add("radius server host <ip> key <secret>", 15, true, "RADIUS server address and shared secret",
+                (a, r) -> { s.pool.cfg.radiusHost = a.get(0); s.pool.cfg.radiusKey = a.get(1); });
         add("end", 15, true, "Exit from configure mode", (a, r) -> s.mode = TelnetSession.Mode.EXEC);
         add("exit", 15, true, "Exit from configure mode", (a, r) -> s.mode = TelnetSession.Mode.EXEC);
     }

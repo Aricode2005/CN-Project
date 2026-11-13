@@ -28,7 +28,7 @@ Stop the separate ARP, DHCP and Telnet labs first, because they use the same por
 | DHCP cluster dashboard | http://localhost:8080 (load balancer UDP 6700, nodes 6701–6703) |
 | Telnet router dashboard | http://localhost:8081 (Telnet 2323, TLS 9923, wire taps 2324 / 9924) |
 | ARP lab dashboard (the same switch, hosts and attacker) | http://localhost:8082 |
-| Telnet by hand, **across the simulated LAN** | `telnet 127.0.0.1 2325` (admin / cisco), then `show ip dhcp binding`, `show ip arp`, `show mac address-table`, `conf t` → `ip arp inspection vlan 1` |
+| Telnet by hand, **across the simulated LAN** | `telnet 127.0.0.1 2325`, or from **a second laptop**: `telnet <this PC's IP> 2325` (admin / cisco), then `show ip dhcp binding`, `show ip arp`, `show mac address-table`, `conf t` → `ip arp inspection vlan 1`. The second laptop plays the campus admin's PC: its keystrokes cross the simulated switch, so ARP poisoning really sends them to the attacker. |
 
 ## How the modules are joined
 

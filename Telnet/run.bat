@@ -3,7 +3,7 @@ echo ===========================================================================
 echo   Compiling the Telnet Remote-Management Lab (pure Java, JDK 11+)...
 echo ============================================================================
 if not exist out mkdir out
-javac --release 11 -d out src\telnet\*.java src\telnet\core\*.java src\telnet\protocol\*.java src\telnet\server\*.java src\telnet\tap\*.java src\telnet\client\*.java src\telnet\dashboard\*.java
+javac --release 11 -d out src\telnet\*.java src\telnet\core\*.java src\telnet\protocol\*.java src\telnet\server\*.java src\telnet\tap\*.java src\telnet\client\*.java src\telnet\dashboard\*.java src\telnet\cluster\*.java src\telnet\aaa\*.java src\telnet\lab\*.java
 if %ERRORLEVEL% NEQ 0 (
     echo Compilation failed!
     exit /b %ERRORLEVEL%

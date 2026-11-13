@@ -68,6 +68,74 @@ button, select, input { font: inherit; color: inherit; }
 .modes button small { font: 400 10px/1 var(--mono); color: #6f5a35; letter-spacing: .04em; }
 .modes button:hover { background: var(--crt-2); color: var(--phos-hi); }
 .modes button.on { background: var(--phos); color: var(--crt); } .modes button.on small { color: #5a3d0c; }
+/* which session the screen shows: this browser, or another computer's live session (mirrored) */
+.watch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--phos-dim); }
+.watch:empty { display: none; }
+.watch button { border: 1px solid var(--crt-rule); background: transparent; color: var(--phos-dim); padding: 6px 9px; cursor: pointer; font: 600 11.5px/1.1 var(--text); text-transform: none; letter-spacing: 0; }
+.watch button:hover { color: var(--phos-hi); background: var(--crt-2); }
+.watch button.on { background: var(--phos); color: var(--crt); border-color: var(--phos); }
+.watch button.remote { border-color: #7dff8a; color: #7dff8a; } .watch button.remote.on { background: #7dff8a; color: var(--crt); }
+.mirror-tag { position: absolute; top: 6px; right: 12px; z-index: 4; font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--crt); background: #7dff8a; padding: 4px 7px; }
+.live1 { display: grid; grid-template-columns: 1fr 1.25fr 1.25fr; gap: 14px; margin-top: 18px; }
+.live1 .lc { border: 1.5px solid var(--ink); background: var(--paper); min-width: 0; }
+.live1 h4 { font: 700 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; background: var(--ink); color: var(--paper); padding: 7px 10px; }
+.live1 .lcb { padding: 10px; font-size: 13px; line-height: 1.45; max-height: 210px; overflow: auto; }
+.live1 .lcb.m { font-family: var(--mono); font-size: 12px; }
+.live1 .big { font: 700 20px/1.1 var(--mono); color: var(--ink); margin: 2px 0 6px; word-break: break-all; }
+.live1 .neg { display: grid; grid-template-columns: 34px 1fr; gap: 2px 8px; padding: 3px 0; border-bottom: 1px dashed var(--rule); }
+.live1 .neg .d { color: var(--c2s); font-weight: 700; } .live1 .neg .d.s { color: var(--s2c); }
+.live1 .neg i { grid-column: 2; color: var(--muted); font-style: normal; font-family: var(--text); font-size: 11.5px; }
+.live1 .pw { background: var(--bad); color: #fff; padding: 8px 10px; margin-bottom: 8px; font: 700 13px/1.35 var(--text); }
+.live1 .pw b { font-family: var(--mono); font-size: 15px; background: #fff; color: var(--bad); padding: 0 5px; }
+.live1 .ok { background: var(--good); color: #fff; padding: 8px 10px; margin-bottom: 8px; font: 700 13px/1.35 var(--text); }
+.live1 .typed { white-space: pre-wrap; word-break: break-all; color: var(--ink); }
+.live1 .typed .sec { background: var(--bad); color: #fff; padding: 0 2px; }
+@media (max-width: 1100px) { .live1 { grid-template-columns: 1fr; } }
+/* 08 HA cluster */
+.ha-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.ha-top svg { width: 100%; height: auto; }
+.ha-side { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 32px; align-items: start; }
+.ha-side .sub { grid-row: 1; margin: 0; } .ha-side .tabs { flex-wrap: wrap; grid-row: 2; } .ha-side .steps { grid-row: 2; }
+.steps { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); line-height: 1.5; } .steps li { margin-bottom: 4px; }
+.ha-nodes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.node { border: 1.5px solid var(--ink); background: var(--paper); }
+.node h4 { display: flex; justify-content: space-between; align-items: center; background: var(--good); color: #fff; padding: 7px 10px; font: 700 14px/1 var(--mono); }
+.node.down h4 { background: var(--bad); } .node.sick h4 { background: var(--warn); }
+.node .nb { padding: 9px 10px; font-size: 12.5px; line-height: 1.5; min-height: 110px; }
+.node .nb .m { font-size: 11.5px; color: var(--ink-2); }
+.node .sess { font-family: var(--mono); font-size: 12px; border-top: 1px dashed var(--rule); padding-top: 4px; margin-top: 4px; }
+.node .kill { border: 1.5px solid #fff; background: transparent; color: #fff; font: 700 11px/1 var(--mono); padding: 4px 8px; cursor: pointer; letter-spacing: .06em; }
+.node .kill:hover { background: #fff; color: var(--ink); }
+.ck { font-weight: 700; color: var(--good); } .xk { color: var(--rule); }
+.st-ATTACHED { color: var(--good); font-weight: 600; } .st-DETACHED { color: var(--bad); font-weight: 700; }
+/* 09 RADIUS */
+.aaa-ctl { display: grid; grid-template-columns: repeat(3, auto); gap: 22px; justify-content: start; }
+.pk-list { border: 1.5px solid var(--ink); background: var(--paper); max-height: 330px; overflow: auto; font: 12px/1.35 var(--mono); }
+.pk { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 2px 10px; padding: 6px 9px; border-bottom: 1px solid var(--rule-2); cursor: pointer; }
+.pk:hover, .pk.on { background: var(--bar); }
+.pk .d { font-weight: 700; color: var(--c2s); } .pk .d.s { color: var(--s2c); } .pk .d.n { color: var(--muted); }
+.pk .c-2 { color: var(--good); font-weight: 700; } .pk .c-3 { color: var(--bad); font-weight: 700; }
+.pk .v { grid-column: 2 / -1; color: var(--muted); font-family: var(--text); font-size: 11.5px; } .pk .v.bad { color: var(--bad); font-weight: 600; }
+.pk-detail { border: 1.5px solid var(--ink); background: var(--paper); padding: 10px; font: 12px/1.45 var(--mono); max-height: 330px; overflow: auto; }
+.pk-detail table { width: 100%; border-collapse: collapse; } .pk-detail td { padding: 3px 6px; border-bottom: 1px dashed var(--rule); vertical-align: top; word-break: break-all; }
+.pk-detail td:first-child { white-space: nowrap; color: var(--ink-2); }
+.pk-detail .hex { margin-top: 10px; color: var(--muted); font-size: 11px; word-break: break-all; }
+.aaa-bottom { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 32px; margin-top: 22px; }
+.aaa-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.aaa-tiles div { border: 1.5px solid var(--ink); padding: 7px 8px; } .aaa-tiles b { display: block; font: 700 20px/1 var(--mono); } .aaa-tiles span { font: 500 10px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+/* 10 Linemode experiment */
+.ml-ctl { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px; }
+.ml-ctl select { font: 500 12.5px var(--mono); padding: 4px; border: 1.5px solid var(--ink); background: var(--paper); }
+.ml-res { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.ml-card { border: 1.5px solid var(--ink); background: var(--paper); }
+.ml-card h4 { background: var(--ink); color: var(--paper); padding: 8px 10px; font: 700 13px/1.2 var(--mono); }
+.ml-card h4 small { display: block; font: 400 11px/1.3 var(--text); color: #cfc8b3; margin-top: 3px; }
+.ml-card .rows { padding: 8px 10px; }
+.ml-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed var(--rule); }
+.ml-row b { font: 700 13px var(--mono); } .ml-row .bar { grid-column: 1 / -1; height: 7px; background: var(--rule-2); } .ml-row .bar i { display: block; height: 100%; background: var(--c2s); }
+.ml-row .bar.s i { background: var(--s2c); } .ml-row .bar.t i { background: var(--warn); }
+.ml-tl { margin-top: 16px; } .ml-tl svg { width: 100%; height: auto; display: block; border: 1px solid var(--rule); background: var(--paper); }
+@media (max-width: 1100px) { .ha-top, .ha-nodes, .ml-res, .aaa-ctl { grid-template-columns: 1fr; } }
 /* the CRT */
 .term-wrap { position: relative; background: radial-gradient(ellipse at 50% 45%, #1d1910 0%, #0b0a07 85%); border: 1px solid var(--crt-rule); border-radius: 18px / 14px; padding: 16px 18px; overflow: hidden; box-shadow: inset 0 0 60px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,179,64,.05), 0 0 0 6px var(--crt-2), 0 0 0 7px var(--crt-rule); }
 .term-wrap::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px); z-index: 2; }
@@ -346,9 +414,12 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <button data-mode="direct"><span>Direct</span><small>:2323</small></button>
       <button data-mode="tls"><span>Over TLS</span><small>:9924 → :9923</small></button>
     </div>
+    <div class="watch" id="watch" aria-label="Which session the screen shows"></div>
     <div class="dock-h"><span><span class="led" id="led"></span>VTY terminal</span><span id="sessTag">not connected</span></div>
     <div class="term-wrap" id="termWrap">
       <div class="term" id="term" tabindex="0" aria-label="Telnet terminal"></div>
+      <div class="term" id="mirror" style="display:none" aria-label="Live mirror of another computer's Telnet session"></div>
+      <div class="mirror-tag" id="mirrorTag" style="display:none"></div>
       <div class="term-off" id="termOff"><div>
         <h3>Open a Telnet session.</h3>
         <p>Every key you type is sent the moment you press it,<br>one byte at a time, character mode.</p>
@@ -374,6 +445,7 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <nav class="chapters" id="nav" aria-label="Chapters">
         <a href="#c1"><span>01</span>Remote log-in</a><a href="#c2"><span>02</span>NVT</a><a href="#c3"><span>03</span>Control chars</a>
         <a href="#c4"><span>04</span>Options</a><a href="#c5"><span>05</span>Negotiation</a><a href="#c6"><span>06</span>Security</a><a href="#c7"><span>07</span>Lab</a>
+        <a href="#c8"><span>08</span>HA cluster</a><a href="#c9"><span>09</span>RADIUS</a><a href="#c10"><span>10</span>Linemode</a>
       </nav>
     </div>
 
@@ -385,6 +457,11 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <div class="split">
         <svg class="diagram" id="loginSvg" viewBox="0 0 780 360"></svg>
         <div class="counter"><div><b id="kCount">0</b>keystrokes sent</div><div><b id="eCount">0</b>echo / output chunks back</div><div><b id="segCount">0</b>TCP segments seen by the tap</div></div>
+      </div>
+      <div class="live1">
+        <div class="lc"><h4>Who is logged in</h4><div id="l1who" class="lcb">No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC's IP&gt; 2324</code></div></div>
+        <div class="lc"><h4>Option negotiation of this session</h4><div id="l1neg" class="lcb m"></div></div>
+        <div class="lc"><h4>What a sniffer on the network reads</h4><div id="l1snif" class="lcb m"></div></div>
       </div>
     </section>
 
@@ -497,6 +574,72 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
         </div>
       </div>
     </section>
+
+    <!-- 08 -->
+    <section class="ch" id="c8">
+      <div class="ch-head"><span class="ch-num">08</span><span class="src">high availability · TCP load balancing · session resume</span><h2>HA cluster: three routers, one address</h2></div>
+      <p class="lead">Three VTY servers (<b>R1, R2, R3</b>) sit behind one <b>TCP load balancer on port 2330</b>. Each node sends a UDP <b>heartbeat</b> every 400 ms; a node silent for 1.5 s is taken out of the rotation. A Telnet session is <b>stateful TCP</b>: when its node dies the connection is gone, and TCP cannot move to another machine. What can move is the session's <b>state</b>: after every command the node replicates a snapshot (user, privilege, mode, history, last screen) to its peers over UDP. Reconnect, type <b>resume</b>, and a surviving node continues the session.</p>
+      <div class="ha-top">
+        <svg class="diagram" id="haSvg" viewBox="0 0 780 300" aria-label="Cluster topology"></svg>
+        <div class="ha-side">
+          <div class="sub">Scheduling</div>
+          <div class="tabs" id="haPolicy"><button data-p="least">least connections</button><button data-p="rr">round robin</button><button data-p="hash">source-IP hash</button></div>
+          <div class="sub">Try it</div>
+          <ol class="steps">
+            <li>From any computer: <code>telnet <span class="myip">this-PC</span> 2330</code>, log in.</li>
+            <li>Note the node and the token it prints. Run a few commands, <code>conf t</code>.</li>
+            <li>Press <b>Kill</b> on that node below: the connection drops.</li>
+            <li>Connect again and type <code>resume</code> at <code>Username:</code>.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="ha-nodes" id="haNodes"></div>
+      <div class="grid2" style="margin-top:22px">
+        <div><div class="sub">Replicated session state</div><div class="table-scroll"><table class="t" id="haSnaps"></table></div></div>
+        <div><div class="sub">Cluster events</div><div class="log lab-log" id="haEvents"></div></div>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="ch" id="c9">
+      <div class="ch-head"><span class="ch-num">09</span><span class="src">RFC 2865 RADIUS · RFC 2866 accounting · AAA</span><h2>Central login: RADIUS AAA</h2></div>
+      <p class="lead">With <b>aaa authentication login default group radius local</b>, the router stops checking passwords itself. It sends an <b>Access-Request</b> over UDP 1812 to a central RADIUS server and obeys the answer: <b>Access-Accept</b> carries the privilege level, <b>Access-Reject</b> is final. Only if the server does not answer (1 s, 3 tries) does the router fall back to its local users. Every session is <b>accounted</b> on UDP 1813: Start, one Interim-Update per command, Stop. The password is hidden with MD5 and the shared secret, and every reply carries an authenticator that proves the server knows the secret.</p>
+      <div class="aaa-ctl">
+        <div><div class="sub">Router login</div><div class="tabs" id="aaaMode"><button data-op="aaa-off">local users</button><button data-op="aaa-on">RADIUS, then local</button></div></div>
+        <div><div class="sub">RADIUS server</div><div class="tabs" id="aaaSrv"><button data-op="server-on">online</button><button data-op="server-off">offline</button></div></div>
+        <div><div class="sub">Shared secret on the router</div><div class="tabs" id="aaaKey"><button data-op="good-secret">testing123</button><button data-op="bad-secret">wrong secret</button></div></div>
+      </div>
+      <div class="note" id="aaaHint">Log in as <b>netops / radius123</b>: that account exists only on the RADIUS server, not on the router.</div>
+      <div class="grid2" style="margin-top:22px">
+        <div>
+          <div class="sub">Packets between the router (NAS) and the server</div>
+          <div class="pk-list" id="aaaPk"></div>
+        </div>
+        <div>
+          <div class="sub">Packet fields <span id="aaaPkName" class="m" style="text-transform:none;letter-spacing:0"></span></div>
+          <div class="pk-detail" id="aaaDetail"><span style="color:var(--muted)">Click a packet on the left.</span></div>
+        </div>
+      </div>
+      <div class="aaa-bottom">
+        <div><div class="sub">Router-side counters</div><div class="aaa-tiles" id="aaaTiles"></div></div>
+        <div><div class="sub">Users on the RADIUS server</div><div id="aaaUsers" class="m" style="font-size:12.5px;line-height:1.6"></div></div>
+      </div>
+      <div class="sub" style="margin-top:22px">Accounting on the server (the audit trail)</div>
+      <div class="table-scroll"><table class="t" id="aaaAcct"></table></div>
+    </section>
+
+    <!-- 10 -->
+    <section class="ch" id="c10">
+      <div class="ch-head"><span class="ch-num">10</span><span class="src">RFC 1184 LINEMODE · RFC 896 Nagle · tinygrams</span><h2>Character mode vs LINEMODE, measured</h2></div>
+      <p class="lead">In <b>character mode</b> every keystroke is its own TCP segment, and so is its echo: 1 byte of data inside 40 bytes of TCP/IP header, a <b>tinygram</b>. <b>Nagle's algorithm</b> (RFC 896) holds new small data while earlier data is unacknowledged, so fast typing goes out in clumps: fewer segments, slower echo. <b>LINEMODE</b> (RFC 1184) moves editing to the client: the line is typed and echoed locally and crosses the network once. A scripted client types the same three commands into the real server through a link with the round-trip time you choose.</p>
+      <div class="ml-ctl">
+        <label>Round-trip time <select id="mlRtt"><option value="50">50 ms</option><option value="100">100 ms</option><option value="200" selected>200 ms</option><option value="300">300 ms</option></select></label>
+        <label>Typing speed <select id="mlGap"><option value="40">fast: 40 ms/key</option><option value="60" selected>60 ms/key</option><option value="100">100 ms/key</option><option value="150">slow: 150 ms/key</option></select></label>
+        <button class="btn" id="mlRun">Run the experiment</button><span class="m" id="mlStat" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div class="ml-res" id="mlRes"></div>
+      <div id="mlTl"></div>
+    </section>
   </main>
 </div>
 
@@ -562,12 +705,121 @@ const A = { tid: null, tnext: 0, mode: '', reader: 0, chain: Promise.resolve(), 
 const term = new Term($('term'), 96, 26);
 let rterm = null;
 
+// ===================================================================== watching: this browser, or another computer's live session
+// Any Telnet client (laptop B, a phone, PuTTY) that logs in shows up here. The screen then mirrors exactly what that
+// client sees (the server's recording of the session), the diagram animates its keystrokes as they cross the tap,
+// and the chapter 01 panels show its negotiation and what a sniffer reads.
+const mirror = new Term($('mirror'), 80, 24);
+Object.assign(A, { watch: 'me', pinned: false, autoSeen: 0, mirSeen: 0, mirTimer: null, typed: {}, whoList: [] });
+const watchedSession = () => A.watch === 'me' ? A.mySession : A.watch;
+const whoOf = id => A.whoList.find(w => w.session === id);
+function clientName(w) { return !w ? 'this browser' : w.local ? (w.session === A.mySession ? 'this browser' : 'this laptop') : w.client; }
+function renderWatch(s) {
+  A.whoList = s.who || [];
+  const others = A.whoList.filter(w => w.session !== A.mySession);
+  // follow a newly connected computer automatically, unless the presenter picked a session by hand
+  const newest = others.filter(w => !w.local).reduce((m, w) => Math.max(m, w.session), 0);
+  if (newest > A.autoSeen) { A.autoSeen = newest; if (!A.pinned) setWatch(newest); }
+  if (A.watch !== 'me' && !whoOf(A.watch)) { $('mirrorTag').textContent = 'session ended'; }
+  const btn = (id, label, cls) => `<button data-w="${id}" class="${cls}${String(A.watch) === String(id) ? ' on' : ''}">${esc(label)}</button>`;
+  $('watch').innerHTML = !others.length ? '' : '<span>screen shows</span>' + btn('me', 'this browser', '') +
+    others.map(w => btn(w.session, `${clientName(w)} · ${w.user || 'logging in'}`, w.local ? '' : 'remote')).join('');
+}
+$('watch').onclick = e => { const b = e.target.closest('[data-w]'); if (!b) return; A.pinned = true; setWatch(b.dataset.w === 'me' ? 'me' : +b.dataset.w); };
+function setWatch(id) {
+  if (A.watch === id) return;
+  A.watch = id; A.mirSeen = 0; A.negSig = ''; dots.length = 0;
+  const remote = id !== 'me';
+  $('term').style.display = remote ? 'none' : ''; $('mirror').style.display = remote ? '' : 'none';
+  $('termOff').style.visibility = remote ? 'hidden' : '';
+  $('mirrorTag').style.display = remote ? '' : 'none';
+  const w = remote ? whoOf(id) : null;
+  if (remote) {
+    const sess = A.lastState && A.lastState.sessions.find(x => x.id === id);
+    mirror.resize(sess && sess.cols > 10 ? Math.min(sess.cols, 160) : 80, sess && sess.rows > 5 ? Math.min(sess.rows, 60) : 24);
+    $('mirrorTag').textContent = `live · ${clientName(w)}`;
+    if (!A.mirTimer) pollMirror();
+  }
+  LOGIN.clientText = remote ? `Local computer: ${clientName(w)}${w && !w.local ? ' (over the network)' : ''}` : 'Local computer: this browser';
+  if (LOGIN.clientLabel) LOGIN.clientLabel.textContent = LOGIN.clientText;
+  renderWatch(A.lastState || { who: A.whoList });
+  if (A.lastState) renderLiveWho(A.lastState);
+}
+async function pollMirror() {
+  A.mirTimer = true;
+  while (A.watch !== 'me') {
+    const id = A.watch;
+    try {
+      // the client reported a new window size (NAWS): resize the mirror; full-screen programs such as top redraw themselves
+      const sess = A.lastState && A.lastState.sessions.find(x => x.id === id);
+      if (sess && sess.cols > 10 && sess.rows > 5 && (sess.cols !== mirror.cols || sess.rows !== mirror.rows) && A.mirSeen > 0)
+        mirror.resize(Math.min(sess.cols, 160), Math.min(sess.rows, 60));
+      const r = await api('/api/recording?id=' + id);
+      if (id !== A.watch) continue;
+      const ev = r.events || [];
+      for (let i = A.mirSeen; i < ev.length; i++) {
+        mirror.write(ev[i][1]);
+        const w = whoOf(id); if (!w || w.conn < 0) { A.echoes++; $('eCount').textContent = A.echoes; spawn(false); }   // no tap: animate from the server side
+      }
+      A.mirSeen = ev.length;
+    } catch (e) { }
+    await W(300);
+  }
+  A.mirTimer = null;
+}
+/** Every TCP segment the tap saw: animate the diagram and collect what the sniffer reads, per connection. */
+function trackFrame(f, c2s) {
+  const t = A.typed[f.conn] || (A.typed[f.conn] = { html: '', n: 0 });
+  if (c2s) for (const k of f.tokens) {
+    if (k.k === 'data' && k.txt) t.html += esc(vis(k.txt).replace(/↵\n?/g, '↵\n'));
+    else if (k.k === 'secret' && k.txt) t.html += `<span class="sec">${esc(vis(k.txt))}</span>`;
+    else if (k.k === 'tls') t.html += '▓';
+  }
+  if (t.html.length > 4000) t.html = t.html.slice(-4000);
+  const w = whoOf(watchedSession());
+  if (A.watch !== 'me' && w && w.conn === f.conn) {          // this browser's own session is animated by send()/read()
+    if (c2s) { A.keys++; $('kCount').textContent = A.keys; } else { A.echoes++; $('eCount').textContent = A.echoes; }
+    spawn(c2s);
+  }
+  if (w && w.conn === f.conn) renderLiveSniff();
+}
+function renderLiveWho(s) {
+  const id = watchedSession(), w = whoOf(id), sess = s.sessions.find(x => x.id === id);
+  if (!w || !sess) { if (!s.sessions.length) $('l1who').innerHTML = 'No session yet. Connect from the left, or from another computer: <code>telnet &lt;this PC\'s IP&gt; 2324</code>'; renderLiveSniff(); return; }
+  $('l1who').innerHTML = `<div class="big">${esc(clientName(w))}</div>` +
+    `<div>${w.local ? 'on this laptop' : '<b>another computer on the network</b>'}</div>` +
+    `<div>user <b>${esc(w.user || '(logging in)')}</b> · VTY line ${w.line} · session ${w.session}</div>` +
+    `<div>${w.tls ? 'Telnet over <b>TLS</b>' : 'plain Telnet'} · ${w.via === 'tap' ? 'through the wire tap (port ' + (w.tls ? '9924' : '2324') + ')' : w.via === 'lb' ? 'through the HA load balancer (port 2330) to node <b>' + esc(w.node) + '</b>' : 'direct to the server'}</div>` +
+    (w.token ? `<div>resume token <b class="m">${esc(w.token)}</b></div>` : '') +
+    (w.authBy ? `<div>authenticated by <b>${esc(w.authBy)}</b>${w.linemode ? ' · LINEMODE' : ''}</div>` : '') +
+    `<div>terminal ${esc(sess.ttype || '?')} · window ${sess.cols || '?'}×${sess.rows || '?'}</div>`;
+  renderLiveSniff();
+}
+function renderLiveSniff() {
+  const w = whoOf(watchedSession()), el = $('l1snif');
+  if (!w) { el.innerHTML = ''; return; }
+  if (w.via === 'lb') { el.innerHTML = 'This session came in through the <b>HA load balancer</b> (port 2330), not the wire tap, so the sniffer is not on its path. See chapter <a href="#c8">08</a> for the cluster.'; return; }
+  if (w.via !== 'tap') { el.innerHTML = 'This session bypasses the wire tap (direct to port 2323), so the sniffer is not on its path. Connect to port <b>2324</b> to be sniffed.'; return; }
+  const cap = (A.lastState ? A.lastState.captures : []).filter(c => c.conn === w.conn).pop();
+  const head = w.tls ? '<div class="ok">TLS: the sniffer sees only encrypted records. No password.</div>'
+    : cap ? `<div class="pw">Password sniffed off the wire: <b>${esc(cap.user)}</b> / <b>${esc(cap.pass)}</b></div>` : '';
+  const t = A.typed[w.conn];
+  el.innerHTML = head + `<div style="color:var(--muted);font-family:var(--text);font-size:11.5px;margin-bottom:4px">Keystrokes from ${esc(clientName(w))}, exactly as they cross the network:</div><div class="typed">${t ? t.html : ''}</div>`;
+  el.scrollTop = 1e6;
+}
+function renderLiveNeg(events) {
+  const ev = events.filter(e => e.dir !== '--' && !e.text.includes('TIMING-MARK')).slice(-14);
+  $('l1neg').innerHTML = ev.map(e => `<div class="neg"><span class="d ${e.dir === 'S>C' ? 's' : ''}">${e.dir === 'S>C' ? 'S→C' : 'C→S'}</span><span>${esc(e.text)}</span>${e.meaning ? `<i>${esc(e.meaning)}</i>` : ''}</div>`).join('') || '<span style="color:var(--muted)">waiting for the first WILL / DO…</span>';
+  $('l1neg').scrollTop = 1e6;
+}
+
 // ===================================================================== terminal connection
 const QUICK = ['show telnet', 'show terminal', 'tmping', 'cat file1', 'dir', 'top', 'show users', 'debug telnet', 'show dhcp leases', 'show arp', 'show login', 'enable', 'show running-config'];
 $('quick').innerHTML = QUICK.map(c => `<button data-type="${esc(c)}">${esc(c)}</button>`).join('');
 
 async function connect(mode) {
   await disconnect();
+  A.pinned = false; setWatch('me');
   const [c, r] = $('size').value.split('x').map(Number);
   term.resize(c, r);
   const before = new Set((A.lastState ? A.lastState.sessions : []).map(s => s.id));
@@ -667,7 +919,7 @@ function drawLogin(view) {
   }
   sv('rect', { x: 120, y: 40, width: 220, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
   sv('rect', { x: 440, y: 40, width: 320, height: 290, rx: 10, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
-  txt(g, 230, 32, 'Local computer (browser / PuTTY)', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
+  LOGIN.clientLabel = txt(g, 230, 32, LOGIN.clientText || 'Local computer: this browser', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
   txt(g, 600, 32, 'Remote computer: JU-Main-R', { 'font-size': 11, fill: 'var(--ink-2)', class: 'm' });
   sv('rect', { x: 140, y: 140, width: 190, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
   sv('rect', { x: 450, y: 140, width: 300, height: 180, rx: 6, fill: 'rgba(255,255,255,.6)', stroke: '#8a8370' }, g);
@@ -915,12 +1167,13 @@ function updateMeanings(raw) {
   }
 }
 async function pollNeg() {
-  const id = A.mySession || (A.lastState && A.lastState.sessions.length ? Math.max(...A.lastState.sessions.map(s => s.id)) : null);
+  const id = watchedSession() || (A.lastState && A.lastState.sessions.length ? Math.max(...A.lastState.sessions.map(s => s.id)) : null);
   if (id == null) return;
   try {
     const r = await api('/api/neg?session=' + id);
     const vis = r.events.filter(e => !($('hideTm').checked && e.text.includes('TIMING-MARK')));
     const sig = vis.length + ':' + (vis.length ? vis[vis.length - 1].seq : 0) + A.seqFilter + $('hideTm').checked;
+    renderLiveNeg(r.events);
     if (sig !== A.negSig) { A.negSig = sig; renderSeq(r.events); updateMeanings(r.events); const st = r.events.filter(e => e.text.startsWith('SB STATUS IS')).pop(); if (st) $('statusRes').textContent = '← ' + st.text.replace('SB STATUS IS', 'IS'); }
     if (r.info) { renderOpts(r.info); renderSpark(r.info); }
   } catch (e) { }
@@ -943,6 +1196,7 @@ async function pollWire() {
     for (const f of r.frames) {
       A.wseq = f.seq; A.segs++; $('segCount').textContent = A.segs;
       const c2s = f.dir === 'C>S';
+      trackFrame(f, c2s);
       for (const t of f.tokens) {
         if (t.hex && !f.tls) pushBytes(t.hex, c2s);
         if (t.k === 'iac') { const p = t.txt.split(' '); bumpCtl('IAC'); bumpCtl(p[1]); }
@@ -980,6 +1234,7 @@ async function pollState() {
       (s.captures.length ? `<span class="chipst hot">sniffed <b>${s.captures.length}</b></span>` : '') +
       (q > 0 ? `<span class="chipst bad">QUIET <b>${q}s</b></span>` : `<span class="chipst">up <b>${fmt(s.uptime)}</b></span>`);
     renderSecurity(s); renderLines(s); renderAlert(s); renderLogs(s); renderRecSel(s);
+    renderWatch(s); renderLiveWho(s);
   } catch (e) { $('stat').innerHTML = '<span class="chipst bad">server offline</span>'; }
   setTimeout(pollState, 1000);
 }
@@ -1048,14 +1303,142 @@ const spy = new IntersectionObserver(es => es.forEach(e => {
 }), { rootMargin: '-35% 0px -60% 0px' });
 document.querySelectorAll('section.ch').forEach(s => spy.observe(s));
 
-(function frame() { term.render(); rterm.render(); animate(); requestAnimationFrame(frame); })();
+(function frame() { term.render(); rterm.render(); mirror.render(); animate(); requestAnimationFrame(frame); })();
 if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
   const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), { rootMargin: '0px 0px 12% 0px' });
   document.querySelectorAll('section.ch > :not(.ch-head)').forEach(el => { el.classList.add('reveal'); rv.observe(el); });
 }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="#"]'); if (!a) return; const t = document.querySelector(a.getAttribute('href')); if (t) t.querySelectorAll('.reveal').forEach(x => x.classList.add('in')); });
 setTimeout(() => document.querySelectorAll('.reveal').forEach(x => { const r = x.getBoundingClientRect(); if (r.top < innerHeight * 1.2) x.classList.add('in'); }), 400);
-pollState(); pollWire(); pollNeg();
+// ===================================================================== 08 HA cluster
+document.querySelectorAll('.myip').forEach(e => e.textContent = /^(localhost|127\.)/.test(location.hostname) ? "this PC's IP" : location.hostname);
+const HA = { st: null };
+async function pollCluster() {
+  try { const s = await api('/api/cluster'); if (!s.error) { HA.st = s; renderCluster(s); } } catch (e) { }
+  setTimeout(pollCluster, 800);
+}
+function renderCluster(s) {
+  document.querySelectorAll('#haPolicy button').forEach(b => b.classList.toggle('on', b.dataset.p === s.policy));
+  // topology
+  const svg = $('haSvg'); svg.innerHTML = '';
+  const g = sv('g', {}, svg), Y = { R1: 55, R2: 150, R3: 245 }, LB = [330, 150];
+  const box = (x, y, w, h, fill, l1, l2, stroke) => { sv('rect', { x, y, width: w, height: h, rx: 4, fill, stroke: stroke || '#0b0f19', 'stroke-width': 1.6 }, g); txt(g, x + w / 2, y + h / 2 - (l2 ? 2 : -4), l1, { 'font-size': 13, 'font-weight': 700, fill: '#10141f' }); if (l2) txt(g, x + w / 2, y + h / 2 + 13, l2, { 'font-size': 10, fill: '#3b3f4a', class: 'm' }); };
+  // clients (distinct addresses on the balancer)
+  const clients = [...new Set(s.conns.map(c => c.client))].slice(0, 4);
+  clients.forEach((c, i) => { const y = 150 + (i - (clients.length - 1) / 2) * 56; box(20, y - 20, 150, 40, '#c9d3e6', c, 'Telnet client'); sv('path', { d: `M170 ${y}L${LB[0] - 70} 150`, stroke: '#1f5ea8', 'stroke-width': 2, fill: 'none' }, g); });
+  if (!clients.length) { box(20, 130, 150, 40, '#e8e3d3', 'any client', 'telnet <IP> ' + s.lbPort, '#8a8370'); }
+  box(LB[0] - 70, 112, 140, 76, '#fff04a', 'Load balancer', ':' + s.lbPort + ' · ' + s.policyName);
+  for (const n of s.nodes) {
+    const y = Y[n.name], ok = n.alive && n.healthy, col = !n.alive ? '#e7b3ad' : n.healthy ? '#bfe3c6' : '#f2d9a0';
+    const used = s.conns.some(c => c.node === n.name);
+    sv('path', { id: 'hb' + n.name, d: `M555 ${y}L${LB[0] + 70} 150`, stroke: ok ? (used ? '#2b7a43' : '#7aa883') : '#b3261e', 'stroke-width': used ? 3 : 1.6, 'stroke-dasharray': ok ? '' : '6 5', fill: 'none' }, g);
+    box(555, y - 32, 215, 64, col, n.name + (n.alive ? (n.healthy ? '' : ' · no heartbeat') : ' · DOWN'), ':' + n.port + ' · ' + n.sessions.length + ' session' + (n.sessions.length === 1 ? '' : 's') + ' · ' + n.replicas + ' replica' + (n.replicas === 1 ? '' : 's'));
+    if (n.alive) {   // heartbeat: a dot from the node to the balancer every 400 ms
+      const dot = sv('circle', { r: 4, fill: '#2b7a43' }, g);
+      sv('animateMotion', { dur: '0.4s', repeatCount: 'indefinite', path: `M555 ${y}L${LB[0] + 70} 150` }, dot);
+    }
+  }
+  txt(g, 470, 290, 'green dots = UDP heartbeats (every 400 ms) · thick line = a client connection through that node', { 'font-size': 10.5, fill: 'var(--muted)' });
+  // node cards
+  $('haNodes').innerHTML = s.nodes.map(n => {
+    const cls = !n.alive ? 'down' : n.healthy ? '' : 'sick';
+    const state = !n.alive ? 'DOWN (crashed)' : n.healthy ? 'UP · healthy' : 'UP · no heartbeat yet';
+    return `<div class="node ${cls}"><h4><span>${n.name} · :${n.port}</span><button class="kill" data-node="${n.name}" data-op="${n.alive ? 'kill' : 'revive'}">${n.alive ? 'KILL' : 'REVIVE'}</button></h4><div class="nb">` +
+      `<div><b>${state}</b></div><div class="m">heartbeat ${n.hbAge < 0 ? 'never' : n.hbAge + ' ms ago'} · LB connections ${n.lbConns}</div>` +
+      `<div class="m">replica store: ${n.replicas} session${n.replicas === 1 ? '' : 's'} · UDP :${n.replPort} · sent ${n.sent} / received ${n.received}</div>` +
+      (n.sessions.length ? n.sessions.map(x => `<div class="sess">${esc(x.user)} from ${esc(x.client)}${x.token ? ' · ' + esc(x.token) : ''}</div>`).join('') : '<div class="sess" style="color:var(--muted)">no sessions</div>') + '</div></div>';
+  }).join('');
+  // replicated sessions
+  const names = s.nodes.map(n => n.name);
+  $('haSnaps').innerHTML = '<tr><th>Token</th><th>User</th><th>Client</th><th>State</th>' + names.map(n => `<th>${n}</th>`).join('') + '</tr>' +
+    (s.snapshots.length ? s.snapshots.map(x => `<tr><td class="m">${esc(x.token)}</td><td>${esc(x.user)}${x.config ? ' <span class="m">(config)</span>' : ''}</td><td class="m">${esc(x.client)}</td>` +
+      (() => { const owner = s.nodes.find(n => n.name === x.node), lost = x.state === 'DETACHED' || !owner || !owner.alive || !owner.healthy;
+        return `<td class="st-${lost ? 'DETACHED' : 'ATTACHED'}">${x.state === 'DETACHED' ? 'DETACHED ' + x.ago + ' s: resumable' : lost ? esc(x.node) + ' is down: resumable' : 'live on ' + esc(x.node)}</td>`; })() + names.map(n => `<td>${x.on.includes(n) ? '<span class="ck">✓</span>' : '<span class="xk">·</span>'}</td>`).join('') + '</tr>').join('')
+      : `<tr><td colspan="${4 + names.length}" style="color:var(--muted)">No sessions yet. Log in through port ${s.lbPort}.</td></tr>`);
+  const ev = $('haEvents'); const atB = ev.scrollTop + ev.clientHeight >= ev.scrollHeight - 20;
+  ev.innerHTML = s.events.map(e => `<div class="${/DOWN|CRASH|POWER CUT|taken out|lost/.test(e) ? 'bot' : /RESUMED|back/.test(e) ? 'sec' : ''}">${esc(e)}</div>`).join('');
+  if (atB) ev.scrollTop = 1e6;
+}
+$('haNodes').onclick = async e => { const b = e.target.closest('[data-node]'); if (!b) return; b.disabled = true; const r = await api(`/api/cluster/do?op=${b.dataset.op}&node=${b.dataset.node}`, { method: 'POST' }); if (r.error) flashMsg(r.error); };
+$('haPolicy').onclick = async e => { const b = e.target.closest('[data-p]'); if (b) await api('/api/cluster/do?op=policy&policy=' + b.dataset.p, { method: 'POST' }); };
+
+// ===================================================================== 09 RADIUS
+const AAA = { sel: -1, log: [] };
+async function pollRadius() {
+  try { const s = await api('/api/radius'); if (!s.error) renderRadius(s); } catch (e) { }
+  setTimeout(pollRadius, 1000);
+}
+function renderRadius(s) {
+  const c = s.client, v = s.server;
+  const setTab = (id, op) => document.querySelectorAll('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.op === op));
+  setTab('aaaMode', c.aaa ? 'aaa-on' : 'aaa-off'); setTab('aaaSrv', v.online ? 'server-on' : 'server-off'); setTab('aaaKey', s.secret === 'testing123' ? 'good-secret' : 'bad-secret');
+  $('aaaHint').innerHTML = !c.aaa ? 'Router uses its <b>local</b> users. Switch to <b>RADIUS, then local</b>, then log in as <b>netops / radius123</b>: that account exists only on the RADIUS server.'
+    : !v.online ? 'The server is <b>offline</b>: the router retransmits 3 times, then <b>falls back to its local users</b> (admin / cisco works, netops does not).'
+    : s.secret !== 'testing123' ? 'The router has the <b>wrong shared secret</b>: the server\'s replies fail the Response Authenticator check and are discarded, so logins fall back to local.'
+    : 'Logins go to RADIUS. Try <b>netops / radius123</b> (RADIUS only), <b>admin / cisco</b>, and a wrong password (Access-Reject).';
+  const sig = c.log.length + ':' + (c.log.length ? c.log[c.log.length - 1].t : '');
+  if (sig !== AAA.sig) {
+    AAA.sig = sig; AAA.log = c.log;
+    const box = $('aaaPk');
+    box.innerHTML = c.log.map((x, i) => {
+      if (x.dir === 'note') return `<div class="pk"><span class="d n">${esc(x.t.slice(0, 8))}</span><span class="v bad" style="grid-column:2/-1">${esc(x.verdict)}</span></div>`;
+      const p = x.packet, s2n = x.dir.startsWith('server');
+      return `<div class="pk${i === AAA.sel ? ' on' : ''}" data-i="${i}"><span class="d ${s2n ? 's' : ''}">${s2n ? 'server→NAS' : 'NAS→server'}</span><span class="c-${p.code}">${esc(p.name)}</span><span>id ${p.id} · ${p.length} B</span>${x.verdict ? `<span class="v ${/NOT/.test(x.verdict) ? 'bad' : ''}">${esc(x.verdict)}</span>` : ''}</div>`;
+    }).join('') || '<div style="padding:10px;color:var(--muted)">No RADIUS packets yet.</div>';
+    box.scrollTop = 1e6;
+    if (AAA.sel < 0) { const last = c.log.map((x, i) => [x, i]).filter(([x]) => x.packet).pop(); if (last) showPk(last[1]); }
+  }
+  $('aaaTiles').innerHTML = [['requests', c.requests], ['accepts', c.accepts], ['rejects', c.rejects], ['timeouts', c.timeouts], ['retransmits', c.retransmits], ['bad replies', c.badResponses], ['acct sent', c.acctSent], ['last RTT', c.lastRtt < 0 ? '-' : c.lastRtt.toFixed(1) + 'ms']]
+    .map(([k, n]) => `<div><b>${n}</b><span>${k}</span></div>`).join('');
+  $('aaaUsers').innerHTML = v.users.map(u => `${esc(u.user)} · privilege ${u.priv}${['netops', 'intern'].includes(u.user) ? ' · <b>RADIUS only</b>' : ''}`).join('<br>');
+  const fmtT = t => t ? new Date(t).toTimeString().slice(0, 8) : '';
+  $('aaaAcct').innerHTML = '<tr><th>User</th><th>From</th><th>Start</th><th>Stop</th><th>Time</th><th>Cause</th><th>Commands (Interim-Update)</th></tr>' +
+    (v.accounting.length ? v.accounting.slice().reverse().map(a => `<tr><td>${esc(a.user)}</td><td class="m">${esc(a.client)}</td><td class="m">${fmtT(a.start)}</td><td class="m">${a.stop ? fmtT(a.stop) : '<b>active</b>'}</td><td class="m">${a.stop ? a.seconds + ' s' : ''}</td><td>${esc(a.cause)}</td><td class="m" style="white-space:normal">${a.commands.map(esc).join(' · ')}</td></tr>`).join('')
+      : '<tr><td colspan="7" style="color:var(--muted)">Accounting starts when logins go through RADIUS.</td></tr>');
+}
+function showPk(i) {
+  const x = AAA.log[i]; if (!x || !x.packet) return; AAA.sel = i;
+  document.querySelectorAll('#aaaPk .pk').forEach(e => e.classList.toggle('on', +e.dataset.i === i));
+  const p = x.packet;
+  $('aaaPkName').textContent = '· ' + p.name + ' id ' + p.id;
+  $('aaaDetail').innerHTML = `<table><tr><td>Code</td><td>${p.code} (${esc(p.name)})</td></tr><tr><td>Identifier</td><td>${p.id}</td></tr><tr><td>Length</td><td>${p.length}</td></tr><tr><td>Authenticator</td><td>${esc(p.authenticator)}</td></tr>` +
+    p.attrs.map(a => `<tr><td>${a.type} ${esc(a.name)}</td><td>${esc(a.value)}</td></tr>`).join('') + `</table><div class="hex">${esc(p.hex)}</div>`;
+}
+$('aaaPk').onclick = e => { const r = e.target.closest('[data-i]'); if (r) showPk(+r.dataset.i); };
+['aaaMode', 'aaaSrv', 'aaaKey'].forEach(id => $(id).onclick = async e => { const b = e.target.closest('[data-op]'); if (b) await api('/api/radius/do?op=' + b.dataset.op, { method: 'POST' }); });
+
+// ===================================================================== 10 LINEMODE experiment
+const ML_NAMES = { char: ['Character mode', 'server echo, TCP_NODELAY: what Telnet normally does'], nagle: ["Character mode + Nagle's rule", 'RFC 896: wait while data is unacknowledged'], line: ['LINEMODE', 'RFC 1184 MODE EDIT: local editing and echo'] };
+$('mlRun').onclick = async () => {
+  $('mlRun').disabled = true; $('mlStat').textContent = 'typing the script three times through the delayed link… (about 15–25 s)';
+  try {
+    const r = await api(`/api/modelab?rtt=${$('mlRtt').value}&gap=${$('mlGap').value}`);
+    renderModeLab(r); $('mlStat').textContent = `RTT ${r.rtt} ms · ${r.gap} ms per key · script: ${r.script.join(' / ')}`;
+  } catch (e) { $('mlStat').textContent = 'experiment failed: ' + e; }
+  $('mlRun').disabled = false;
+};
+function renderModeLab(r) {
+  const ok = r.runs.filter(x => !x.error), max = k => Math.max(1, ...ok.map(x => x[k]));
+  const row = (label, v, k, cls, unit) => `<div class="ml-row"><span>${label}</span><b>${v}${unit || ''}</b><div class="bar ${cls || ''}"><i style="width:${Math.round(100 * (ok.length ? r.runs.find(x => x[k] === v) ? v / max(k) : 0 : 0))}%"></i></div></div>`;
+  $('mlRes').innerHTML = r.runs.map(x => {
+    const [t, sub] = ML_NAMES[x.mode];
+    if (x.error) return `<div class="ml-card"><h4>${t}<small>${sub}</small></h4><div class="rows" style="color:var(--bad)">${esc(x.error)}</div></div>`;
+    return `<div class="ml-card"><h4>${t}<small>${sub}</small></h4><div class="rows">` +
+      row('segments client → server', x.segC2S, 'segC2S') + row('segments server → client', x.segS2C, 'segS2C', 's') +
+      row('bytes on the wire (+40 B header each)', x.wire, 'wire', 't') + `<div class="ml-row"><span>header share of the traffic</span><b>${x.overhead}%</b></div>` +
+      `<div class="ml-row"><span>keystrokes typed</span><b>${x.keys}</b></div><div class="ml-row"><span>segments per keystroke (C→S)</span><b>${x.segPerKey}</b></div>` +
+      row('echo delay per key, average', x.echoAvg, 'echoAvg', 't', ' ms') + `<div class="ml-row"><span>command answer time (Enter → prompt)</span><b>${x.cmdAvg} ms</b></div></div></div>`;
+  }).join('');
+  // timelines: one tick per segment, client→server above the axis, server→client below
+  const T = Math.max(1, ...ok.map(x => x.timeline.length ? x.timeline[x.timeline.length - 1][0] : 1));
+  $('mlTl').innerHTML = '<div class="sub" style="margin-top:22px">Every TCP segment on the link (red: client → server above the line, blue: server → client below)</div>' + ok.map(x => {
+    let s = `<svg viewBox="0 0 780 74"><text x="6" y="14" font-size="11" font-family="IBM Plex Mono, monospace" fill="#4a463b">${esc(ML_NAMES[x.mode][0])} · ${x.segC2S + x.segS2C} segments</text><line x1="0" y1="44" x2="780" y2="44" stroke="#cdc5ae"/>`;
+    for (const [t, d, len] of x.timeline) { const px = 6 + 768 * t / T, h = Math.min(22, 4 + Math.log2(1 + len) * 3); s += d === 0 ? `<rect x="${px}" y="${44 - h}" width="2" height="${h}" fill="#b5361f"/>` : `<rect x="${px}" y="44" width="2" height="${h}" fill="#1f5ea8"/>`; }
+    return `<div class="ml-tl">${s}</svg></div>`;
+  }).join('');
+}
+
+pollState(); pollWire(); pollNeg(); pollCluster(); pollRadius();
 </script>
 </body>
 </html>

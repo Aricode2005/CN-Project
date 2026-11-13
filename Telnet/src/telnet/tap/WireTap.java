@@ -44,6 +44,7 @@ public final class WireTap {
                     Socket s = new Socket("127.0.0.1", targetPort);
                     c.setTcpNoDelay(true); s.setTcpNoDelay(true);
                     int id = CONN.incrementAndGet();
+                    Hub.I.tap(new Hub.TapConn(id, c.getInetAddress().getHostAddress(), s.getLocalPort(), tls));
                     Hub.I.log("[TAP] conn #" + id + " " + c.getRemoteSocketAddress() + " -> :" + listenPort + " -> server :" + targetPort + (tls ? " (TLS: opaque)" : " (plaintext)"));
                     Sniffer sn = new Sniffer(id, tls);
                     pump(c, s, id, true, sn);

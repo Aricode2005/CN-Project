@@ -18,7 +18,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import telnet.aaa.RadiusClient;
+import telnet.aaa.RadiusServer;
 import telnet.client.TelnetClient;
+import telnet.cluster.Cluster;
+import telnet.lab.ModeLab;
 import telnet.core.Hub;
 import telnet.core.Json;
 import telnet.protocol.LoopExperiment;
@@ -95,6 +99,11 @@ public final class DashboardServer {
                 case "/api/recording": json(ex, recording(intOf(q.get("id"), -1))); return;
                 case "/api/loop": json(ex, loop()); return;
                 case "/api/action": json(ex, action(q.getOrDefault("name", ""))); return;
+                case "/api/cluster": json(ex, Cluster.I == null ? Json.obj("error", "cluster not running") : Cluster.I.json()); return;
+                case "/api/cluster/do": json(ex, Cluster.I == null ? Json.obj("error", "cluster not running") : Cluster.I.control(q.getOrDefault("op", ""), q.getOrDefault("node", ""), q.getOrDefault("policy", ""))); return;
+                case "/api/radius": json(ex, radiusJson()); return;
+                case "/api/radius/do": json(ex, radiusDo(q.getOrDefault("op", ""))); return;
+                case "/api/modelab": json(ex, ModeLab.run(ports.telnet, intOf(q.get("rtt"), 100), intOf(q.get("gap"), 90))); return;
                 default: send(ex, 404, "text/plain", "not found".getBytes(StandardCharsets.UTF_8));
             }
         } catch (Exception e) {
@@ -106,7 +115,24 @@ public final class DashboardServer {
 
     private String state() {
         List<String> ss = new ArrayList<>();
-        for (TelnetSession s : pool.sessions()) ss.add(s.json());
+        List<TelnetSession> allS = VtyPool.allSessions();
+        for (TelnetSession s : allS) ss.add(s.json());
+        // who is really behind each session: a session through a wire tap or the load balancer comes from 127.0.0.1, so look the relay's port up
+        List<String> who = new ArrayList<>();
+        for (TelnetSession s : allS) {
+            String ip = s.from, via = "direct"; int conn = -1; boolean tls = s.transport.toLowerCase(java.util.Locale.ROOT).contains("tls");
+            int colon = s.from.lastIndexOf(':');
+            if (colon > 0) {
+                ip = s.from.substring(0, colon);
+                try {
+                    Hub.TapConn t = Hub.I.tapByUpPort(Integer.parseInt(s.from.substring(colon + 1)));
+                    if (t != null && (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1"))) { ip = t.client; conn = t.conn; via = t.kind; tls = t.tls; }
+                } catch (NumberFormatException ignored) { }
+            }
+            boolean local = ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.equals("::1");
+            who.add(Json.obj("session", s.id, "line", s.line, "user", s.user, "client", ip, "local", local, "via", via, "conn", conn, "tls", tls,
+                    "node", s.pool().node, "token", s.token, "authBy", s.authBy, "linemode", s.linemode));
+        }
         List<String> caps = new ArrayList<>();
         for (Hub.Capture c : Hub.I.captures) caps.add(c.json());
         List<String> recs = new ArrayList<>();
@@ -123,6 +149,7 @@ public final class DashboardServer {
                 "uptime", (System.currentTimeMillis() - pool.bootTime) / 1000,
                 "vtyMax", VtyPool.LINES, "refusedBusy", pool.refusedBusy.get(),
                 "sessions", Json.raw(Json.arr(ss)),
+                "who", Json.raw(Json.arr(who)),
                 "security", Json.raw(pool.guard.json()),
                 "captures", Json.raw(Json.arr(caps)),
                 "recordings", Json.raw(Json.arr(recs)),
@@ -133,7 +160,7 @@ public final class DashboardServer {
     private String neg(int session) {
         List<String> ev = new ArrayList<>();
         for (Hub.NegEvent e : Hub.I.negFor(session)) ev.add(e.json());
-        TelnetSession s = pool.byId(session);
+        TelnetSession s = VtyPool.findSession(session);
         return Json.obj("session", session, "events", Json.raw(Json.arr(ev)), "live", s != null, "info", s == null ? null : Json.raw(s.json()));
     }
 
@@ -143,8 +170,27 @@ public final class DashboardServer {
         return Json.obj("frames", Json.raw(Json.arr(f)));
     }
 
+    private String radiusJson() {
+        RadiusClient c = RadiusClient.I; RadiusServer s = RadiusClient.SERVER;
+        if (c == null || s == null) return Json.obj("error", "RADIUS not running");
+        return Json.obj("client", Json.raw(c.json()), "server", Json.raw(s.json()), "secret", pool.cfg.radiusKey);
+    }
+
+    private String radiusDo(String op) {
+        RadiusServer s = RadiusClient.SERVER;
+        switch (op) {
+            case "aaa-on": pool.cfg.aaaRadius = true; Hub.I.log("[AAA] dashboard: aaa authentication login default group radius local"); return "{\"ok\":true}";
+            case "aaa-off": pool.cfg.aaaRadius = false; Hub.I.log("[AAA] dashboard: aaa authentication login default local"); return "{\"ok\":true}";
+            case "server-off": if (s != null) s.online = false; Hub.I.log("[RADIUS] server taken offline (packets ignored)"); return "{\"ok\":true}";
+            case "server-on": if (s != null) s.online = true; Hub.I.log("[RADIUS] server back online"); return "{\"ok\":true}";
+            case "bad-secret": pool.cfg.radiusKey = "wrong-secret"; Hub.I.log("[AAA] router now uses the WRONG shared secret"); return "{\"ok\":true}";
+            case "good-secret": pool.cfg.radiusKey = "testing123"; Hub.I.log("[AAA] router shared secret restored"); return "{\"ok\":true}";
+            default: return Json.obj("error", "unknown op " + op);
+        }
+    }
+
     private String recording(int id) {
-        TelnetSession s = pool.byId(id);
+        TelnetSession s = VtyPool.findSession(id);
         if (s != null) return Json.obj("id", id, "user", s.user, "events", Json.raw(s.recordingJson()));
         for (Hub.Recording r : Hub.I.recordings.snapshot()) if (r.id == id) return Json.obj("id", id, "user", r.user, "events", Json.raw(r.eventsJson));
         return Json.obj("error", "no such recording");

@@ -61,7 +61,7 @@ public final class TelnetSession implements Runnable {
 
     // line editor
     private final StringBuilder buf = new StringBuilder();
-    final List<String> history = new ArrayList<>();
+    public final List<String> history = new ArrayList<>();
     private int histPos;
     private int esc;              // 0 none, 1 got ESC, 2 got ESC [
     private boolean lastCR;
@@ -79,6 +79,12 @@ public final class TelnetSession implements Runnable {
     private ScheduledFuture<?> topTask;
     private final StringBuilder recording = new StringBuilder("[");
     private int recEvents;
+    /** HA cluster: the token that resumes this session on any node after a disconnect. */
+    public volatile String token;
+    /** How the login was authenticated: "local", "RADIUS", "local (RADIUS unreachable)", "resumed". */
+    public volatile String authBy = "";
+    /** RFC 1184 LINEMODE is on: the client edits and echoes locally and sends whole lines. */
+    public volatile boolean linemode;
 
     private TelnetSession() {
         pool = null; sock = null; line = -1; id = -1; transport = ""; from = ""; in = null; out = null; codec = null; neg = null; shell = null;
@@ -102,7 +108,7 @@ public final class TelnetSession implements Runnable {
             Hub.I.neg(new Hub.NegEvent(id, "S>C", Telnet.describeNegotiation(verb, opt), Telnet.hex(b), "", "", meaning));
         }, new OptionNegotiator.Policy() {
             public boolean acceptLocal(int o) { return o == Telnet.OPT_ECHO || o == Telnet.OPT_SGA || o == Telnet.OPT_STATUS; }
-            public boolean acceptRemote(int o) { return o == Telnet.OPT_TTYPE || o == Telnet.OPT_NAWS || o == Telnet.OPT_SGA || o == Telnet.OPT_TSPEED; }
+            public boolean acceptRemote(int o) { return o == Telnet.OPT_TTYPE || o == Telnet.OPT_NAWS || o == Telnet.OPT_SGA || o == Telnet.OPT_TSPEED || o == Telnet.OPT_LINEMODE; }
         });
         this.neg.setObserver(new OptionNegotiator.Observer() {
             public void onStep(boolean received, int verb, int opt, boolean usSide, OptionNegotiator.Q before, OptionNegotiator.Q after, String meaning, String note) {
@@ -113,6 +119,7 @@ public final class TelnetSession implements Runnable {
             public void onChange(boolean usSide, int opt, boolean enabled) {
                 Hub.I.log("[VTY" + line + "] " + (usSide ? "server" : "client") + " " + Telnet.optName(opt) + " " + (enabled ? "ENABLED" : "disabled"));
                 if (!usSide && opt == Telnet.OPT_TTYPE && enabled) askTerminalType();
+                if (!usSide && opt == Telnet.OPT_LINEMODE) setLinemode(enabled);
                 if (!usSide && opt == Telnet.OPT_TSPEED && enabled) {
                     byte[] b = Telnet.subnegotiation(Telnet.OPT_TSPEED, new byte[]{Telnet.SB_SEND});
                     rawWrite(b);
@@ -149,7 +156,7 @@ public final class TelnetSession implements Runnable {
                 try { int n = in.read(b); if (n < 0) { close("peer closed"); return; } bytesIn += n; codec.feed(b, 0, n); }
                 catch (SocketTimeoutException ignored) { }
             }
-            print("\n" + pool.cfg.banner + "\n\n");
+            print("\n" + pool.cfg.banner + "\n" + (pool.node.isEmpty() ? "" : "[HA cluster node " + pool.node + " · TCP " + sock.getLocalPort() + "]\n") + "\n");
             startLogin();
             while (mode != Mode.CLOSED) {
                 try {
@@ -183,11 +190,61 @@ public final class TelnetSession implements Runnable {
         if (watching != null) watching.shadows.remove(this);
         for (TelnetSession w : shadows) w.endShadow("% Shadowed line " + line + " closed.");
         if (debugListener != null) Hub.I.offNeg(debugListener);
+        Mode was = mode;
         mode = Mode.CLOSED;
         try { sock.close(); } catch (IOException ignored) { }
         pool.release(this);
         if (recEvents > 0) Hub.I.recordings.add(new Hub.Recording(id, user.isEmpty() ? "(not logged in)" : user, from, startedAt, recording.toString() + "]"));
         Hub.I.log("[VTY" + line + "] session " + id + " closed (" + why + ")");
+        if (!user.isEmpty() && was != Mode.NEGOTIATING && was != Mode.LOGIN_USER && was != Mode.LOGIN_PASS)
+            for (SessionEvents e : pool.events) { try { e.closed(this, why); } catch (RuntimeException ex) { Hub.I.log("[VTY" + line + "] " + ex); } }
+    }
+
+    /** The real client address: a session that came in through a relay (wire tap, load balancer) shows 127.0.0.1, so look the relay's port up. */
+    public String clientIp() {
+        int c = from.lastIndexOf(':');
+        String ip = c > 0 ? from.substring(0, c) : from;
+        if (c > 0 && (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1"))) {
+            try { Hub.TapConn t = Hub.I.tapByUpPort(Integer.parseInt(from.substring(c + 1))); if (t != null) return t.client; } catch (NumberFormatException ignored) { }
+        }
+        return ip;
+    }
+
+    public VtyPool pool() { return pool; }
+
+    /** The last screenful the user saw, for resuming the session elsewhere. */
+    public String screenTail() { return recentOutput(1600); }
+
+    /**
+     * HA cluster: continue a detached session on this node. The TCP connection is new, but the user, privilege,
+     * mode, command history and the last screen come from the replicated snapshot.
+     */
+    public synchronized void restore(String u, int p, boolean config, List<String> hist, String screen, String tok, String note) {
+        user = u; priv = p; token = tok; authBy = "resumed";
+        history.clear(); history.addAll(hist); histPos = history.size();
+        buf.setLength(0);
+        print("\u001b[2J\u001b[H");
+        if (screen != null && !screen.isEmpty()) print(screen.endsWith("\n") ? screen : screen + "\n");
+        print("\n% " + note + "\n");
+        mode = config ? Mode.CONFIG : Mode.EXEC;
+        Hub.I.log("[VTY" + line + "] session " + id + " RESUMED " + tok + " for " + u + " from " + clientIp());
+        for (SessionEvents e : pool.events) { try { e.loggedIn(this, true); } catch (RuntimeException ex) { Hub.I.log("[VTY" + line + "] " + ex); } }
+        showPrompt();
+    }
+
+    /**
+     * RFC 1184 LINEMODE: the client offered WILL LINEMODE and we said DO. We ask for MODE EDIT (the client edits the line and
+     * echoes locally) and give up remote echo, so each command crosses the network as one segment instead of one per key.
+     */
+    private void setLinemode(boolean on) {
+        linemode = on;
+        if (on) {
+            byte[] b = Telnet.subnegotiation(Telnet.OPT_LINEMODE, new byte[]{1, 3});   // MODE, mask = EDIT | TRAPSIG
+            rawWrite(b);
+            Hub.I.neg(new Hub.NegEvent(id, "S>C", "SB LINEMODE MODE EDIT|TRAPSIG", Telnet.hex(b), "", "RFC 1184: you edit the line locally, send it when complete"));
+            neg.requestLocal(Telnet.OPT_ECHO, false);
+        } else neg.requestLocal(Telnet.OPT_ECHO, true);
+        Hub.I.log("[VTY" + line + "] LINEMODE " + (on ? "on: client-side editing" : "off: character at a time"));
     }
 
     // ================================================================== output
@@ -267,6 +324,8 @@ public final class TelnetSession implements Runnable {
         } else if (opt == Telnet.OPT_TSPEED && p.length >= 1 && p[0] == Telnet.SB_IS) {
             tspeed = new String(p, 1, p.length - 1, StandardCharsets.US_ASCII);
             desc = "SB TERMINAL-SPEED IS \"" + tspeed + "\"";
+        } else if (opt == Telnet.OPT_LINEMODE && p.length >= 2 && p[0] == 1) {
+            desc = "SB LINEMODE MODE " + ((p[1] & 1) != 0 ? "EDIT" : "-") + ((p[1] & 4) != 0 ? " ACK" : "");
         } else if (opt == Telnet.OPT_STATUS && p.length >= 1 && p[0] == Telnet.SB_SEND && neg.isLocal(Telnet.OPT_STATUS)) {
             desc = "SB STATUS SEND";
             sendStatus();
@@ -444,6 +503,8 @@ public final class TelnetSession implements Runnable {
                 }
                 histPos = history.size();
                 shell.execute(lineText);
+                if (!lineText.trim().isEmpty() && mode != Mode.CLOSED)
+                    for (SessionEvents e : pool.events) { try { e.command(this, lineText.trim()); } catch (RuntimeException ex) { Hub.I.log("[VTY" + line + "] " + ex); } }
                 if ((mode == Mode.EXEC || mode == Mode.CONFIG) && tmpingLeft == 0) showPrompt();   // tmping prints the prompt when it finishes
                 break;
             default: break;
@@ -465,21 +526,48 @@ public final class TelnetSession implements Runnable {
 
     private void loginUser(String u) {
         if (u.isEmpty()) { print("Username: "); return; }
+        if ((u.equals("resume") || u.startsWith("resume ")) && pool.resumer != null) {
+            String why = pool.resumer.resume(this, u.substring(6).trim());
+            if (why == null) return;                       // restored: now in EXEC / config mode
+            print("% " + why + "\n\nUsername: ");
+            return;
+        }
         pendingUser = u;
         mode = Mode.LOGIN_PASS;
         print("Password: ");    // not echoed: the server owns ECHO and simply doesn't echo here
     }
 
     private void loginPass(String pw) {
-        DeviceConfig.User u = pool.cfg.authenticate(pendingUser, pw);
+        DeviceConfig.User u;
+        String how = "local";
+        RemoteAuth aaa = pool.radius;
+        if (pool.cfg.aaaRadius && aaa != null) {
+            // "aaa authentication login default group radius local": ask the RADIUS server first; the local
+            // database is used only if the server does not answer (a Reject is final).
+            RemoteAuth.Answer a = aaa.authenticate(pendingUser, pw, this);
+            if (a.timedOut) {
+                print("% RADIUS server not responding: falling back to the local user database\n");
+                u = pool.cfg.authenticate(pendingUser, pw);
+                how = "local (RADIUS unreachable)";
+            } else if (a.accepted) {
+                u = new DeviceConfig.User(pendingUser, a.privilege, "");
+                how = "RADIUS";
+                if (a.message != null && !a.message.isEmpty()) print("% RADIUS: " + a.message + "\n");
+            } else {
+                u = null;
+                if (a.message != null && !a.message.isEmpty()) print("% RADIUS: " + a.message + "\n");
+            }
+        } else u = pool.cfg.authenticate(pendingUser, pw);
         if (u != null) {
             user = u.name;
             priv = u.privilege;
+            authBy = how;
             pool.guard.success(user, from);
             mode = Mode.EXEC;
             print("\n% Welcome " + user + " (privilege " + priv + ") on line vty " + line + ", terminal " + terminalType()
-                    + " " + cols + "x" + rows + ". Type ? for help, Tab to complete.\n\n");
-            Hub.I.log("[VTY" + line + "] login OK: " + user + " from " + from);
+                    + " " + cols + "x" + rows + ". Authenticated by " + how + ". Type ? for help, Tab to complete.\n\n");
+            Hub.I.log("[VTY" + line + "] login OK: " + user + " from " + from + " (" + how + ")");
+            for (SessionEvents e : pool.events) { try { e.loggedIn(this, false); } catch (RuntimeException ex) { Hub.I.log("[VTY" + line + "] " + ex); } }
             showPrompt();
             return;
         }
