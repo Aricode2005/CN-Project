@@ -237,7 +237,7 @@ public class HostNode {
         boolean amITarget = targetIp.equals(nic.getIp());
         boolean hasExisting = arpTable.lookup(senderIp) != null;
 
-        if (!senderIp.isAny() && (amITarget || hasExisting)) {
+        if (!senderIp.isAny() && (amITarget || hasExisting || arp.isGratuitous())) {
             boolean allowUpdate = defender.checkUpdate(arpTable, senderIp, senderMac);
             if (allowUpdate) {
                 arpTable.putDynamic(senderIp, senderMac, 30);

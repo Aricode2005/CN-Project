@@ -260,6 +260,7 @@ public final class Verify {
         check("ARP Probe has SPA == 0.0.0.0 to prevent cache poisoning", probe.isProbe(), null);
 
         // RFC 5227 Active Defense: Host-B encounters a rogue claim for its IP
+        dai.setEnabled(false); // disable switch DAI so rogue frames reach host-level ACD state machine
         ArpPacket conflictClaim = ArpPacket.createReply(nicA.getMac(), nicB.getIp(), MacAddress.BROADCAST, nicB.getIp());
         nicA.send(conflictClaim.toFrame());
 
@@ -326,6 +327,7 @@ public final class Verify {
     private static void testSwitchCamAndVlanIsolation() {
         DhcpSnoopingTable snooping = new DhcpSnoopingTable();
         DynamicArpInspection dai = new DynamicArpInspection(snooping);
+        dai.setEnabled(false); // disable DAI to isolate L2 VLAN segmentation
         EthernetSwitch sw = new EthernetSwitch("Switch-1", dai);
 
         NetworkInterface nicA = new NetworkInterface("eth0", MacAddress.parse("AA:AA:AA:11:11:11"), IpAddress.parse("192.168.1.10"), null, null);
