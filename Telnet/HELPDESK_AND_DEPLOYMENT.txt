@@ -1,0 +1,206 @@
+================================================================================
+   TELNET REMOTE-MANAGEMENT LAB — HELPDESK, DEPLOYMENT & FUNCTIONALITY GUIDE
+================================================================================
+
+1. OVERVIEW & PROJECT README
+--------------------------------------------------------------------------------
+This project is a complete, zero-dependency Java implementation of the Telnet
+protocol suite (RFC 854, 855, 857, 858, 859, 860, 1073, 1079, 1091, 1143) along
+with:
+  - A 5-line Virtual Teletype (VTY) Server ("line vty 0 4" on router JU-Main-R)
+  - True Remote Host OS Shell Log-in ("shell" / "bash" / "!<cmd>") over Telnet
+  - Cross-Device LAN Remote Log-in (connect between two laptops on the same Wi-Fi)
+  - A Man-in-the-Middle Wire-Tap Sniffer (plaintext TCP 2324 vs TLS TCP 9924)
+  - Telnet over TLS ("telnets", auto-generated PKCS12 certificate via keytool)
+  - WhatsApp-style Multi-Terminal VTY Group Chat & Direct Messaging ("chat")
+  - A Live Interactive Web Dashboard & VT100 Terminal Emulator (HTTP port 8081)
+
+--------------------------------------------------------------------------------
+2. PORTS & CREDENTIALS
+--------------------------------------------------------------------------------
+Ports:
+  * TCP 2323 : Telnet Server (plaintext RFC 854, binds to 0.0.0.0 on all interfaces)
+  * TCP 2324 : Wire Tap -> 2323 (Man-in-the-Middle relay; sniffs plaintext credentials)
+  * TCP 9923 : Telnet over TLS ("telnets", encrypted with RSA-2048 self-signed cert)
+  * TCP 9924 : Wire Tap -> 9923 (shows that TLS hides credentials from sniffers)
+  * HTTP 8081: Live Web Dashboard + Browser VT100 Terminal (http://localhost:8081)
+
+Default Credentials:
+  * Admin Account   : Username: admin     | Password: cisco    (Privilege 15)
+  * Student Account : Username: student   | Password: ju2026   (Privilege 1)
+  * Enable Secret   : Password: class     (elevates Privilege 1 -> Privilege 15)
+
+--------------------------------------------------------------------------------
+3. STEP-BY-STEP COMPILATION & DEPLOYMENT (macOS / Linux / Windows)
+--------------------------------------------------------------------------------
+
+A. On macOS / Linux (Terminal):
+   1. Open a terminal and navigate to the Telnet folder:
+      cd "/Users/moumitaneogi/Desktop/master/Computer Networks/CN-Project/Telnet"
+
+   2. Compile all Java source files (requires JDK 11+):
+      mkdir -p out
+      javac --release 11 -d out src/telnet/*.java src/telnet/core/*.java src/telnet/protocol/*.java src/telnet/server/*.java src/telnet/tap/*.java src/telnet/client/*.java src/telnet/dashboard/*.java src/telnet/cluster/*.java src/telnet/aaa/*.java src/telnet/lab/*.java
+
+   3. Run the automated verification test suite (69 checks):
+      java -cp out telnet.Main --verify
+
+   4. Start the Telnet Server, Wire-Tap Sniffer, and Web Dashboard:
+      java -cp out telnet.Main
+
+   5. Open the Online Dashboard Window in your browser:
+      http://localhost:8081
+
+B. On Windows (Command Prompt / PowerShell):
+   1. Open Command Prompt in the Telnet folder and run:
+      run.bat              (compiles and starts everything on http://localhost:8081)
+      run.bat --verify     (runs the 45-check automated test suite)
+      run.bat client       (opens a console Telnet client)
+
+--------------------------------------------------------------------------------
+4. HOW TO DEMONSTRATE TRUE REMOTE LOG-IN ACROSS TWO LAPTOPS (SAME WI-FI / LAN)
+--------------------------------------------------------------------------------
+Telnet's original purpose (as the predecessor to SSH) is remote log-in from one
+computer into the terminal of another computer over TCP/IP.
+
+Setup (Both laptops connected to the same Wi-Fi or Mobile Hotspot):
+
+STEP 1 — Start the Server on the Target Laptop (e.g., Laptop A):
+  1. On Laptop A, compile and start `java -cp out telnet.Main` (or `run.bat`).
+  2. Find Laptop A's LAN IPv4 address:
+     - macOS   : Run `ipconfig getifaddr en0` (or `ifconfig`) -> e.g., 192.168.1.42
+     - Windows : Run `ipconfig` -> look for "IPv4 Address"     -> e.g., 192.168.1.42
+     - Linux   : Run `hostname -I`                             -> e.g., 192.168.1.42
+  3. (If a firewall is active on Laptop A, allow incoming TCP ports 2323, 2324, 8081).
+
+STEP 2 — Remotely Log In from the Second Laptop (Laptop B):
+  You have THREE ways to log into Laptop A from Laptop B:
+
+  Method 1: Using the Web Dashboard (Browser):
+    - On Laptop B, open a browser to `http://192.168.1.42:8081` (or open Laptop B's
+      own local `http://localhost:8081` and type `192.168.1.42` into the
+      "Target Host/IP" box at the top of the left VTY Terminal dock).
+    - Click "Wire-tapped" or "Direct" or "TLS".
+    - Log in with `admin` / `cisco`.
+
+  Method 2: Using the Java Console Telnet Client from this repo:
+    - On Laptop B, run:
+      java -cp out telnet.Main client 192.168.1.42 2324
+      (Or over TLS: `java -cp out telnet.Main client 192.168.1.42 9924 --tls`)
+
+  Method 3: Using Native OS Telnet / Netcat / PuTTY:
+    - Run `telnet 192.168.1.42 2324` or `nc 192.168.1.42 2324` or connect via PuTTY.
+
+STEP 3 — Open the Real Host OS Terminal on the Remote Laptop (`shell`):
+  1. Once logged in at the `JU-Main-R#` (or `JU-Main-R>`) prompt, type:
+     shell
+     (or click the `shell` quick-button in the Web Dashboard, or type `bash`).
+  2. Your prompt changes to the real OS prompt on Laptop A:
+     user@JU-Main-R:Telnet$
+  3. Now type ANY real operating system command, and it executes live on Laptop A
+     and streams stdout/stderr back over the Telnet NVT connection:
+       whoami
+       hostname
+       pwd
+       ls -la
+       cd ..
+       uname -a          (on macOS/Linux) or `ver` / `dir` (on Windows)
+       ifconfig / ipconfig
+       echo "Hello from remote Telnet session!" > remote_proof.txt
+       cat remote_proof.txt
+  4. You can also run one-off OS commands directly from the router prompt using:
+       ! ls -la
+       exec uname -a
+  5. Type `exit` (or press Ctrl+C / Ctrl+D) to leave the OS shell and return to
+     the router `JU-Main-R#` CLI.
+
+--------------------------------------------------------------------------------
+5. HOW TO RUN & DEMONSTRATE EVERY CHAPTER & FUNCTIONALITY
+--------------------------------------------------------------------------------
+
+FUNCTIONALITY 1 — Remote Log-in & Live Keystroke Path (Chapter 01)
+  * How to run: Open http://localhost:8081, click "Connect via wire tap", and type.
+  * What to show: Every keystroke animates across the diagram (Terminal Driver ->
+    TELNET Client -> TCP/IP -> Internet -> TELNET Server -> Pseudoterminal Driver ->
+    Application Programs) and increments the live keystroke/echo/TCP segment counters.
+
+FUNCTIONALITY 2 — Network Virtual Terminal (NVT) 8-Bit Wire Ribbon (Chapter 02)
+  * How to run: Type characters or send control commands while connected via tap.
+  * What to show: The live byte ribbon draws the last 60 bytes on the wire bit-by-bit.
+    Data characters have MSB = 0 (`0xxxxxxx`), while Telnet control bytes (IAC = 255,
+    WILL = 251, DO = 253, etc.) have MSB = 1 (`1xxxxxxx`).
+
+FUNCTIONALITY 3 — Control Characters & In-Band Command Embedding (Chapter 03)
+  * How to run: Log in to the terminal, then in Chapter 03 click:
+    [▶ Send this exact segment]
+  * What to show: Sends `c a t _ f i l e a [IAC EC] 1 CR LF` in a single TCP segment.
+    The server receives `cat filea`, interprets `IAC EC` (255 247, Erase Character)
+    to delete the `a`, appends `1`, and executes `cat file1`!
+  * You can also click `send` next to `AYT` (Are You There? -> replies `[JU-Main-R: yes]`),
+    `IP` (Interrupt Process), `EC` (Erase Character), `EL` (Erase Line), `NOP`, etc.
+
+FUNCTIONALITY 4 — Telnet Options & RFC 859 STATUS Subnegotiation (Chapter 04)
+  * How to run: Type `show telnet` in the terminal, or in Chapter 04 click:
+    [Ask the server: IAC SB STATUS SEND]
+  * What to show: Displays the live RFC 1143 state (`YES` / `NO`) for Binary (0),
+    Echo (1), Suppress-GA (3), Status (5), Timing-Mark (6), Terminal-Type (24),
+    NAWS Window Size (31), Terminal Speed (32), and Line Mode (34).
+
+FUNCTIONALITY 5 — RFC 1143 Q-Method Option Negotiation & Loop Experiment (Chapter 05)
+  * How to run:
+    1. Inspect the sequence diagram in Chapter 05 right after connecting.
+    2. Click [▶ Run the experiment] at the bottom of Chapter 05.
+  * What to show:
+    - Every `WILL/WONT/DO/DONT` is labeled with its exact textbook meaning (e.g.,
+      "Offering to enable" vs "Accepting a request to enable").
+    - The Loop Experiment proves why RFC 1143's Q-method state machine (`NO`, `YES`,
+      `WANTNO`, `WANTYES` + queue bit) is needed: naive endpoints bounce `WILL/DO/WONT/DONT`
+      in an infinite loop (41+ messages), whereas RFC 1143 converges in 4 messages.
+
+FUNCTIONALITY 6 — Security: Plaintext Password Sniffing vs. TLS & Brute-Force Guard (Chapter 06)
+  * How to run:
+    1. Connect via "Wire-tapped (:2324 -> :2323)" and log in with `admin` / `cisco`.
+       Look at the red alert banner and Sniffer panel in Chapter 06: the wire tap
+       captures `user admin password cisco` in cleartext off the wire!
+    2. Click `⏏` (Disconnect), then click `🔒 TLS (:9924 -> :9923)` and log in again.
+       The sniffer only sees encrypted TLS 1.3 records (`0x17 Application Data`) and
+       captures zero credentials.
+    3. Click [⚡ Dictionary attack] in Chapter 06.
+       An automated bot tries 7 passwords (`123456`, `password`, `admin`, ..., `cisco`).
+       After 3 failed guesses within 60s, `login block-for` triggers **Quiet Mode**
+       and locks out the attacker for 30s before it can reach `cisco`. Click `clear login`
+       to unblock.
+
+FUNCTIONALITY 7 — VTY Lines, TIMING-MARK RTT (`tmping`), `top`, Shadowing & Replay (Chapter 07)
+  * How to run:
+    - `tmping`          : Measures round-trip latency using RFC 860 `IAC DO TIMING-MARK`.
+    - `top`             : Full-screen ANSI monitor of all 5 VTY lines; change the window
+                          size dropdown (`80x24` -> `120x32`) to watch RFC 1073 NAWS
+                          reflow the screen live! Press `q` to quit `top`.
+    - `monitor line 0`  : (From a second privileged VTY session) live-shadows everything
+                          typed/output on `vty 0`.
+    - `send * <msg>`    : Broadcasts an alert banner to all logged-in VTY terminals.
+    - `show dhcp leases`: Reads replicated lease files from `../DHCP/data/leases_node*.db`.
+    - `show arp`        : Queries the host OS's live ARP table (`arp -a`).
+    - Session Replay    : In Chapter 07, pick any recorded or live session and click `▶`
+                          to replay the terminal output at 1x, 4x, or 12x speed.
+
+FUNCTIONALITY 8 — WhatsApp-Style Multi-Terminal VTY Group Chat (Chapter 08)
+  * How to run:
+    1. Log into any Telnet terminal and type `chat` (or `chat #netops`).
+    2. Scroll to **Chapter 08 (WhatsApp-style VTY Group Chat)** on the Web Dashboard.
+    3. Open a second terminal (or use the Web Chat input box in Chapter 08) to chat
+       across VTY lines in real time.
+  * Features & Slash Commands inside `chat` mode:
+    - Live Typing Indicator : Start typing in the terminal (without pressing Enter);
+                              Chapter 08 and `/members` immediately show `✍️ user@vty0 is typing…`
+                              powered by Telnet character-at-a-time mode (`WILL ECHO` + `WILL SGA`).
+    - Split-Line Redraw     : Incoming messages print cleanly above your prompt without
+                              corrupting the sentence you are currently typing.
+    - `/room #netops`       : Switch to or create a named chat group (`#general`, `#netops`, `#security`).
+    - `/dm <user|vty> <msg>`: Send a private Direct Message to a specific user or VTY line.
+    - `/reply <id> <msg>`   : Quote-reply to message `#id` with an inline snippet preview.
+    - `/react <id> <emoji>` : Add a reaction (e.g., `/react 1 +1` or click 👍 / ❤️ in the Web UI).
+    - `/status <text>`      : Update your personal status shown in `/members`.
+    - `/members`, `/rooms`, `/history`, `/help`, `/quit` (or `Ctrl+C` to return to `JU-Main-R#`).
+================================================================================

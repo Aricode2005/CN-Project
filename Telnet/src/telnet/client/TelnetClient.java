@@ -9,12 +9,15 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import telnet.protocol.OptionNegotiator;
 import telnet.protocol.Telnet;
 import telnet.protocol.TelnetCodec;
@@ -50,12 +53,23 @@ public final class TelnetClient implements Closeable {
         this.onText = onText;
         if (tls) {
             try {
-                KeyStore ks = KeyStore.getInstance("PKCS12");
-                try (FileInputStream f = new FileInputStream(trustStore)) { ks.load(f, "changeit".toCharArray()); }
-                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-                tmf.init(ks);                       // trust exactly our server's certificate (pinning)
+                boolean loopback = "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
+                TrustManager[] tms;
+                if (loopback && trustStore != null && trustStore.exists()) {
+                    KeyStore ks = KeyStore.getInstance("PKCS12");
+                    try (FileInputStream f = new FileInputStream(trustStore)) { ks.load(f, "changeit".toCharArray()); }
+                    TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                    tmf.init(ks);                       // trust our local server's self-signed certificate (pinning)
+                    tms = tmf.getTrustManagers();
+                } else {
+                    tms = new TrustManager[]{new X509TrustManager() {
+                        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                        public void checkClientTrusted(X509Certificate[] c, String a) { }
+                        public void checkServerTrusted(X509Certificate[] c, String a) { }
+                    }};
+                }
                 SSLContext ctx = SSLContext.getInstance("TLS");
-                ctx.init(null, tmf.getTrustManagers(), null);
+                ctx.init(null, tms, null);
                 SSLSocket s = (SSLSocket) ctx.getSocketFactory().createSocket(host, port);
                 s.startHandshake();
                 sock = s;

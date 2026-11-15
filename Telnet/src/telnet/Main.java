@@ -150,16 +150,23 @@ public final class Main {
 
     /** Line-mode console client. It refuses server ECHO (the console echoes locally) and hides the password itself. */
     static void cliClient(String[] args) throws Exception {
-        int port = args.length > 1 && !args[1].startsWith("--") ? Integer.parseInt(args[1]) : TAP;
-        boolean tls = Arrays.asList(args).contains("--tls");
+        String host = "127.0.0.1";
+        int port = TAP;
+        boolean tls = false;
+        for (int i = 1; i < args.length; i++) {
+            String arg = args[i];
+            if ("--tls".equalsIgnoreCase(arg)) tls = true;
+            else if (arg.matches("\\d+")) port = Integer.parseInt(arg);
+            else if (!arg.startsWith("-")) host = arg;
+        }
         Hub.I.quiet = true;
         final StringBuilder tail = new StringBuilder();
-        TelnetClient c = new TelnetClient("127.0.0.1", port, tls, KEYSTORE, new String[]{"VT100"}, 100, 30, false, s -> {
+        TelnetClient c = new TelnetClient(host, port, tls, KEYSTORE, new String[]{"VT100"}, 100, 30, false, s -> {
             System.out.print(s.replace("\r", ""));
             System.out.flush();
             synchronized (tail) { tail.append(s); if (tail.length() > 30) tail.delete(0, tail.length() - 30); }
         });
-        System.out.println("Connected to 127.0.0.1:" + port + (tls ? " over TLS" : "") + ". Ctrl+C to quit.");
+        System.out.println("Connected to " + host + ":" + port + (tls ? " over TLS" : "") + ". Ctrl+C to quit.");
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         while (!c.isClosed()) {
             boolean pw;

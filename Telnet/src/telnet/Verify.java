@@ -46,6 +46,8 @@ final class Verify {
         radiusTests(pool, p);
         System.out.println("\n--- 7. LINEMODE vs character mode vs Nagle (measured) --------------------");
         modeTests(p);
+        System.out.println("\n--- 8. WhatsApp-style multi-terminal VTY group chat & Host OS shell ------");
+        chatTests(pool, p, keystore);
         System.out.println("\n============================================================================");
         System.out.printf("  %d passed, %d failed%n", pass, fail);
         System.out.println("============================================================================");
@@ -373,5 +375,73 @@ final class Verify {
         check("Nagle's rule sends fewer segments than character mode", ng[1] < ch[1] * 0.75, (int) ng[1] + " vs " + (int) ch[1]);
         check("...but makes the echo slower", ng[2] > ch[2], ng[2] + " ms vs " + ch[2] + " ms");
         check("LINEMODE: one segment per command line", ln[1] <= ModeLab.SCRIPT.length + 1, (int) ln[1] + " segments");
+    }
+
+    // ------------------------------------------------------------------ 8
+
+    private static void chatTests(VtyPool pool, DashboardServer.Ports p, File ks) throws Exception {
+        TelnetClient c1 = new TelnetClient("127.0.0.1", p.telnet, false, null, new String[]{"VT100"}, 80, 24, true, null);
+        TelnetClient c2 = new TelnetClient("127.0.0.1", p.tls > 0 ? p.tls : p.telnet, p.tls > 0, ks, new String[]{"VT100"}, 80, 24, true, null);
+
+        long u1 = c1.expect(0, "Username: ", 5000);
+        c1.line("student");
+        long p1 = c1.expect(u1, "Password: ", 3000);
+        c1.line("ju2026");
+        long e1 = c1.expect(p1, "JU-Main-R>", 4000);
+
+        long u2 = c2.expect(0, "Username: ", 5000);
+        c2.line("admin");
+        long p2 = c2.expect(u2, "Password: ", 3000);
+        c2.line("cisco");
+        long e2 = c2.expect(p2, "JU-Main-R#", 4000);
+
+        c1.line("chat");
+        long j1 = c1.expect(e1, "[#general student@vty", 3000);
+        check("student enters WhatsApp VTY group chat (#general)", j1 > 0, "");
+
+        c2.line("chat");
+        long j2 = c2.expect(e2, "[#general admin@vty", 3000);
+        long joinNotice = c1.expect(j1, "joined #general", 3000);
+        check("admin joins #general over TLS and student receives join notification", j2 > 0 && joinNotice > 0, "");
+
+        c2.line("Hello group from TLS!");
+        long rx1 = c1.expect(joinNotice, "Hello group from TLS!", 3000);
+        check("group message broadcast across VTY terminals with delivery count", rx1 > 0 && c1.since(joinNotice).contains("(2)"), "");
+
+        c1.line("/reply 2 Hi admin, loud and clear!");
+        long rep2 = c2.expect(j2, "Hi admin, loud and clear!", 3000);
+        check("quoted /reply delivered to peer with original snippet", rep2 > 0 && c2.since(j2).contains("#2"), "");
+
+        c2.line("/react 3 +1");
+        long react1 = c1.expect(rx1, "reacted +1 to #3", 3000);
+        check("/react broadcasts reaction update to room members", react1 > 0, "");
+
+        c1.line("/dm admin Secret DM test");
+        long dm2 = c2.expect(rep2, "Secret DM test", 3000);
+        check("/dm sends private direct message to target user", dm2 > 0 && c2.since(rep2).contains("[DM #"), "");
+
+        c1.line("/quit");
+        long q1 = c1.expect(react1, "JU-Main-R>", 3000);
+        c2.line("/quit");
+        long q2 = c2.expect(dm2, "JU-Main-R#", 3000);
+        check("/quit leaves chat and restores EXEC prompt on both terminals", q1 > 0 && q2 > 0, "");
+
+        c2.line("shell");
+        long sh1 = c2.expect(q2, "$ ", 3000);
+        check("shell command enters Real Host OS Terminal (Mode.SHELL)", sh1 > 0, "");
+
+        c2.line("echo TELNET_OS_EXEC_OK");
+        long sh2 = c2.expect(sh1, "TELNET_OS_EXEC_OK", 4000);
+        check("host OS shell executes real OS command and returns stdout over Telnet", sh2 > 0, "");
+
+        c2.line("exit");
+        long shExit = c2.expect(sh2, "JU-Main-R#", 3000);
+        check("exit from host OS shell returns to router EXEC prompt", shExit > 0, "");
+
+        c1.line("exit");
+        c2.line("exit");
+        c1.close();
+        c2.close();
+        Thread.sleep(300);
     }
 }

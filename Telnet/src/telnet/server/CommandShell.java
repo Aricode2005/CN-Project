@@ -51,6 +51,9 @@ final class CommandShell {
         WORD_HELP.put("login", "Enable secure login checking");
         WORD_HELP.put("banner", "Define a login banner");
         WORD_HELP.put("enable", "Turn on privileged commands");
+        WORD_HELP.put("chat", "Join WhatsApp-style multi-terminal VTY group chat");
+        WORD_HELP.put("shell", "Open real Host OS terminal shell (remote log-in)");
+        WORD_HELP.put("exec", "Execute a command on the real Host OS");
         WORD_HELP.put("do", "To run exec commands in config mode");
     }
 
@@ -61,6 +64,7 @@ final class CommandShell {
         this.s = s;
         // ---------------- EXEC
         add("show users", 1, false, "Display information about terminal lines", (a, r) -> showUsers());
+        add("show chat", 1, false, "Display WhatsApp VTY chat groups and recent messages", (a, r) -> showChat());
         add("show telnet", 1, false, "Telnet option states of this session (RFC 1143)", (a, r) -> showTelnet());
         add("show terminal", 1, false, "Display terminal configuration parameters", (a, r) -> showTerminal());
         add("show version", 1, false, "System hardware and software status", (a, r) -> showVersion());
@@ -92,6 +96,11 @@ final class CommandShell {
         add("tmping", 1, false, "Measure RTT with Telnet TIMING-MARK (RFC 860)", (a, r) -> s.tmping(5));
         add("tmping <count>", 1, false, "Number of probes", (a, r) -> s.tmping(Math.max(1, Math.min(20, num(a.get(0), 5)))));
         add("top", 1, false, "Full-screen live view of all VTY lines (needs ANSI + NAWS)", (a, r) -> s.startTop());
+        add("chat", 1, false, "Join interactive WhatsApp VTY group chat (#general)", (a, r) -> s.startChat("#general"));
+        add("chat <room>", 1, false, "Join a specific chat group (e.g. chat #netops)", (a, r) -> s.startChat(a.get(0)));
+        add("shell", 1, false, "Enter real Host OS terminal shell (RFC 854 remote log-in)", (a, r) -> s.startShell());
+        add("bash", 1, false, "Enter real Host OS terminal shell (alias for 'shell')", (a, r) -> s.startShell());
+        add("exec <text>", 1, false, "Execute a single command on the real Host OS (e.g. exec ls -la)", (a, r) -> s.execHostCommand(r));
         add("send * <text>", 1, false, "Send a message to all tty lines", (a, r) -> broadcast(r));
         add("send <line> <text>", 1, false, "Send a message to one vty line", (a, r) -> sendOne(a.get(0), r));
         add("enable", 1, false, "Turn on privileged commands", (a, r) -> s.startEnable());
@@ -186,6 +195,11 @@ final class CommandShell {
     }
 
     void execute(String line) {
+        if (line.trim().startsWith("!")) {
+            String osCmd = line.trim().substring(1).trim();
+            if (!osCmd.isEmpty()) s.execHostCommand(osCmd);
+            return;
+        }
         List<Tok> in = tokenize(line);
         if (in.isEmpty()) return;
         List<Spec> full = new ArrayList<>();
@@ -328,11 +342,29 @@ final class CommandShell {
         out("    Line       User       Host(s)              Idle       Location\n");
         for (TelnetSession x : s.pool.sessions()) {
             long idle = (System.currentTimeMillis() - x.lastInput) / 1000;
+            String hostCol = x.mode == TelnetSession.Mode.TOP ? "top"
+                    : x.mode == TelnetSession.Mode.SHADOW ? "monitor"
+                    : x.mode == TelnetSession.Mode.SHELL ? "os-shell"
+                    : x.mode == TelnetSession.Mode.CHAT ? "chat " + x.chatRoom : "idle";
             out(String.format("%s %3d vty %-3d %-10s %-20s %02d:%02d:%02d   %s (%s)\n", x == s ? "*" : " ", x.line + 2, x.line,
-                    x.user.isEmpty() ? "-" : x.user, x.mode == TelnetSession.Mode.TOP ? "top" : x.mode == TelnetSession.Mode.SHADOW ? "monitor" : "idle",
+                    x.user.isEmpty() ? "-" : x.user, hostCol,
                     idle / 3600, (idle / 60) % 60, idle % 60, x.from, x.transport));
         }
         out("\n  Interface    User               Mode         Idle     Peer Address\n\n");
+    }
+
+    private void showChat() {
+        out("WhatsApp VTY Group Chat Status:\n\n");
+        for (String r : s.pool.chat.rooms()) {
+            List<TelnetSession> mems = s.pool.chat.membersInRoom(r);
+            List<String> names = new ArrayList<>();
+            for (TelnetSession m : mems) names.add(m.user + "@vty" + m.line + "[" + ChatHub.badge(m.transport) + "]");
+            out(String.format("  Group %-12s : %d member(s) %s\n", r, mems.size(), names.isEmpty() ? "" : "(" + String.join(", ", names) + ")"));
+            for (ChatHub.ChatMessage m : s.pool.chat.recentForRoom(r, 5)) {
+                out("    " + s.pool.chat.formatTerminalLine(m, s) + "\n");
+            }
+        }
+        out("\n  Type 'chat' or 'chat <#group>' to enter interactive group chat.\n\n");
     }
 
     private void showTelnet() {

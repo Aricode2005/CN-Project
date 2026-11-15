@@ -1,5 +1,6 @@
 package telnet.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,7 +37,7 @@ public final class TelnetSession implements Runnable {
 
     static final TelnetSession PLACEHOLDER = new TelnetSession();
 
-    public enum Mode { NEGOTIATING, LOGIN_USER, LOGIN_PASS, ENABLE_PASS, EXEC, CONFIG, TOP, SHADOW, CLOSED }
+    public enum Mode { NEGOTIATING, LOGIN_USER, LOGIN_PASS, ENABLE_PASS, EXEC, CONFIG, TOP, SHADOW, CHAT, SHELL, CLOSED }
 
     final VtyPool pool;
     final Socket sock;
@@ -77,6 +78,10 @@ public final class TelnetSession implements Runnable {
     volatile TelnetSession watching;
     private volatile Consumer<Hub.NegEvent> debugListener;
     private ScheduledFuture<?> topTask;
+    public volatile String chatRoom = "#general";
+    public volatile String chatStatus = "Available";
+    private volatile long lastChatTypeAt;
+    public volatile File shellCwd = new File(System.getProperty("user.dir", "."));
     private final StringBuilder recording = new StringBuilder("[");
     private int recEvents;
     /** HA cluster: the token that resumes this session on any node after a disconnect. */
@@ -187,6 +192,7 @@ public final class TelnetSession implements Runnable {
     public synchronized void close(String why) {
         if (mode == Mode.CLOSED) return;
         stopTop();
+        if (mode == Mode.CHAT && pool != null && pool.chat != null) pool.chat.onLeave(this, why);
         if (watching != null) watching.shadows.remove(this);
         for (TelnetSession w : shadows) w.endShadow("% Shadowed line " + line + " closed.");
         if (debugListener != null) Hub.I.offNeg(debugListener);
@@ -272,6 +278,8 @@ public final class TelnetSession implements Runnable {
     public synchronized String recordingJson() { return recording.toString() + "]"; }
 
     String prompt() {
+        if (mode == Mode.CHAT) return "[" + chatRoom + " " + user + "@vty" + line + "]> ";
+        if (mode == Mode.SHELL) return osPrompt();
         if (mode == Mode.CONFIG) return pool.cfg.hostname + "(config)#";
         return pool.cfg.hostname + (priv >= 15 ? "#" : ">");
     }
@@ -281,8 +289,9 @@ public final class TelnetSession implements Runnable {
     /** Print an asynchronous message (debug, broadcast) without destroying what the user is typing. */
     void notifyAsync(String msg) {
         if (mode == Mode.CLOSED || mode == Mode.TOP || mode == Mode.SHADOW) return;
+        if (mode == Mode.CHAT) { deliverChatLine(msg.trim()); return; }
         print("\n" + msg + (msg.endsWith("\n") ? "" : "\n"));
-        if (mode == Mode.EXEC || mode == Mode.CONFIG) showPrompt();
+        if (mode == Mode.EXEC || mode == Mode.CONFIG || mode == Mode.SHELL) showPrompt();
     }
 
     private boolean echoOn() { return neg.isLocal(Telnet.OPT_ECHO); }
@@ -432,13 +441,24 @@ public final class TelnetSession implements Runnable {
         if (b == 0) return;          // CR NUL is the NVT carriage return: keep lastCR so a following LF is not a 2nd Enter
         lastCR = false;
 
-        boolean visible = mode == Mode.LOGIN_USER || mode == Mode.EXEC || mode == Mode.CONFIG;
+        boolean visible = mode == Mode.LOGIN_USER || mode == Mode.EXEC || mode == Mode.CONFIG || mode == Mode.CHAT || mode == Mode.SHELL;
         boolean cli = mode == Mode.EXEC || mode == Mode.CONFIG;
         switch (b) {
             case 8: case 127:
                 if (buf.length() > 0) { buf.setLength(buf.length() - 1); if (visible && echoOn()) print("\b \b"); }
+                if (mode == Mode.CHAT) lastChatTypeAt = System.currentTimeMillis();
                 return;
             case 3:
+                if (mode == Mode.CHAT && buf.length() == 0) {
+                    print("^C\n");
+                    leaveChat("Ctrl-C");
+                    return;
+                }
+                if (mode == Mode.SHELL && buf.length() == 0) {
+                    print("^C\n");
+                    leaveShell();
+                    return;
+                }
                 buf.setLength(0);
                 print("^C\n");
                 if (mode == Mode.LOGIN_PASS || mode == Mode.LOGIN_USER) startLogin();
@@ -450,9 +470,13 @@ public final class TelnetSession implements Runnable {
                 buf.setLength(0);
                 return;
             case 26:
+                if (mode == Mode.CHAT) { print("^Z\n"); buf.setLength(0); leaveChat("Ctrl-Z"); return; }
+                if (mode == Mode.SHELL) { print("^Z\n"); buf.setLength(0); leaveShell(); return; }
                 if (mode == Mode.CONFIG) { print("^Z\n"); buf.setLength(0); mode = Mode.EXEC; showPrompt(); }
                 return;
             case 4:
+                if (mode == Mode.CHAT && buf.length() == 0) { print("/quit\n"); leaveChat("Ctrl-D"); return; }
+                if (mode == Mode.SHELL && buf.length() == 0) { print("exit\n"); leaveShell(); return; }
                 if (cli && buf.length() == 0) { print("logout\n"); close("Ctrl-D"); }
                 return;
             case 9:
@@ -460,12 +484,14 @@ public final class TelnetSession implements Runnable {
                 return;
             case '?':
                 if (cli) { print("?\n"); shell.help(buf.toString()); showPrompt(); return; }
+                if (mode == Mode.CHAT && buf.length() == 0) { print("?\n"); printChatHelp(); showPrompt(); return; }
                 break;
             default:
                 break;
         }
         if (b < 32 || b > 126) return;
         buf.append((char) b);
+        if (mode == Mode.CHAT) lastChatTypeAt = System.currentTimeMillis();
         if (visible && echoOn()) print(String.valueOf((char) b));
     }
 
@@ -478,7 +504,7 @@ public final class TelnetSession implements Runnable {
     }
 
     private void historyMove(int d) {
-        if (mode != Mode.EXEC && mode != Mode.CONFIG || history.isEmpty()) return;
+        if (mode != Mode.EXEC && mode != Mode.CONFIG && mode != Mode.SHELL || history.isEmpty()) return;
         histPos = Math.max(0, Math.min(history.size(), histPos + d));
         String s = histPos < history.size() ? history.get(histPos) : "";
         StringBuilder e = new StringBuilder();
@@ -491,6 +517,14 @@ public final class TelnetSession implements Runnable {
         String lineText = buf.toString();
         buf.setLength(0);
         Mode m = mode;
+        if (m == Mode.CHAT) {
+            handleChatSubmit(lineText);
+            return;
+        }
+        if (m == Mode.SHELL) {
+            handleShellSubmit(lineText);
+            return;
+        }
         if (echoOn() || m == Mode.LOGIN_PASS || m == Mode.ENABLE_PASS) print("\n");
         switch (m) {
             case LOGIN_USER: loginUser(lineText.trim()); break;
@@ -505,7 +539,7 @@ public final class TelnetSession implements Runnable {
                 shell.execute(lineText);
                 if (!lineText.trim().isEmpty() && mode != Mode.CLOSED)
                     for (SessionEvents e : pool.events) { try { e.command(this, lineText.trim()); } catch (RuntimeException ex) { Hub.I.log("[VTY" + line + "] " + ex); } }
-                if ((mode == Mode.EXEC || mode == Mode.CONFIG) && tmpingLeft == 0) showPrompt();   // tmping prints the prompt when it finishes
+                if ((mode == Mode.EXEC || mode == Mode.CONFIG || mode == Mode.CHAT || mode == Mode.SHELL) && tmpingLeft == 0) showPrompt();   // tmping prints the prompt when it finishes
                 break;
             default: break;
         }
@@ -720,6 +754,299 @@ public final class TelnetSession implements Runnable {
         record(sb.toString());
     }
 
+    // ================================================================== WhatsApp-style Group Chat (Mode.CHAT)
+
+    public boolean isTypingInChat() {
+        return mode == Mode.CHAT && buf.length() > 0 && (System.currentTimeMillis() - lastChatTypeAt) < 3500;
+    }
+
+    void startChat(String roomArg) {
+        String r = ChatHub.normalizeRoom(roomArg);
+        mode = Mode.CHAT;
+        chatRoom = r;
+        int w = Math.max(56, Math.min(cols, 96));
+        String sec = "telnets".equalsIgnoreCase(transport) ? "TLS Encrypted (Port " + pool.tlsPort + ")" : "Plaintext (Port " + pool.plainPort + " - visible to sniffer!)";
+        print("\n" + inverse(pad(" WhatsApp VTY Group Chat  |  Room: " + r + "  |  " + user + "@vty" + line + " [" + ChatHub.badge(transport) + "]", w)) + "\n");
+        print(" Transport : " + sec + "\n");
+        print(" Commands  : /members  /rooms  /room <#name>  /dm <user|vty> <msg>  /reply <id> <msg>\n");
+        print("             /react <id> <emoji>  /status <text>  /history  /help  /quit (or Ctrl-C)\n");
+        print(repeat('-', w) + "\n");
+        List<ChatHub.ChatMessage> recent = pool.chat.recentForRoom(r, 8);
+        if (recent.isEmpty()) {
+            print(" (No messages in " + r + " yet. Say hi!)\n");
+        } else {
+            for (ChatHub.ChatMessage m : recent) {
+                print(pool.chat.formatTerminalLine(m, this) + "\n");
+            }
+        }
+        print(repeat('-', w) + "\n");
+        pool.chat.onJoin(this, r);
+    }
+
+    void leaveChat(String why) {
+        if (mode != Mode.CHAT) return;
+        pool.chat.onLeave(this, why);
+        mode = Mode.EXEC;
+        print("% Left chat room " + chatRoom + ". Returned to router EXEC mode.\n");
+        showPrompt();
+    }
+
+    /** Deliver a live chat line above the current typing prompt without corrupting in-progress input. */
+    synchronized void deliverChatLine(String formatted) {
+        if (mode != Mode.CHAT) return;
+        int clearLen = prompt().length() + buf.length() + 4;
+        if (ansi()) {
+            print("\r\u001b[K" + formatted + "\n");
+        } else {
+            print("\r" + repeat(' ', clearLen) + "\r" + formatted + "\n");
+        }
+        showPrompt();
+    }
+
+    private void handleChatSubmit(String raw) {
+        String text = raw.trim();
+        if (text.isEmpty()) {
+            if (echoOn()) print("\n");
+            showPrompt();
+            return;
+        }
+        if (text.startsWith("/")) {
+            if (echoOn()) print("\n");
+            String[] parts = text.split("\\s+", 3);
+            String cmd = parts[0].toLowerCase();
+            switch (cmd) {
+                case "/quit":
+                case "/exit":
+                case "/leave":
+                case "/q":
+                    leaveChat("quit");
+                    return;
+                case "/help":
+                case "/?":
+                    printChatHelp();
+                    break;
+                case "/members":
+                case "/who":
+                    printChatMembers();
+                    break;
+                case "/rooms":
+                    printChatRooms();
+                    break;
+                case "/history":
+                    for (ChatHub.ChatMessage m : pool.chat.recentForRoom(chatRoom, 15)) {
+                        print(pool.chat.formatTerminalLine(m, this) + "\n");
+                    }
+                    break;
+                case "/room":
+                case "/join": {
+                    if (parts.length < 2) { print("% Usage: /room <#group-name>\n"); break; }
+                    String newRoom = ChatHub.normalizeRoom(parts[1]);
+                    if (newRoom.equals(chatRoom)) { print("% Already in " + chatRoom + "\n"); break; }
+                    pool.chat.onLeave(this, "switched to " + newRoom);
+                    chatRoom = newRoom;
+                    print("% Switched to group " + chatRoom + "\n");
+                    for (ChatHub.ChatMessage m : pool.chat.recentForRoom(chatRoom, 6)) {
+                        print(pool.chat.formatTerminalLine(m, this) + "\n");
+                    }
+                    pool.chat.onJoin(this, chatRoom);
+                    break;
+                }
+                case "/status": {
+                    String st = text.length() > 7 ? text.substring(7).trim() : "";
+                    if (st.isEmpty()) { print("% Current status: \"" + chatStatus + "\". Usage: /status <text>\n"); break; }
+                    chatStatus = st;
+                    print("% Status updated to: \"" + chatStatus + "\"\n");
+                    break;
+                }
+                case "/dm":
+                case "/msg": {
+                    if (parts.length < 3) { print("% Usage: /dm <username|vty#> <message>\n"); break; }
+                    String err = pool.chat.sendDirectMessage(this, parts[1], parts[2]);
+                    if (err != null) { print(err + "\n"); break; }
+                    return; // deliverChatLine already redrew the prompt
+                }
+                case "/reply": {
+                    if (parts.length < 3) { print("% Usage: /reply <msgId> <message>\n"); break; }
+                    int idArg = parseMsgId(parts[1]);
+                    if (idArg <= 0) { print("% Invalid message ID: " + parts[1] + "\n"); break; }
+                    pool.chat.postGroupMessage(this, parts[2], idArg);
+                    return; // deliverChatLine already redrew the prompt
+                }
+                case "/react": {
+                    if (parts.length < 3) { print("% Usage: /react <msgId> <emoji/reaction>  (e.g. /react 1 +1)\n"); break; }
+                    int idArg = parseMsgId(parts[1]);
+                    if (idArg <= 0) { print("% Invalid message ID: " + parts[1] + "\n"); break; }
+                    String err = pool.chat.react(user, line, chatRoom, idArg, parts[2].trim());
+                    if (err != null) { print(err + "\n"); break; }
+                    return; // deliverChatLine already redrew the prompt
+                }
+                default:
+                    print("% Unknown chat command '" + cmd + "'. Type /help for commands.\n");
+                    break;
+            }
+            if (mode == Mode.CHAT) showPrompt();
+            return;
+        }
+        // Regular group chat message: erase echoed input line so the formatted broadcast replaces it cleanly
+        if (echoOn()) {
+            int clearLen = prompt().length() + raw.length() + 4;
+            if (ansi()) print("\r\u001b[K");
+            else print("\r" + repeat(' ', clearLen) + "\r");
+        }
+        pool.chat.postGroupMessage(this, text, 0);
+    }
+
+    private static int parseMsgId(String s) {
+        String clean = s.startsWith("#") ? s.substring(1) : s;
+        try { return Integer.parseInt(clean); } catch (NumberFormatException e) { return -1; }
+    }
+
+    private void printChatHelp() {
+        print("WhatsApp VTY Group Chat commands:\n"
+                + "  <message>                Send message to current room (" + chatRoom + ")\n"
+                + "  /members                 List online members in " + chatRoom + " & typing status\n"
+                + "  /rooms                   List all chat rooms/groups\n"
+                + "  /room <#name>            Switch to or create another group (e.g. /room #netops)\n"
+                + "  /dm <user|vty#> <msg>    Send a private Direct Message across VTY lines\n"
+                + "  /reply <#id> <msg>       Reply to message #id with a quoted preview\n"
+                + "  /react <#id> <reaction>  React to message #id (e.g. /react 1 +1 or /react 1 <3)\n"
+                + "  /status <text>           Set your personal status message\n"
+                + "  /history                 Show recent messages in " + chatRoom + "\n"
+                + "  /quit (or Ctrl-C)        Leave chat and return to router EXEC prompt\n");
+    }
+
+    private void printChatMembers() {
+        print("Online VTY sessions (Group: " + chatRoom + "):\n");
+        for (TelnetSession s : pool.sessions()) {
+            String where = s.mode == Mode.CHAT ? "in " + s.chatRoom : "mode: " + s.mode;
+            String typ = s.isTypingInChat() ? " [typing...]" : "";
+            print(String.format("  vty%-2d  %-10s  [%-5s]  %-14s  status: \"%s\"%s\n",
+                    s.line, s.user.isEmpty() ? "(login)" : s.user, ChatHub.badge(s.transport), where, s.chatStatus, typ));
+        }
+    }
+
+    private void printChatRooms() {
+        print("Available WhatsApp VTY groups:\n");
+        for (String r : pool.chat.rooms()) {
+            List<TelnetSession> mems = pool.chat.membersInRoom(r);
+            List<String> names = new ArrayList<>();
+            for (TelnetSession m : mems) names.add(m.user + "@vty" + m.line);
+            print(String.format("  %-14s  %d active member(s)%s%s\n",
+                    r, mems.size(), mems.isEmpty() ? "" : ": " + String.join(", ", names), r.equals(chatRoom) ? "  <-- current" : ""));
+        }
+    }
+
+    // ================================================================== Real Host OS Shell (Mode.SHELL)
+
+    String osPrompt() {
+        String osUser = System.getProperty("user.name", user);
+        String dirName = shellCwd.getName();
+        if (dirName.isEmpty()) dirName = shellCwd.getPath();
+        return osUser + "@" + pool.cfg.hostname + ":" + dirName + "$ ";
+    }
+
+    void startShell() {
+        mode = Mode.SHELL;
+        int w = Math.max(56, Math.min(cols, 96));
+        String osInfo = System.getProperty("os.name") + " (" + System.getProperty("os.arch") + ")";
+        print("\n" + inverse(pad(" Remote Host OS Terminal (RFC 854 Pseudoterminal)  |  " + osInfo, w)) + "\n");
+        print(" Logged into host OS as : " + System.getProperty("user.name", user) + " (via VTY " + line + " from " + from + ")\n");
+        print(" Working directory      : " + shellCwd.getAbsolutePath() + "\n");
+        print(" Type any OS command (ls, pwd, whoami, uname -a, ipconfig/ifconfig, ps, cat, etc.)\n");
+        print(" Type 'exit' (or press Ctrl-C / Ctrl-D) to return to the router CLI.\n");
+        print(repeat('-', w) + "\n");
+        Hub.I.log("[VTY" + line + "] " + user + " opened host OS shell (" + osInfo + ")");
+    }
+
+    void leaveShell() {
+        if (mode != Mode.SHELL) return;
+        mode = Mode.EXEC;
+        print("% Closed host OS shell. Returned to router EXEC mode.\n");
+        showPrompt();
+    }
+
+    private void handleShellSubmit(String raw) {
+        if (echoOn()) print("\n");
+        String cmd = raw.trim();
+        if (cmd.isEmpty()) {
+            showPrompt();
+            return;
+        }
+        history.add(cmd);
+        if (history.size() > 20) history.remove(0);
+        histPos = history.size();
+        if (cmd.equalsIgnoreCase("exit") || cmd.equalsIgnoreCase("logout") || cmd.equalsIgnoreCase("quit")) {
+            leaveShell();
+            return;
+        }
+        execHostCommand(cmd);
+        if (mode == Mode.SHELL) showPrompt();
+    }
+
+    /** Execute a real command on the host operating system and stream stdout/stderr to this Telnet session. */
+    void execHostCommand(String cmd) {
+        String trimmed = cmd.trim();
+        if (trimmed.isEmpty()) return;
+        if (trimmed.equals("cd") || trimmed.startsWith("cd ")) {
+            String arg = trimmed.length() > 2 ? trimmed.substring(2).trim() : System.getProperty("user.home", ".");
+            if (arg.equals("~") || arg.startsWith("~/")) {
+                arg = System.getProperty("user.home", ".") + arg.substring(1);
+            }
+            File target = new File(arg);
+            if (!target.isAbsolute()) target = new File(shellCwd, arg);
+            try {
+                target = target.getCanonicalFile();
+                if (target.exists() && target.isDirectory()) {
+                    shellCwd = target;
+                } else {
+                    print("cd: no such directory: " + arg + "\n");
+                }
+            } catch (IOException e) {
+                print("cd: " + e.getMessage() + "\n");
+            }
+            return;
+        }
+        Hub.I.log("[OS-SHELL vty" + line + " " + user + "] $ " + trimmed);
+        boolean win = System.getProperty("os.name", "").toLowerCase().contains("win");
+        String[] argv = win ? new String[]{"cmd.exe", "/c", trimmed} : new String[]{"/bin/sh", "-c", trimmed};
+        try {
+            ProcessBuilder pb = new ProcessBuilder(argv);
+            pb.directory(shellCwd);
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            p.getOutputStream().close();
+            InputStream pin = p.getInputStream();
+            byte[] bufBytes = new byte[1024];
+            int total = 0;
+            long deadline = System.currentTimeMillis() + 8000;
+            while (System.currentTimeMillis() < deadline) {
+                if (pin.available() > 0) {
+                    int n = pin.read(bufBytes, 0, Math.min(bufBytes.length, pin.available()));
+                    if (n < 0) break;
+                    total += n;
+                    print(new String(bufBytes, 0, n, StandardCharsets.UTF_8));
+                    if (total > 64_000) {
+                        print("\n% [output truncated at 64 KB]\n");
+                        p.destroyForcibly();
+                        break;
+                    }
+                } else if (!p.isAlive()) {
+                    int n = pin.read(bufBytes);
+                    if (n > 0) print(new String(bufBytes, 0, n, StandardCharsets.UTF_8));
+                    break;
+                } else {
+                    try { Thread.sleep(20); } catch (InterruptedException ie) { break; }
+                }
+            }
+            if (p.isAlive()) {
+                p.destroyForcibly();
+                print("\n% Command timed out after 8 seconds (interactive/blocking commands should be run with flags like 'ping -c 3' or 'top -l 1').\n");
+            }
+        } catch (Exception e) {
+            print("% OS execution error: " + e.getMessage() + "\n");
+        }
+    }
+
     private static String inverse(String s) { return "\u001b[7m" + s + "\u001b[0m"; }
     private static String pad(String s, int w) { StringBuilder b = new StringBuilder(s.length() > w ? s.substring(0, w) : s); while (b.length() < w) b.append(' '); return b.toString(); }
     private static String clip(String s, int w) { return s.length() > w ? s.substring(0, w) : s; }
@@ -739,7 +1066,8 @@ public final class TelnetSession implements Runnable {
         List<String> tt = new ArrayList<>();
         for (String t : ttypes) tt.add(Json.str(t));
         return Json.obj("id", id, "line", line, "user", user, "priv", priv, "from", from, "transport", transport, "mode", mode.name(),
-                "prompt", mode == Mode.EXEC || mode == Mode.CONFIG ? prompt() : "", "ttype", terminalType(), "ttypes", Json.raw(Json.arr(tt)),
+                "chatRoom", mode == Mode.CHAT ? chatRoom : "", "typing", isTypingInChat(),
+                "prompt", mode == Mode.EXEC || mode == Mode.CONFIG || mode == Mode.CHAT || mode == Mode.SHELL ? prompt() : "", "ttype", terminalType(), "ttypes", Json.raw(Json.arr(tt)),
                 "cols", cols, "rows", rows, "tspeed", tspeed, "in", bytesIn, "out", bytesOut, "idle", (System.currentTimeMillis() - lastInput) / 1000,
                 "age", (System.currentTimeMillis() - startedAt) / 1000, "rtt", r, "rtts", Json.raw(rt.toString()),
                 "debug", debugging(), "shadowedBy", shadows.size(), "options", Json.raw(Json.arr(o)));

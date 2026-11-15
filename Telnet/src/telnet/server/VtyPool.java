@@ -22,6 +22,7 @@ public final class VtyPool {
 
     public final DeviceConfig cfg;
     public final LoginGuard guard;
+    public final ChatHub chat;
     public final File dhcpDataDir;
     public final ScheduledExecutorService timer = Executors.newScheduledThreadPool(2, r -> {
         Thread t = new Thread(r, "vty-timer"); t.setDaemon(true); return t;
@@ -49,6 +50,7 @@ public final class VtyPool {
     public VtyPool(DeviceConfig cfg, File dhcpDataDir) {
         this.cfg = cfg;
         this.guard = new LoginGuard(cfg);
+        this.chat = new ChatHub(this);
         this.dhcpDataDir = dhcpDataDir;
         ALL.add(this);
         // Every 5 s measure each session's round-trip time with RFC 860 TIMING-MARK

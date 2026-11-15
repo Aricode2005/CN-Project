@@ -11,7 +11,7 @@ bit layout, and the password crossing the wire in clear text (and not crossing i
 
 ```
 run.bat              REM compile + start everything, then open http://localhost:8081
-run.bat --verify     REM automated test suite (59 checks)
+run.bat --verify     REM automated test suite (69 checks)
 run.bat client       REM console Telnet client through the wire tap
 ```
 
@@ -47,6 +47,7 @@ Any Telnet client works too: `telnet localhost 2323` (Windows: enable "Telnet Cl
 | 08 HA cluster | (high availability) | three routers behind one load balancer: heartbeats, Kill / Revive, least-connections / round-robin / source-IP-hash scheduling, the replicated session table, and `resume` after a failover |
 | 09 RADIUS | (AAA) | switch the router to `aaa authentication login default group radius local`; every Access-Request / Accept / Reject / Accounting packet decoded field by field; take the server offline (fallback to local) or give the router the wrong secret (authenticator check fails); the accounting audit trail |
 | 10 Linemode | (RFC 1184, RFC 896) | the same commands typed in character mode, with Nagle's rule, and in LINEMODE through a link with a chosen RTT: segments, wire bytes, header overhead, echo delay, and a timeline of every segment |
+| 11 Group Chat & Host OS Shell | *Multi-VTY & True Remote Log-in* | WhatsApp-style multi-terminal VTY group chat (`chat`, `/dm`, `/reply`, `/react`, live typing indicators) + real Host OS terminal execution (`shell` / `bash` / `!<cmd>`) and cross-laptop LAN connection (`Target Host/IP`) |
 
 ## What is implemented
 
@@ -64,7 +65,10 @@ secret`, `login block-for`, `exec-timeout`, `write memory`, `show users/telnet/t
 login/running-config/ip interface brief`, `show dhcp leases` (reads the DHCP module's replicated
 lease files), `show arp` (host's real ARP cache), `send *` broadcast, `monitor line` (shadow another
 user), `clear line`, `debug telnet`, `tmping` (RTT via TIMING-MARK), `top` (full-screen, ANSI +
-NAWS: it reflows when you resize), `cat file1`, `dir`.
+NAWS: it reflows when you resize), `cat file1`, `dir`, `shell` / `bash` / `exec <cmd>` / `!<cmd>`
+(spawns a real Host OS shell over the Telnet NVT pseudoterminal so a remote laptop can execute real OS
+commands), and `chat` / `show chat` (WhatsApp-style multi-terminal VTY group chat with rooms, DMs,
+quoted replies, reactions, delivery ticks, and live per-keystroke typing indicators).
 Passwords are PBKDF2-SHA256 hashes (Cisco type 8), compared in constant time.
 
 **Tap (`telnet.tap`)**: relays bytes unchanged, decodes them for the dashboard, reconstructs what
@@ -105,7 +109,7 @@ is typed at `Username:` / `Password:`, and for TLS shows only record headers.
 
 ```
 src/telnet/protocol   Telnet.java (constants), TelnetCodec.java (RFC 854), OptionNegotiator.java (RFC 1143), LoopExperiment.java
-src/telnet/server     VtyPool, TelnetSession (one VTY line), CommandShell (IOS CLI), DeviceConfig, LoginGuard
+src/telnet/server     VtyPool, TelnetSession (one VTY line + Mode.SHELL + Mode.CHAT), CommandShell (IOS CLI), ChatHub, DeviceConfig, LoginGuard
 src/telnet/tap        WireTap.java (sniffer relay)
 src/telnet/client     TelnetClient.java
 src/telnet/dashboard  DashboardServer.java (HTTP API + browser-terminal bridge + attack bot)
@@ -113,6 +117,7 @@ src/telnet/cluster    Cluster, Balancer (TCP LB + heartbeats), Node (VTY server 
 src/telnet/aaa        Radius (RFC 2865/2866 packets), RadiusServer, RadiusClient (router side + accounting)
 src/telnet/lab        ModeLab (character mode / Nagle / LINEMODE experiment)
 src/telnet            Main.java, Verify.java
-web/dashboard.html    the dashboard (VT100 emulator, diagrams, sniffer, all in one file)
+web/dashboard.html    the dashboard (VT100 emulator, diagrams, sniffer, group chat, all in one file)
+HELPDESK_AND_DEPLOYMENT.txt  detailed helpdesk & step-by-step deployment guide for all features
 docs/screenshots      screenshots of every chapter
 ```

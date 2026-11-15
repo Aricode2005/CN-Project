@@ -409,6 +409,10 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <div class="meta">RFC 854 · NVT<br><b id="hostTag">JU-MAIN-R · LINE VTY 0 4</b></div>
       <div class="stat" id="stat"></div>
     </div>
+    <div class="row" style="gap:6px;margin-bottom:4px">
+      <span class="mono" style="font-size:10.5px;color:#b8b19c">Target Host/IP:</span>
+      <input id="targetHost" value="127.0.0.1" placeholder="127.0.0.1 or friend's LAN IP" style="flex:1;background:#101319;color:#eef0f3;border:1px solid #2b323e;padding:4px 8px;font-family:var(--mono);font-size:11px">
+    </div>
     <div class="modes" id="modes">
       <button data-mode="tap"><span>Wire-tapped</span><small>:2324 → :2323</small></button>
       <button data-mode="direct"><span>Direct</span><small>:2323</small></button>
@@ -445,7 +449,7 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <nav class="chapters" id="nav" aria-label="Chapters">
         <a href="#c1"><span>01</span>Remote log-in</a><a href="#c2"><span>02</span>NVT</a><a href="#c3"><span>03</span>Control chars</a>
         <a href="#c4"><span>04</span>Options</a><a href="#c5"><span>05</span>Negotiation</a><a href="#c6"><span>06</span>Security</a><a href="#c7"><span>07</span>Lab</a>
-        <a href="#c8"><span>08</span>HA cluster</a><a href="#c9"><span>09</span>RADIUS</a><a href="#c10"><span>10</span>Linemode</a>
+        <a href="#c8"><span>08</span>HA cluster</a><a href="#c9"><span>09</span>RADIUS</a><a href="#c10"><span>10</span>Linemode</a><a href="#c11"><span>11</span>Group Chat</a>
       </nav>
     </div>
 
@@ -640,6 +644,46 @@ input[type=range] { accent-color: var(--c2s); width: 100%; }
       <div class="ml-res" id="mlRes"></div>
       <div id="mlTl"></div>
     </section>
+
+    <!-- 11 -->
+    <section class="ch" id="c11">
+      <div class="ch-head"><span class="ch-num">11</span><span class="src">multi-terminal real-time chat · Mode.CHAT · Host OS Shell</span><h2>WhatsApp-style VTY Group Chat &amp; Host OS Shell</h2></div>
+      <p class="lead">Type <code>chat</code> (or <code>chat #netops</code>) inside any Telnet terminal to join a live group, or type <code>shell</code> to enter the <b>Real Host OS Terminal</b> on the remote machine. Because Telnet runs in character-at-a-time mode (<code>WILL ECHO</code> + <code>WILL SGA</code>), the router detects live <b>typing indicators</b> per keystroke and redraws incoming messages above your active input line without corrupting what you are typing.</p>
+      <div class="grid2">
+        <div style="display:grid;gap:10px;align-content:start">
+          <div class="seqbar">
+            <div class="tabs" id="chatRooms" style="margin:0">
+              <button data-room="#general" class="on">#general</button>
+              <button data-room="#netops">#netops</button>
+              <button data-room="#security">#security</button>
+            </div>
+            <span id="chatTyping" class="mono" style="font-size:11.5px;color:var(--good)"></span>
+          </div>
+          <div id="chatFeed" class="frames" style="height:320px;padding:10px;display:grid;gap:8px;align-content:start">
+            <div style="color:#6f5a35">No messages in this group yet. Type <code>chat</code> in a terminal or send a message below!</div>
+          </div>
+          <div class="row">
+            <input id="chatUser" value="web-admin" placeholder="Name" style="width:110px;background:var(--paper-2);color:var(--ink);border:1.5px solid var(--ink);padding:6px 9px;font-family:var(--mono);font-size:12px">
+            <input id="chatInput" placeholder="Message #general across all VTY terminals…" style="flex:1;background:var(--paper-2);color:var(--ink);border:1.5px solid var(--ink);padding:6px 11px;font-size:13px">
+            <button class="btn" id="chatSendBtn">Send ✓✓</button>
+          </div>
+        </div>
+        <div style="display:grid;gap:10px;align-content:start">
+          <div class="sub">Active VTY Chat Members &amp; Commands</div>
+          <div id="chatMembers" style="padding:10px 12px;background:var(--paper-2);border:1.5px solid var(--ink);font-family:var(--mono);font-size:12px"></div>
+          <div class="note">
+            <b>Terminal Slash Commands inside <code>chat</code> mode:</b><br>
+            • <code>/room #netops</code> — Switch or create a WhatsApp group<br>
+            • <code>/dm admin hello!</code> or <code>/dm vty0 hi</code> — Private Direct Message across VTYs<br>
+            • <code>/reply 1 agreed!</code> — Quote-reply to message <code>#1</code><br>
+            • <code>/react 1 +1</code> — Add a reaction to message <code>#1</code><br>
+            • <code>/members</code>, <code>/rooms</code>, <code>/status &lt;text&gt;</code>, <code>/quit</code> (or <code>Ctrl+C</code>)<br>
+            <b>True Remote Host OS Log-in:</b><br>
+            • Type <code>shell</code> (or <code>bash</code> or <code>! ls -la</code>) at the router prompt to execute real OS commands on the target computer!
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -814,23 +858,24 @@ function renderLiveNeg(events) {
 }
 
 // ===================================================================== terminal connection
-const QUICK = ['show telnet', 'show terminal', 'tmping', 'cat file1', 'dir', 'top', 'show users', 'debug telnet', 'show dhcp leases', 'show arp', 'show login', 'enable', 'show running-config'];
+const QUICK = ['shell', 'chat', 'show chat', 'show telnet', 'show terminal', 'tmping', 'cat file1', 'dir', 'top', 'show users', 'debug telnet', 'show dhcp leases', 'show arp', 'show login', 'enable', 'show running-config'];
 $('quick').innerHTML = QUICK.map(c => `<button data-type="${esc(c)}">${esc(c)}</button>`).join('');
 
 async function connect(mode) {
   await disconnect();
   A.pinned = false; setWatch('me');
   const [c, r] = $('size').value.split('x').map(Number);
+  const host = ($('targetHost').value || '127.0.0.1').trim() || '127.0.0.1';
   term.resize(c, r);
   const before = new Set((A.lastState ? A.lastState.sessions : []).map(s => s.id));
-  const res = await api(`/api/term/open?mode=${mode}&cols=${c}&rows=${r}`, { method: 'POST' });
+  const res = await api(`/api/term/open?mode=${mode}&host=${encodeURIComponent(host)}&cols=${c}&rows=${r}`, { method: 'POST' });
   if (res.error) { term.write('\r\n% ' + res.error + '\r\n'); return; }
   A.tid = res.id; A.tnext = 0; A.mode = mode; A.mySession = null;
   $('termOff').style.display = 'none';
   $('disc').disabled = false;
   document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
   $('led').className = 'led ' + (mode === 'tls' ? 'tls' : 'on');
-  $('tstat').textContent = mode === 'tap' ? 'plaintext · browser → tap :2324 → server :2323' : mode === 'direct' ? 'plaintext · direct to :2323 (tap bypassed)' : 'TLS 1.3 · tap :9924 → server :9923';
+  $('tstat').textContent = `${mode === 'tls' ? 'TLS 1.3' : 'plaintext'} · connected to ${res.host || host}:${res.port}`;
   $('term').focus();
   read(++A.reader);
   for (let i = 0; i < 12 && A.tid && !A.mySession; i++) {     // find which VTY session is ours
@@ -1233,7 +1278,7 @@ async function pollState() {
     $('stat').innerHTML = `<span class="chipst">VTY <b>${s.sessions.length}/${s.vtyMax}</b></span>` +
       (s.captures.length ? `<span class="chipst hot">sniffed <b>${s.captures.length}</b></span>` : '') +
       (q > 0 ? `<span class="chipst bad">QUIET <b>${q}s</b></span>` : `<span class="chipst">up <b>${fmt(s.uptime)}</b></span>`);
-    renderSecurity(s); renderLines(s); renderAlert(s); renderLogs(s); renderRecSel(s);
+    renderSecurity(s); renderLines(s); renderAlert(s); renderLogs(s); renderRecSel(s); renderChat(s);
     renderWatch(s); renderLiveWho(s);
   } catch (e) { $('stat').innerHTML = '<span class="chipst bad">server offline</span>'; }
   setTimeout(pollState, 1000);
@@ -1295,6 +1340,85 @@ $('recPlay').onclick = async () => {
   tick();
 };
 $('recPos').oninput = () => { if (!rec) return; clearTimeout(recT); rterm.resize(96, 16); const k = Math.round(+$('recPos').value / 1000 * rec.length); for (let i = 0; i < k; i++) rterm.write(rec[i][1]); };
+
+// ===================================================================== 08 WhatsApp VTY Group Chat
+let activeChatRoom = '#general', lastChatSig = '';
+document.querySelectorAll('#chatRooms button').forEach(b => b.onclick = () => {
+  activeChatRoom = b.dataset.room;
+  document.querySelectorAll('#chatRooms button').forEach(x => x.classList.toggle('on', x === b));
+  $('chatInput').placeholder = `Message ${activeChatRoom} across all VTY terminals…`;
+  lastChatSig = '';
+  if (A.lastState) renderChat(A.lastState);
+});
+async function sendWebChat() {
+  const txt = $('chatInput').value.trim();
+  const usr = ($('chatUser').value || 'web-admin').trim();
+  if (!txt) return;
+  $('chatInput').value = '';
+  await fetch(`/api/chat/send?room=${encodeURIComponent(activeChatRoom)}&user=${encodeURIComponent(usr)}`, { method: 'POST', body: txt });
+  pollState();
+}
+$('chatSendBtn').onclick = sendWebChat;
+$('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendWebChat(); } });
+$('chatFeed').onclick = async e => {
+  const b = e.target.closest('[data-react]');
+  if (!b) return;
+  const usr = ($('chatUser').value || 'web-admin').trim();
+  await fetch(`/api/chat/react?id=${b.dataset.id}&emoji=${encodeURIComponent(b.dataset.react)}&user=${encodeURIComponent(usr)}&room=${encodeURIComponent(activeChatRoom)}`, { method: 'POST' });
+  pollState();
+};
+function renderChat(s) {
+  if (!s.chat) return;
+  const rooms = s.chat.rooms || [];
+  const roomObj = rooms.find(r => r.name === activeChatRoom) || { name: activeChatRoom, members: [] };
+  const typingUsers = roomObj.members.filter(m => m.typing).map(m => `${m.user}@vty${m.line}`);
+  $('chatTyping').textContent = typingUsers.length ? `✍️ ${typingUsers.join(', ')} is typing…` : '';
+
+  const allInChat = [];
+  rooms.forEach(r => r.members.forEach(m => allInChat.push(Object.assign({ room: r.name }, m))));
+  $('chatMembers').innerHTML = allInChat.length
+    ? allInChat.map(m => `<div style="padding:4px 0;border-bottom:1px solid var(--rule-2);display:flex;justify-content:space-between;gap:8px">
+        <span><b style="color:var(--cyan)">${esc(m.user)}@vty${m.line}</b> <span class="st ${m.transport === 'telnets' ? 'YES' : 'WANTYES'}">${m.transport === 'telnets' ? '🔒 TLS' : '⚠ PLAIN'}</span></span>
+        <span style="color:var(--ink-2)">${esc(m.room)} · "${esc(m.status)}" ${m.typing ? '<b style="color:var(--good)">[typing…]</b>' : ''}</span>
+      </div>`).join('')
+    : '<div style="color:var(--muted)">No VTY terminals currently in <code>chat</code> mode. Open a terminal and type <code>chat</code>!</div>';
+
+  const msgs = (s.chat.messages || []).filter(m => m.room === activeChatRoom || m.kind === 'dm');
+  const sig = activeChatRoom + ':' + JSON.stringify(msgs);
+  if (sig === lastChatSig) return;
+  lastChatSig = sig;
+  const feed = $('chatFeed');
+  if (!msgs.length) {
+    feed.innerHTML = `<div style="color:var(--muted)">No messages in <code>${esc(activeChatRoom)}</code> yet. Type <code>chat</code> in a terminal or send a message below!</div>`;
+    return;
+  }
+  feed.innerHTML = msgs.map(m => {
+    const dt = new Date(m.time).toTimeString().slice(0, 8);
+    if (m.kind === 'system') {
+      return `<div style="text-align:center;color:var(--ink-2);font-size:11px;padding:2px 8px;background:rgba(255,255,255,.04);border-radius:999px;justify-self:center">
+        ${esc(dt)} · ${esc(m.text)}
+      </div>`;
+    }
+    const badge = m.transport === 'telnets' ? '<span style="color:var(--good)">🔒 TLS</span>' : m.transport === 'web' ? '<span style="color:var(--cyan)">🌐 WEB</span>' : '<span style="color:var(--warn)">⚠ PLAIN</span>';
+    const who = m.line >= 0 ? `${m.sender}@vty${m.line}` : `${m.sender}@web`;
+    const quote = m.replyToId > 0 ? `<div style="border-left:2px solid var(--cyan);padding-left:6px;margin-bottom:4px;color:var(--ink-2);font-size:11px">↩ #${m.replyToId} ${esc(m.replyPreview)}</div>` : '';
+    const rx = (m.reactions || []).map(r => `<span class="chipst" style="padding:1px 6px;font-size:10.5px">${esc(r.emoji)} ${esc(r.users.join(','))}</span>`).join(' ');
+    const dmTag = m.kind === 'dm' ? `<span style="color:var(--magenta);font-weight:700">[DM → ${esc(m.dmTarget)}]</span> ` : '';
+    return `<div style="background:var(--panel-2);border:1px solid ${m.kind === 'dm' ? 'var(--magenta)' : 'var(--rule)'};border-radius:10px;padding:7px 10px">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);margin-bottom:3px">
+        <span><b style="color:var(--ink)">#${m.id} ${esc(who)}</b> · ${badge} ${dmTag}</span>
+        <span>${esc(dt)} · <b style="color:var(--cyan)">${m.delivered > 1 ? '✓✓(' + m.delivered + ')' : '✓'}</b>
+          <button class="mini" data-react="+1" data-id="${m.id}" style="padding:0 4px;margin-left:4px">👍</button>
+          <button class="mini" data-react="<3" data-id="${m.id}" style="padding:0 4px">❤️</button>
+        </span>
+      </div>
+      ${quote}
+      <div style="color:var(--ink);font-size:12.5px">${esc(m.text)}</div>
+      ${rx ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${rx}</div>` : ''}
+    </div>`;
+  }).join('');
+  feed.scrollTop = feed.scrollHeight;
+}
 
 // ===================================================================== scrollspy
 const links = [...document.querySelectorAll('#nav a')];

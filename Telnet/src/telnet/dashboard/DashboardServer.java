@@ -98,6 +98,17 @@ public final class DashboardServer {
                 case "/api/term/close": { TelnetClient c = terms.remove(intOf(q.get("id"), -1)); if (c != null) c.close(); json(ex, "{\"ok\":true}"); return; }
                 case "/api/recording": json(ex, recording(intOf(q.get("id"), -1))); return;
                 case "/api/loop": json(ex, loop()); return;
+                case "/api/chat/send": {
+                    String msgText = body(ex).trim();
+                    if (!msgText.isEmpty()) pool.chat.postWebMessage(q.getOrDefault("room", "#general"), q.getOrDefault("user", "web-admin"), msgText);
+                    json(ex, "{\"ok\":true}");
+                    return;
+                }
+                case "/api/chat/react": {
+                    pool.chat.react(q.getOrDefault("user", "web-admin"), -1, q.getOrDefault("room", "#general"), intOf(q.get("id"), -1), q.getOrDefault("emoji", "+1"));
+                    json(ex, "{\"ok\":true}");
+                    return;
+                }
                 case "/api/action": json(ex, action(q.getOrDefault("name", ""))); return;
                 case "/api/cluster": json(ex, Cluster.I == null ? Json.obj("error", "cluster not running") : Cluster.I.json()); return;
                 case "/api/cluster/do": json(ex, Cluster.I == null ? Json.obj("error", "cluster not running") : Cluster.I.control(q.getOrDefault("op", ""), q.getOrDefault("node", ""), q.getOrDefault("policy", ""))); return;
@@ -153,6 +164,7 @@ public final class DashboardServer {
                 "security", Json.raw(pool.guard.json()),
                 "captures", Json.raw(Json.arr(caps)),
                 "recordings", Json.raw(Json.arr(recs)),
+                "chat", Json.raw(pool.chat.json()),
                 "bot", Json.raw(Json.obj("running", botRunning, "log", Json.raw(Json.arr(bl)))),
                 "logs", Json.raw(Json.arr(logs)));
     }
@@ -211,15 +223,23 @@ public final class DashboardServer {
 
     private String termOpen(Map<String, String> q) throws IOException {
         String mode = q.getOrDefault("mode", "tap");
+        String host = q.getOrDefault("host", "127.0.0.1").trim();
+        if (host.isEmpty()) host = "127.0.0.1";
         int cols = intOf(q.get("cols"), 100), rows = intOf(q.get("rows"), 28);
         boolean tls = mode.startsWith("tls");
-        int port = "direct".equals(mode) ? ports.telnet : "tls".equals(mode) ? ports.tlsTap : "tls-direct".equals(mode) ? ports.tls : ports.tap;
-        if (tls && ports.tls <= 0) return Json.obj("error", "TLS listener is not running (keytool missing?)");
-        TelnetClient c = new TelnetClient("127.0.0.1", port, tls, trustStore, new String[]{"XTERM-256COLOR", "XTERM", "VT100"}, cols, rows, true, null);
+        int defaultPort = "direct".equals(mode) ? ports.telnet : "tls".equals(mode) ? ports.tlsTap : "tls-direct".equals(mode) ? ports.tls : ports.tap;
+        int port = intOf(q.get("port"), defaultPort);
+        if (host.contains(":") && !host.startsWith("[")) {
+            int idx = host.lastIndexOf(':');
+            try { port = Integer.parseInt(host.substring(idx + 1)); host = host.substring(0, idx); } catch (NumberFormatException ignored) { }
+        }
+        boolean loopback = "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
+        if (tls && loopback && ports.tls <= 0) return Json.obj("error", "TLS listener is not running (keytool missing?)");
+        TelnetClient c = new TelnetClient(host, port, tls, trustStore, new String[]{"XTERM-256COLOR", "XTERM", "VT100"}, cols, rows, true, null);
         int id = termIds.incrementAndGet();
         terms.put(id, c);
         lastPoll.put(id, System.currentTimeMillis());
-        return Json.obj("id", id, "port", port, "tls", tls);
+        return Json.obj("id", id, "host", host, "port", port, "tls", tls);
     }
 
     private void termSend(int id, String s) { TelnetClient c = terms.get(id); if (c != null) c.type(s); }
