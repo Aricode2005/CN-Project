@@ -520,7 +520,38 @@
     async function refreshState() {
         try {
             const res = await fetch('/api/state');
-            const data = await res.json();
+            let data = await res.json();
+            if (typeof data === 'string') data = JSON.parse(data);
+
+            // Defensive normalization in case of stringified JSON sub-fields
+            const parseIfStr = v => typeof v === 'string' ? JSON.parse(v) : v;
+            if (Array.isArray(data.hosts)) {
+                data.hosts = data.hosts.map(parseIfStr);
+            }
+            if (data.router) data.router = parseIfStr(data.router);
+            if (data.attacker) data.attacker = parseIfStr(data.attacker);
+            if (data.switch) data.switch = parseIfStr(data.switch);
+            if (Array.isArray(data.frames)) {
+                data.frames = data.frames.map(parseIfStr);
+            }
+            if (Array.isArray(data.intercepted)) {
+                data.intercepted = data.intercepted.map(parseIfStr);
+            }
+            if (data.switch) {
+                if (Array.isArray(data.switch.cam)) data.switch.cam = data.switch.cam.map(parseIfStr);
+                if (Array.isArray(data.switch.portVlans)) data.switch.portVlans = data.switch.portVlans.map(parseIfStr);
+                if (data.switch.portSecurity) data.switch.portSecurity = parseIfStr(data.switch.portSecurity);
+                if (data.switch.dai) data.switch.dai = parseIfStr(data.switch.dai);
+            }
+            if (Array.isArray(data.hosts)) {
+                data.hosts.forEach(h => {
+                    if (h.arpTable) h.arpTable = parseIfStr(h.arpTable);
+                    if (h.defender) h.defender = parseIfStr(h.defender);
+                });
+            }
+            if (data.router && data.router.arpTable) data.router.arpTable = parseIfStr(data.router.arpTable);
+            if (data.attacker && data.attacker.arpTable) data.attacker.arpTable = parseIfStr(data.attacker.arpTable);
+
             globalState = data;
             renderTopology(data);
             renderArpTables(data);

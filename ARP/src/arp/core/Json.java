@@ -72,6 +72,13 @@ public final class Json {
             }
             return b.append('}').toString();
         }
+        if (v instanceof String) {
+            String s = ((String) v).trim();
+            // If already a valid JSON object or JSON array, pass through directly
+            if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+                return s;
+            }
+        }
         return str(String.valueOf(v));
     }
 
@@ -82,5 +89,7 @@ public final class Json {
     public static final class Raw {
         final String json;
         Raw(String j) { this.json = j == null ? "null" : j; }
+        @Override
+        public String toString() { return json; }
     }
 }
