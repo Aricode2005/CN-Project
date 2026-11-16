@@ -47,7 +47,7 @@ public class DashboardServer {
         server.createContext("/api/pcap", this::handlePcapDownload);
         server.createContext("/api/pcap/files", this::handlePcapFileList);
         server.createContext("/api/pcap/file", this::handlePcapFileDownload);
-        server.setExecutor(null);
+        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
         server.start();
     }
 
@@ -290,7 +290,7 @@ public class DashboardServer {
     }
 
     private String buildDashboardHtml() {
-        StringBuilder sb = new StringBuilder(47157);
+        StringBuilder sb = new StringBuilder(47188);
         sb.append("<!DOCTYPE html>\n");
         sb.append("<html lang=\"en\">\n");
         sb.append("<head>\n");
@@ -949,7 +949,7 @@ public class DashboardServer {
         sb.append("  }\n");
         sb.append("\n");
         sb.append("  refresh();\n");
-        sb.append("  setInterval(refresh, 1000);\n");
+        sb.append("  if (location.hash !== '#snap') setInterval(refresh, 1000);\n");
         sb.append("})();\n");
         sb.append("</script>\n");
         sb.append("</body>\n");

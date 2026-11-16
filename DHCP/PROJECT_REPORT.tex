@@ -709,6 +709,57 @@ To achieve both deterministic stickiness and minimal key disruption, \texttt{Con
     \item \textbf{Switchable Strategies:} For comparative evaluation, the router also supports live switching to \texttt{ROUND\_ROBIN} and \texttt{LEAST\_LOADED} strategies.
 \end{enumerate}
 
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    vnode/.style={circle, draw=black, thick, fill=gray!20, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
+    deadnode/.style={circle, draw=black, thick, dashed, fill=gray!45, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
+    clientpt/.style={rectangle, draw=black, thick, fill=white, rounded corners=2pt, font=\scriptsize, inner sep=3pt},
+    info/.style={draw=black, thick, rounded corners=3pt, fill=gray!10, text width=6.4cm, align=left, font=\footnotesize, inner sep=7pt}
+]
+    \draw[thick, dashed] (0,0) circle (2.35cm);
+    \node[font=\footnotesize\bfseries, align=center] at (0,0) {64-Bit MD5\\Consistent Hash Ring\\(\texttt{TreeMap<Long,Int>})};
+
+    \node[vnode] (n1a) at (90:2.35cm)  {N1};
+    \node[vnode] (n2a) at (30:2.35cm)  {N2};
+    \node[vnode] (n3a) at (330:2.35cm) {N3};
+    \node[deadnode] (n1b) at (270:2.35cm) {N1};
+    \node[vnode] (n2b) at (210:2.35cm) {N2};
+    \node[vnode] (n3b) at (150:2.35cm) {N3};
+
+    \node[font=\scriptsize, above=2pt of n1a] {\texttt{Node-1\#v1} (:6701)};
+    \node[font=\scriptsize, right=3pt of n2a] {\texttt{Node-2\#v1} (:6702)};
+    \node[font=\scriptsize, right=3pt of n3a] {\texttt{Node-3\#v1} (:6703)};
+    \node[font=\scriptsize, below=2pt of n1b] {\texttt{Node-1\#v2} (Evicted on Crash)};
+    \node[font=\scriptsize, left=3pt of n2b]  {\texttt{Node-2\#v2} (:6702)};
+    \node[font=\scriptsize, left=3pt of n3b]  {\texttt{Node-3\#v2} (:6703)};
+
+    \filldraw[black] (66:2.35cm) circle (2.2pt);
+    \node[clientpt] (c1) at (66:3.65cm) {\texttt{Hash(Client-A MAC)}};
+    \draw[->] (c1) -- (66:2.45cm);
+    \draw[thick, ->] (64:1.85cm) arc (64:34:1.85cm);
+
+    \filldraw[black] (296:2.35cm) circle (2.2pt);
+    \node[clientpt] (c2) at (305:3.85cm) {\texttt{Hash(Client-B MAC)}};
+    \draw[->] (c2) -- (296:2.45cm);
+    \draw[thick, dashed, ->] (294:1.85cm) arc (294:214:1.85cm);
+
+    \node[info] at (7.5, 0.9) {
+        \textbf{1. Virtual Node Uniformity:}\\
+        Each server inserts $V=32$ virtual nodes (\texttt{"DHCP-NODE-" + port + "-VN-" + i}), yielding $O(\log M)$ lookup via \texttt{ring.ceilingEntry(hash)}.
+    };
+    \node[info] at (7.5, -1.2) {
+        \textbf{2. Heartbeat Eviction \& Failover:}\\
+        When \texttt{Node-1} misses $>1800\text{ ms}$ of \texttt{HEALTH\_PING}s, its 32 vnodes are removed. \texttt{Client-B} walks clockwise past evicted \texttt{N1} directly to \texttt{Node-2}.
+    };
+\end{tikzpicture}%
+}
+\caption{Consistent Hashing Ring with 32 virtual nodes per server and clockwise failover upon node eviction.}
+\label{fig:consistent_hash_ring}
+\end{figure}
+
 \begin{lstlisting}[language=Java, caption={Consistent Hashing Ring with Virtual Nodes in \texttt{ConsistentHashRouter.java}.}]
 public synchronized void addNode(int backendPort) {
     if (!healthyBackendPorts.contains(backendPort)) {
@@ -781,29 +832,86 @@ To guarantee cluster-wide state convergence without a centralized lock bottlenec
 
 \begin{figure}[H]
 \centering
-\begin{lstlisting}[numbers=none, frame=none, backgroundcolor=\color{white}, basicstyle=\ttfamily\scriptsize]
-DHCP Client             Load Balancer (:67)         DHCP-Node-1 (:6701)       DHCP-Node-2 & Node-3
-     |                           |                           |                          |
-     |--- 1. DHCPDISCOVER ------>|                           |                          |
-     |                           |-- Hash(MAC) -> Node-1 --->|                          |
-     |                           |                           |-- offerLease(.10)        |
-     |                           |                           |== Gossip(OFFERED .10) ==>| (Maps Updated)
-     |<-- 2. DHCPOFFER (.10) ----|<-- DHCPOFFER (.10) -------|                          |
-     |                           |                           |                          |
-     |--- 3. DHCPREQUEST (.10) ->|                           |                          |
-     |                           |-- Hash(MAC) -> Node-1 --->|                          |
-     |                           |                           |-- commitLease(.10)       |
-     |                           |                           |-- saveToDisk() [WAL]     |
-     |                           |                           |== Gossip(ACTIVE .10) ===>| (Maps Updated)
-     |<-- 4. DHCPACK (.10) ------|<-- DHCPACK (.10) ---------|                          |
-     |                           |                           |                          |
-     |                     [Node-1 Crashes -> Evicted after 1.8s]                       |
-     |                           |                           X                          |
-     |--- 5. Renew DHCPREQUEST ->|                                                      |
-     |                           |-- Re-routed by Hash Ring ----------------------->    |
-     |                           |<-- DHCPACK (.10 Renewed Seamlessly from Gossip!) ----|
-\end{lstlisting}
-\caption{Chronological Sequence Flow of DORA, Active-Active Gossip Sync, and Zero-Downtime Failover.}
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    nodebox/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=4.0cm, minimum height=1.7cm, align=center, font=\footnotesize},
+    lbbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=1.1cm, align=center, font=\footnotesize\bfseries},
+    arr/.style={thick, ->},
+    gossip/.style={thick, dashed, ->}
+]
+    \node[lbbox] (lb) at (0, 0) {L4 Load Balancer\\(\texttt{UDP :67 / :6700})};
+
+    \node[nodebox] (n1) at (4.8, 0) {
+        \textbf{\texttt{DHCP-Node-1 (:6701)}}\\[2pt]
+        \texttt{commitLease(.10)}\\
+        \texttt{leasesByIp.put(.10, ACTIVE)}\\
+        Flush WAL \texttt{leases\_node1.db}
+    };
+
+    \node[nodebox] (n2) at (11.2, 1.35) {
+        \textbf{\texttt{DHCP-Node-2 (:6702)}}\\[2pt]
+        \texttt{applyPeerSync(record)}\\
+        \texttt{leasesByIp.put(.10, ACTIVE)}\\
+        Flush WAL \texttt{leases\_node2.db}
+    };
+
+    \node[nodebox] (n3) at (11.2, -1.35) {
+        \textbf{\texttt{DHCP-Node-3 (:6703)}}\\[2pt]
+        \texttt{applyPeerSync(record)}\\
+        \texttt{leasesByIp.put(.10, ACTIVE)}\\
+        Flush WAL \texttt{leases\_node3.db}
+    };
+
+    \draw[arr] (lb.east) -- node[above, font=\scriptsize] {\texttt{BOOTREQUEST}} node[below, font=\scriptsize] {(\texttt{.10})} (n1.west);
+
+    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, above, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n2.west);
+    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, below, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n3.west);
+\end{tikzpicture}%
+}
+\caption{Active-Active UDP Gossip Replication (\texttt{CLUSTER\_PEER\_SYNC}, Option 225) synchronizing the unified IP pool across all server nodes.}
+\label{fig:active_active_gossip}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Stealth,
+    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=2.9cm, minimum height=0.85cm, align=center, font=\footnotesize\bfseries},
+    msg/.style={thick, ->},
+    gossip/.style={thick, dashed, ->},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
+]
+    \node[actor] (client) at (0,0) {DHCP Client\\(\texttt{chaddr} / Port 68)};
+    \node[actor] (lb)     at (4.5,0) {L4 Load Balancer\\Relay (\texttt{giaddr})};
+    \node[actor] (node1)  at (9.2,0) {Primary Node\\(\texttt{DHCP-Node-1})};
+    \node[actor] (peers)  at (13.6,0) {Peer Nodes\\(\texttt{Node-2, Node-3})};
+
+    \draw[thick, gray!70] (0,-0.45) -- (0,-7.8);
+    \draw[thick, gray!70] (4.5,-0.45) -- (4.5,-7.8);
+    \draw[thick, gray!70] (9.2,-0.45) -- (9.2,-7.8);
+    \draw[thick, gray!70] (13.6,-0.45) -- (13.6,-7.8);
+
+    \draw[msg] (0,-0.95) -- node[lbl, above] {1. \texttt{DHCPDISCOVER} (\texttt{ciaddr=0.0.0.0})} (4.5,-0.95);
+    \draw[msg] (4.5,-1.55) -- node[lbl, above] {Stamp \texttt{giaddr}, Route via \texttt{Hash(chaddr)}} (9.2,-1.55);
+    \draw[gossip] (9.2,-2.15) -- node[lbl, above] {\texttt{CLUSTER\_PEER\_SYNC} (\texttt{OFFERED .10})} (13.6,-2.15);
+
+    \draw[msg] (9.2,-2.8) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10}, Opt 51, 54)} (4.5,-2.8);
+    \draw[msg] (4.5,-3.4) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10})} (0,-3.4);
+
+    \draw[msg] (0,-4.1) -- node[lbl, above] {3. \texttt{DHCPREQUEST} (Opt 50=\texttt{.10}, Opt 54)} (4.5,-4.1);
+    \draw[msg] (4.5,-4.7) -- node[lbl, above] {Forward \texttt{DHCPREQUEST} to Owner Node} (9.2,-4.7);
+    \draw[gossip] (9.2,-5.3) -- node[lbl, above] {\texttt{commitLease()} + WAL + Gossip (\texttt{ACTIVE .10})} (13.6,-5.3);
+
+    \draw[msg] (9.2,-5.95) -- node[lbl, above] {4. \texttt{DHCPACK} (\texttt{yiaddr=.10}, Mask, GW, DNS)} (4.5,-5.95);
+    \draw[msg] (4.5,-6.55) -- node[lbl, above] {4. \texttt{DHCPACK} (Lease Active)} (0,-6.55);
+
+    \draw[msg] (0,-7.3) -- node[lbl, above] {5. On ARP Conflict / Node-1 Crash Renewal: Routed to Peer or Quarantined} (9.2,-7.3);
+    \draw[gossip] (9.2,-7.65) -- node[lbl, below] {Zero-Downtime Renewal or 120s \texttt{DECLINED} Quarantine via Gossip} (13.6,-7.65);
+\end{tikzpicture}%
+}
+\caption{End-to-End Chronological Sequence Flow of DORA, Active-Active Gossip Sync, and Zero-Downtime Failover.}
 \label{fig:gossip_sequence}
 \end{figure}
 
@@ -911,6 +1019,37 @@ $ curl.exe -o dhcp_cluster.pcap http://localhost:8080/api/pcap
 $ tshark -r dhcp_cluster.pcap -d udp.port==6700,dhcp -d udp.port==6701,dhcp \
     -d udp.port==6702,dhcp -d udp.port==6703,dhcp
 \end{lstlisting}
+
+\subsection{Live DHCP Cluster Control Center UI Screenshots}
+Figures~\ref{fig:dhcp_ui_1}--\ref{fig:dhcp_ui_4} present the live operational screenshots captured from the DHCP Cluster Control Center (\texttt{http://localhost:8080}) across four test scenarios:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth,keepaspectratio]{docs/screenshots/dhcp_01_dora_leases.png}
+\caption{Case 1 — Concurrent D-O-R-A Handshakes, Static VIP Reservations (\texttt{.5}, \texttt{.6}), and Consistent Hashing load distribution across all 3 healthy nodes (\texttt{3/3}).}
+\label{fig:dhcp_ui_1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth,keepaspectratio]{docs/screenshots/dhcp_02_decline_quarantine.png}
+\caption{Case 2 — \texttt{DHCPDECLINE} ARP Conflict Quarantine (\texttt{192.168.10.12} marked \texttt{DECLINED} across all nodes via Gossip Sync while subsequent clients skip \texttt{.12}) and \texttt{DHCPINFORM} option lookup.}
+\label{fig:dhcp_ui_2}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth,keepaspectratio]{docs/screenshots/dhcp_03_node_crash_failover.png}
+\caption{Case 3 — Chaos Engineering Node Crash (\texttt{DHCP-Node-1 OFFLINE}): Automatic eviction after 1.8s of missed heartbeats (\texttt{2/3 degraded - failover active}) and zero-downtime lease renewal on surviving nodes.}
+\label{fig:dhcp_ui_3}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth,keepaspectratio]{docs/screenshots/dhcp_04_starvation_defense.png}
+\caption{Case 4 — DHCP Starvation Attack Defense: 40 rapid spoofed-MAC \texttt{DHCPDISCOVER} packets throttled by the Dual-Engine Rate Limiter (\texttt{Dropped Requests: 39}) and Wireshark \texttt{.pcap} export panel.}
+\label{fig:dhcp_ui_4}
+\end{figure}
 
 \subsection{Observations and Empirical Results}
 \begin{lstlisting}[numbers=none, caption={Observed D-O-R-A packet stream, failover, and starvation defense output logs.}]
