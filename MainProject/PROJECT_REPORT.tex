@@ -90,6 +90,8 @@
     Hrishikesh Bhanja & ARP module \\[0.35em]
     Aritra Dutta & DHCP module \\[0.35em]
     Subham Bhat & Telnet module and the integration \\
+    Soham Neogi & Integrated RFC 1143 and OS shell in
+    Telnet module\\
     \end{tabular}}\\[1.4em]
     {\large
     \textbf{Class:} BCSE III\\[0.55em]
@@ -135,9 +137,87 @@ The three modules were built separately by the members of Group A1: \textbf{ARP}
     \item \textbf{Telnet $\rightarrow$ DHCP and ARP}: router CLI commands that show and change the other modules' tables and enable DAI.
     \item \textbf{A Packet Tracer--style dashboard} on \texttt{http://localhost:8089} that replays every packet each step produced, with a PDU panel and an event list.
     \item \textbf{18 end-to-end checks} (\texttt{run.bat --verify}).
+    \item \textbf{The Telnet extras inside the same process}: the high-availability router cluster behind one port (2330), RADIUS AAA (UDP 1812/1813) and a group chat shared by every VTY line, so a second laptop can join the demonstration through a single port.
+    \item \textbf{Six further protocol modules} (Mail, DNS, RARP--BOOTP, FTP, HTTP and Routing), started together with the main project by one script, \texttt{run\_all.bat} (Section~\ref{sec:extra}).
 \end{enumerate}
 
 \shot{01_campus_start.png}{The campus LAN at the start of the story.}
+
+\subsection{System Architecture at a Glance}
+Figure~\ref{fig:system_arch} shows every process and port of the complete project. The main project is \textbf{one Java process}: it compiles the ARP, DHCP and Telnet modules from their own folders and runs them side by side, joined by \texttt{campus.Bus}. The six further modules run as separate processes with their own dashboards. All of them are written from the RFCs in pure Java 11, with no external libraries.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    client/.style={draw=black, thick, rounded corners=3pt, fill=gray!25, minimum width=3.2cm, minimum height=0.95cm, align=center, font=\footnotesize\bfseries},
+    sub/.style={draw=black, thick, rounded corners=2pt, fill=white, minimum width=3.3cm, minimum height=1.35cm, align=center, font=\scriptsize},
+    core/.style={draw=black, thick, rounded corners=2pt, fill=gray!15, minimum width=3.3cm, minimum height=1.35cm, align=center, font=\scriptsize},
+    mod/.style={draw=black, thick, rounded corners=2pt, fill=gray!8, minimum width=2.95cm, minimum height=1.05cm, align=center, font=\scriptsize},
+    grp/.style={draw=black, thick, dashed, rounded corners=6pt, inner sep=11pt},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt},
+    arr/.style={thick, ->}
+]
+    % ---- Row 1: Users (y = 7.4)
+    \node[client] (browser) at (0, 7.4)    {Browser\\(Dashboards :8080--8089)};
+    \node[client] (lapA)    at (14.4, 7.4) {Admin Laptop\\\texttt{telnet :2325}};
+    \node[client] (lapB)    at (19.2, 7.4) {Second Laptop\\\texttt{telnet :2330}};
+
+    % ---- Row 2: MainProject Integration Row (y = 4.6)
+    \node[core] (story) at (0, 4.6)    {\textbf{Story + Dashboard}\\Packet Tracer view\\HTTP 8089};
+    \node[core] (bus)   at (4.8, 4.6)  {\textbf{\texttt{campus.Bus}}\\implements\\\texttt{CampusHooks}};
+    \node[core] (rec)   at (9.6, 4.6)  {\textbf{Recorder}\\DHCP log, frames,\\NVT bytes};
+    \node[core] (relay) at (14.4, 4.6) {\textbf{LanRelay}\\TCP 2325 / TLS 9925\\chunk $\rightarrow$ L2 frame};
+    \node[sub]  (ha)    at (19.2, 4.6) {\textbf{HA Load Balancer}\\TCP 2330 $\rightarrow$ R1--R3\\2331--2333, HB 2340};
+
+    % ---- Row 3: MainProject Module Row (y = 1.0 -> 3.6cm vertical gap below Row 2!)
+    \node[sub] (dhcp) at (0, 1.0)    {\textbf{DHCP Cluster} (Aritra)\\LB UDP 6700, Nodes 6701--3\\Consistent Hash + Gossip\\Dashboard 8080};
+    \node[sub] (arp)  at (4.8, 1.0)  {\textbf{ARP Lab} (Hrishikesh)\\Switch, 6 Stations\\Snooping Table + DAI\\Dashboard 8082};
+    \node[sub] (vty)  at (9.6, 1.0)  {\textbf{Telnet Server} (Subham)\\VTY Pool 2323 / TLS 9923\\NVT Codec, IOS Shell\\Dashboard 8081};
+    \node[sub] (chat) at (14.4, 1.0) {\textbf{ChatHub.SHARED}\\One Room for All\\VTY Lines (Soham)};
+    \node[sub] (rad)  at (19.2, 1.0) {\textbf{RADIUS Server}\\UDP 1812 Auth\\UDP 1813 Accounting};
+
+    \node[grp, fit=(story)(dhcp)(rad)(ha)] (mp) {};
+    \node[font=\footnotesize\bfseries, anchor=north west, fill=white, inner sep=2pt] at ([xshift=8pt,yshift=-3pt]mp.south west) {MainProject: one JVM (\texttt{MainProject\textbackslash run.bat})};
+
+    % ---- Row 4: Six Stand-Alone Modules (y = -2.6)
+    \node[mod] (mail) at (0, -2.6)     {\textbf{Mail}\\SMTP/POP3/IMAP\\8083};
+    \node[mod] (dns)  at (3.84, -2.6)  {\textbf{DNS}\\4-Level Hierarchy\\8084};
+    \node[mod] (rarp) at (7.68, -2.6)  {\textbf{RARP--BOOTP}\\Frames + Relay\\8085};
+    \node[mod] (ftp)  at (11.52, -2.6) {\textbf{FTP}\\Control + Data\\8086};
+    \node[mod] (http) at (15.36, -2.6) {\textbf{HTTP}\\Server, Proxy, WAN\\8087};
+    \node[mod] (rout) at (19.2, -2.6)  {\textbf{Routing}\\RIP, OSPF, BGP\\8088};
+    \node[grp, fit=(mail)(rout)] (mods) {};
+    \node[font=\footnotesize\bfseries, anchor=north west, fill=white, inner sep=2pt] at ([xshift=8pt,yshift=-3pt]mods.south west) {Six stand-alone module processes, started with the main project by \texttt{run\_all.bat}};
+
+    % ---- Non-overlapping Arrows
+    \draw[arr] (browser.south) -- node[lbl, right] {HTTP 8080--8089} (story.north);
+    \draw[arr] (lapA.south)    -- node[lbl, right] {TCP :2325} (relay.north);
+    \draw[arr] (lapB.south)    -- node[lbl, right] {TCP :2330} (ha.north);
+
+    \draw[arr, <->] (story.east) -- node[lbl, above] {Forward} (bus.west);
+    \draw[arr, dashed] (rec.west) -- node[lbl, above] {replay} (bus.east);
+
+    % High-arch dashed path above Row 2 from LanRelay to Bus (y = 5.85)
+    \draw[arr, dashed] (relay.north west) -- (13.2, 5.85) -- node[lbl, above] {every Telnet chunk mirrored as an L2 frame on the ARP switch} (4.8, 5.85) -- (bus.north);
+
+    % Clean orthogonal/separated arrows in the 3.6cm vertical corridor between Row 2 and Row 3
+    \draw[arr, <->] (bus.south west) -- node[lbl, above left, pos=0.52] {leases / \texttt{DECLINE}} (dhcp.north east);
+    \draw[arr, <->] (bus.south)      -- node[lbl, left, pos=0.5] {bindings, frames} (arp.north);
+    \draw[arr]      (vty.north west) -- node[lbl, below left, pos=0.48] {CLI hooks} (bus.south east);
+    \draw[arr]      (relay.south west) -- node[lbl, above left, pos=0.5] {TCP 2323} (vty.north east);
+    \draw[arr]      (vty.east)       -- (chat.west);
+    \draw[arr]      (ha.south west)  -- node[lbl, below right, pos=0.5] {R1--R3} (chat.north east);
+    \draw[arr]      (ha.south)       -- node[lbl, right, pos=0.5] {Access-Request} (rad.north);
+
+    \draw[arr, dashed] (browser.west) -- (-2.1, 7.4) |- node[lbl, pos=0.28, right] {HTTP 8083--8088} (mods.west);
+\end{tikzpicture}%
+}
+\caption{The complete project: the main project's single process (integration layer on top, the three basket modules and the Telnet extras below) and the six stand-alone modules.}
+\label{fig:system_arch}
+\end{figure}
 
 % ==============================================================================
 \section{The Campus Network}
@@ -162,61 +242,243 @@ admin-laptop & Fa0/6 & from DHCP & \texttt{3C:52:82:AD:00:01} & The newcomer \\ 
 
 % ==============================================================================
 \section{Distributed DHCP Cluster Architecture and Mechanisms}
+\label{sec:dhcp}
+
+\noindent The DHCP subsystem replaces a fragile single-server daemon with a fault-tolerant, horizontally scalable \textbf{3-Node Active-Active DHCP Cluster} fronted by a **Layer-4 UDP Load Balancer, BOOTP Relay Agent, and Anti-Starvation Firewall**.
+
+\subsection{236-Byte BOOTP Header, Backward Compatibility, and 4-Byte Magic Cookie}
+DHCP (RFC 2131) is built directly upon the legacy \textbf{Bootstrap Protocol (BOOTP, RFC 951)} frame format so that existing Layer-3 BOOTP relay routers (\texttt{ip helper-address}) and UDP port \texttt{67}/\texttt{68} sockets operate without modification. Every packet serialized by \texttt{DhcpPacket.java} begins with a fixed \textbf{236-byte BOOTP header}, followed at byte offset \texttt{236--239} by the mandatory \textbf{4-byte Magic Cookie} (\texttt{99.130.83.99} / \texttt{0x63825363}) and variable-length \textbf{Type-Length-Value (TLV)} options (RFC 2132), zero-padded to a minimum of \textbf{300 bytes} (RFC 1542) so strict OS network stacks never drop short replies as runt frames.
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[numbers=none, frame=single, basicstyle=\ttfamily\scriptsize, caption={RFC 2131 / BOOTP Binary Packet Header Layout and Byte Offsets in \texttt{DhcpPacket.java}.}]
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     op (1)    |   htype (1)   |   hlen (1)    |   hops (1)    |  Bytes 0 - 3
++---------------+---------------+---------------+---------------+
+|                            xid (4)                            |  Bytes 4 - 7
++-------------------------------+-------------------------------+
+|           secs (2)            |           flags (2)           |  Bytes 8 - 11
++-------------------------------+-------------------------------+
+|               ciaddr (4) - Client IP Address                  |  Bytes 12 - 15
++---------------------------------------------------------------+
+|               yiaddr (4) - "Your" Assigned IP Address         |  Bytes 16 - 19
++---------------------------------------------------------------+
+|               siaddr (4) - Authoritative Server IP            |  Bytes 20 - 23
++---------------------------------------------------------------+
+|               giaddr (4) - Relay Agent (Load Balancer) IP     |  Bytes 24 - 27
++---------------------------------------------------------------+
+|               chaddr (16) - Client Hardware MAC (6B + 10B 0s) |  Bytes 28 - 43
++---------------------------------------------------------------+
+|               sname (64) & file (128)                         |  Bytes 44 - 235
++---------------------------------------------------------------+
+|        4-Byte Magic Cookie: 0x63, 0x82, 0x53, 0x63 (4)        |  Bytes 236 - 239
++---------------------------------------------------------------+
+|        TLV Options: [Code(1B) | Len(1B) | Val(LB)] ... 0xFF   |  Bytes 240 - N (>=300B)
++---------------------------------------------------------------+
+\end{lstlisting}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{The 5 Core Address Fields in the Fixed 236-Byte BOOTP Header and Key TLV Options}
+\label{tab:dhcp_addresses}
+\small
+\begin{tabularx}{\textwidth}{@{}llccY@{}}
+\toprule
+\textbf{Field / Option} & \textbf{Offset / Code} & \textbf{Size} & \textbf{Type} & \textbf{Role Across the D-O-R-A Handshake} \\ \midrule
+\texttt{ciaddr} & Bytes 12--15 & 4 B & IPv4 & Client's current IP (\texttt{0.0.0.0} during initial \texttt{DISCOVER}/\texttt{REQUEST}; populated only in \texttt{BOUND}/\texttt{RENEW}/\texttt{INFORM}/\texttt{RELEASE}). \\
+\texttt{yiaddr} & Bytes 16--19 & 4 B & IPv4 & ``Your'' IP address offered (\texttt{DHCPOFFER}) or committed (\texttt{DHCPACK}) by the server to the client. \\
+\texttt{siaddr} & Bytes 20--23 & 4 B & IPv4 & IP address of the responding DHCP server node (\texttt{192.168.10.201}--\texttt{.203}). \\
+\texttt{giaddr} & Bytes 24--27 & 4 B & IPv4 & BOOTP Relay Agent IP stamped by the Load Balancer (\texttt{192.168.10.254} / \texttt{192.168.1.1}). \\
+\texttt{chaddr} & Bytes 28--43 & 16 B & MAC & Client Layer-2 MAC in first 6 bytes; used for consistent hashing, rate limiting, and lease binding. \\ \midrule
+\texttt{OPT\_SUBNET\_MASK} & Option 1 & 4 B & IPv4 & Client subnet mask (\texttt{255.255.255.0}). \\
+\texttt{OPT\_ROUTER} & Option 3 & 4 B & IPv4 & Default gateway router IP (\texttt{192.168.1.1} / \texttt{192.168.10.1}). \\
+\texttt{OPT\_DNS\_SERVER} & Option 6 & 4 B & IPv4 & Primary DNS resolver IP (\texttt{8.8.8.8}). \\
+\texttt{OPT\_HOSTNAME} & Option 12 & Var & ASCII & Client hostname string (e.g., \texttt{admin-laptop}, \texttt{workstation-01}). \\
+\texttt{OPT\_REQUESTED\_IP} & Option 50 & 4 B & IPv4 & Specific IPv4 address requested in \texttt{DHCPREQUEST} or rejected in \texttt{DHCPDECLINE}. \\
+\texttt{OPT\_LEASE\_TIME} & Option 51 & 4 B & \texttt{uint32} & Lease validity duration in seconds (\texttt{120s}). \\
+\texttt{OPT\_MESSAGE\_TYPE} & Option 53 & 1 B & \texttt{uint8} & \texttt{1}=DISCOVER .. \texttt{8}=INFORM; \texttt{101}=\texttt{PEER\_SYNC}, \texttt{102}=\texttt{PING}, \texttt{103}=\texttt{PONG}. \\
+\texttt{OPT\_SERVER\_ID} & Option 54 & 4 B & IPv4 & Authoritative DHCP Server IP identifier selected by the client. \\
+\texttt{OPT\_CLIENT\_PORT} & Option 224 & 4 B & \texttt{uint32} & Private relay option storing client UDP source port for reply demultiplexing. \\
+\texttt{OPT\_SYNC\_PAYLOAD} & Option 225 & Var & UTF-8 & Private cluster option carrying pipe-delimited Gossip lease state. \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{lstlisting}[language=Java, caption={Binary BOOTP header, 4-byte Magic Cookie (\texttt{0x63825363}), and TLV serializer in \texttt{DhcpPacket.java}.}]
+public static final byte[] MAGIC_COOKIE = new byte[]{99, (byte) 130, 83, 99};
+
+public byte[] toBytes() {
+    ByteBuffer buffer = ByteBuffer.allocate(1024);
+    buffer.put(op).put(htype).put(hlen).put(hops);
+    buffer.putInt(xid).putShort(secs).putShort(flags);
+    buffer.put(ipToBytes(ciaddr)).put(ipToBytes(yiaddr));
+    buffer.put(ipToBytes(siaddr)).put(ipToBytes(giaddr));
+    byte[] chaddrField = new byte[16];
+    byte[] macBytes = macToBytes(chaddr);
+    System.arraycopy(macBytes, 0, chaddrField, 0, Math.min(macBytes.length, 16));
+    buffer.put(chaddrField).put(new byte[64]).put(new byte[128]);
+    buffer.put(MAGIC_COOKIE); // Offset 236-239: 0x63, 0x82, 0x53, 0x63
+    for (Map.Entry<Byte, byte[]> entry : options.entrySet()) {
+        if (entry.getKey() == OPT_END) continue;
+        buffer.put(entry.getKey()).put((byte) (entry.getValue().length & 0xFF)).put(entry.getValue());
+    }
+    buffer.put(OPT_END);
+    while (buffer.position() < 300) buffer.put((byte) 0); // RFC 1542 300B minimum padding
+    byte[] result = new byte[buffer.position()];
+    buffer.flip(); buffer.get(result);
+    return result;
+}
+\end{lstlisting}
 
 \subsection{End-to-End DHCP Process (\texttt{D-O-R-A}, Relay Agent, and \texttt{DHCPDECLINE})}
-Every DHCP message is serialized in \texttt{DhcpPacket.java} as an authentic RFC 2131 / RFC 951 binary frame: a \textbf{236-byte BOOTP header} (\texttt{op}, \texttt{htype=1}, \texttt{hlen=6}, \texttt{hops}, \texttt{xid}, \texttt{secs}, \texttt{flags=0x8000}, \texttt{ciaddr}, \texttt{yiaddr}, \texttt{siaddr}, \texttt{giaddr}, \texttt{chaddr[16]}, \texttt{sname[64]}, \texttt{file[128]}), followed at byte offset 236 by the \textbf{4-byte Magic Cookie} \texttt{[99, (byte) 130, 83, 99]} (\texttt{0x63825363}) and variable-length \textbf{Type-Length-Value (TLV) options} padded to the 300-byte RFC 1542 minimum.
-
-When a client initiates address acquisition on the LAN, the Layer-4 Load Balancer (\texttt{DhcpLoadBalancer.java}) intercepts the broadcast as a BOOTP Relay Agent, checks the client MAC against its two-level anti-starvation \texttt{RateLimiter} (Token Bucket and Weighted Sliding Window Counter), stamps \texttt{giaddr} and the client's source UDP port (Option 224), and routes the packet to the target server node. Figure~\ref{fig:dhcp_process_flow} illustrates the complete chronological protocol flow, including the RFC 5227 ARP conflict loop (\texttt{DHCPDECLINE}).
+When a client initiates address acquisition on the LAN, the Layer-4 Load Balancer (\texttt{DhcpLoadBalancer.java}) intercepts the broadcast as a BOOTP Relay Agent, checks the client MAC against its two-level anti-starvation \texttt{RateLimiter}, stamps \texttt{giaddr} and the client's source UDP port (Option 224), and routes the packet to the target server node. Figure~\ref{fig:dhcp_process_flow} illustrates the complete chronological protocol flow, including Gossip replication and the RFC 5227 ARP conflict loop (\texttt{DHCPDECLINE}).
 
 \begin{figure}[H]
 \centering
 \resizebox{0.98\textwidth}{!}{%
 \begin{tikzpicture}[
+    x=1cm, y=1cm,
     >=Stealth,
-    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=2.9cm, minimum height=0.85cm, align=center, font=\footnotesize\bfseries},
+    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=0.9cm, align=center, font=\footnotesize\bfseries},
     msg/.style={thick, ->},
     gossip/.style={thick, dashed, ->},
     lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
 ]
-    \node[actor] (client) at (0,0) {DHCP Client\\(\texttt{chaddr} / Port 68)};
-    \node[actor] (lb)     at (4.5,0) {L4 Load Balancer\\Relay (\texttt{giaddr})};
-    \node[actor] (node1)  at (9.2,0) {Primary Node\\(\texttt{DHCP-Node-1})};
-    \node[actor] (peers)  at (13.6,0) {Peer Nodes\\(\texttt{Node-2, Node-3})};
+    \node[actor] (client) at (0, 0)    {DHCP Client\\(\texttt{chaddr} / Port 68)};
+    \node[actor] (lb)     at (5.2, 0)  {L4 Load Balancer\\Relay (\texttt{giaddr})};
+    \node[actor] (node1)  at (10.4, 0) {Primary Server\\(\texttt{DHCP-Node-1})};
+    \node[actor] (peers)  at (15.6, 0) {Peer Servers\\(\texttt{Node-2, Node-3})};
 
-    \draw[thick, gray!70] (0,-0.45) -- (0,-7.8);
-    \draw[thick, gray!70] (4.5,-0.45) -- (4.5,-7.8);
-    \draw[thick, gray!70] (9.2,-0.45) -- (9.2,-7.8);
-    \draw[thick, gray!70] (13.6,-0.45) -- (13.6,-7.8);
+    \draw[thick, gray!70] (0, -0.45)    -- (0, -10.8);
+    \draw[thick, gray!70] (5.2, -0.45)  -- (5.2, -10.8);
+    \draw[thick, gray!70] (10.4, -0.45) -- (10.4, -10.8);
+    \draw[thick, gray!70] (15.6, -0.45) -- (15.6, -10.8);
 
-    % 1. DISCOVER
-    \draw[msg] (0,-0.95) -- node[lbl, above] {1. \texttt{DHCPDISCOVER} (\texttt{ciaddr=0.0.0.0})} (4.5,-0.95);
-    \draw[msg] (4.5,-1.55) -- node[lbl, above] {Stamp \texttt{giaddr}, Route via \texttt{Hash(chaddr)}} (9.2,-1.55);
-    \draw[gossip] (9.2,-2.15) -- node[lbl, above] {\texttt{CLUSTER\_PEER\_SYNC} (\texttt{OFFERED .10})} (13.6,-2.15);
+    % Step 1: DISCOVER
+    \draw[msg]    (0, -1.0)    -- node[lbl, above] {1a. \texttt{DHCPDISCOVER} (\texttt{ciaddr=0.0.0.0})} (5.2, -1.0);
+    \draw[msg]    (5.2, -1.8)  -- node[lbl, above] {1b. Stamp \texttt{giaddr}, \texttt{Hash(chaddr)}} (10.4, -1.8);
+    \draw[gossip] (10.4, -2.6) -- node[lbl, above] {1c. Gossip \texttt{OFFERED .10} (Opt 225)} (15.6, -2.6);
 
-    % 2. OFFER
-    \draw[msg] (9.2,-2.8) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10}, Opt 51, 54)} (4.5,-2.8);
-    \draw[msg] (4.5,-3.4) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10})} (0,-3.4);
+    % Step 2: OFFER
+    \draw[msg]    (10.4, -3.4) -- node[lbl, above] {2a. \texttt{DHCPOFFER} (\texttt{yiaddr=.10}, Opt 51)} (5.2, -3.4);
+    \draw[msg]    (5.2, -4.2)  -- node[lbl, above] {2b. \texttt{DHCPOFFER} (\texttt{yiaddr=.10})} (0, -4.2);
 
-    % 3. REQUEST
-    \draw[msg] (0,-4.1) -- node[lbl, above] {3. \texttt{DHCPREQUEST} (Opt 50=\texttt{.10}, Opt 54)} (4.5,-4.1);
-    \draw[msg] (4.5,-4.7) -- node[lbl, above] {Forward \texttt{DHCPREQUEST} to Owner Node} (9.2,-4.7);
-    \draw[gossip] (9.2,-5.3) -- node[lbl, above] {\texttt{commitLease()} + WAL + Gossip (\texttt{ACTIVE .10})} (13.6,-5.3);
+    % Step 3: REQUEST
+    \draw[msg]    (0, -5.0)    -- node[lbl, above] {3a. \texttt{DHCPREQUEST} (Opt 50=\texttt{.10})} (5.2, -5.0);
+    \draw[msg]    (5.2, -5.8)  -- node[lbl, above] {3b. Forward \texttt{DHCPREQUEST}} (10.4, -5.8);
+    \draw[gossip] (10.4, -6.6) -- node[lbl, above] {3c. \texttt{commitLease()} + WAL + Gossip \texttt{ACTIVE}} (15.6, -6.6);
 
-    % 4. ACK
-    \draw[msg] (9.2,-5.95) -- node[lbl, above] {4. \texttt{DHCPACK} (\texttt{yiaddr=.10}, Mask, GW, DNS)} (4.5,-5.95);
-    \draw[msg] (4.5,-6.55) -- node[lbl, above] {4. \texttt{DHCPACK} (Creates Snooping Binding)} (0,-6.55);
+    % Step 4: ACK
+    \draw[msg]    (10.4, -7.4) -- node[lbl, above] {4a. \texttt{DHCPACK} (\texttt{yiaddr=.10}, GW, DNS)} (5.2, -7.4);
+    \draw[msg]    (5.2, -8.2)  -- node[lbl, above] {4b. \texttt{DHCPACK} (Snooping Binding)} (0, -8.2);
 
-    % 5. DECLINE on ARP Conflict
-    \draw[msg] (0,-7.3) -- node[lbl, above] {5. On ARP Probe Conflict: \texttt{DHCPDECLINE} (Opt 50=\texttt{.10})} (9.2,-7.3);
-    \draw[gossip] (9.2,-7.65) -- node[lbl, below] {Quarantine \texttt{DECLINED} (120s) + Gossip} (13.6,-7.65);
+    % Step 5: DECLINE (if ARP Probe detects conflict)
+    \draw[msg]    (0, -9.0)    -- node[lbl, above] {5a. On Conflict: \texttt{DHCPDECLINE} (\texttt{.10})} (5.2, -9.0);
+    \draw[msg]    (5.2, -9.75) -- node[lbl, above] {5b. Relay \texttt{DHCPDECLINE} to Owner} (10.4, -9.75);
+    \draw[gossip] (10.4, -10.5)-- node[lbl, above] {5c. Gossip \texttt{DECLINED} Quarantine (120s)} (15.6, -10.5);
 \end{tikzpicture}%
 }
-\caption{End-to-end DHCP D-O-R-A process, Relay Agent forwarding, Gossip replication, and RFC 5227 \texttt{DHCPDECLINE} conflict quarantine.}
+\caption{End-to-end DHCP D-O-R-A process, Relay Agent forwarding, Active-Active Gossip replication, and RFC 5227 \texttt{DHCPDECLINE} conflict quarantine.}
 \label{fig:dhcp_process_flow}
 \end{figure}
 
+\subsection{Lease Record Model, Thread-Safe \texttt{LeaseManager}, and 3-Tier Persistence}
+Each IP binding is represented by an immutable \texttt{LeaseRecord} object (\texttt{ipAddress}, \texttt{macAddress}, \texttt{hostname}, \texttt{State} $\in \{\texttt{OFFERED}, \texttt{ACTIVE}, \texttt{EXPIRED}, \texttt{DECLINED}\}$, \texttt{allocatedByNode}, \texttt{expirationTimeMillis}, \texttt{staticReservation}) with pipe-delimited serialization (\texttt{IP | MAC | Host | State | Node | Expiry | Static}) for disk journaling and UDP Gossip.
+
+Because UDP worker threads, the 2-second expiration reaper thread, and HTTP dashboard telemetry threads access \texttt{LeaseManager} concurrently, an unsynchronized check-then-act sequence in \texttt{offerLease()} would allow two threads to assign the same free IP to two different clients simultaneously. \texttt{LeaseManager.java} prevents race conditions using a two-tier concurrency design:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Intrinsic Monitor Locks (\texttt{synchronized} Mutators):} All state-mutating methods (\texttt{offerLease}, \texttt{commitLease}, \texttt{releaseLease}, \texttt{declineLease}, \texttt{applyPeerSync}, \texttt{reapExpiredLeases}, \texttt{saveToDisk}) are declared \texttt{synchronized}, making every check-then-act allocation and disk WAL flush strictly linearizable.
+    \item \textbf{Lock-Free Dashboard Reads (\texttt{ConcurrentHashMap}):} The underlying lookup tables (\texttt{leasesByIp} and \texttt{ipByMac}) are \texttt{ConcurrentHashMap} instances storing immutable \texttt{LeaseRecord} references, allowing \texttt{getAllLeases()} to stream telemetry without blocking packet processing.
+    \item \textbf{Three-Tier Persistence Hierarchy:} (Tier 1) In-memory \texttt{ConcurrentHashMap} for $O(1)$ lookups; (Tier 2) Local Write-Ahead Log (\texttt{data/leases\_nodeX.db}) flushed on every mutation and replayed via \texttt{loadFromDisk()} on restart; and (Tier 3) a PostgreSQL 15 container (\texttt{prod-db-primary} at \texttt{192.168.10.6:5432}) executing atomic \texttt{INSERT ... ON CONFLICT (ip) DO UPDATE} upserts every 2 seconds.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.94\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    startstop/.style={rectangle, rounded corners, text width=6.6cm, minimum height=0.82cm, text centered, draw=black, thick, fill=gray!15, font=\footnotesize\bfseries},
+    process/.style={rectangle, text width=4.5cm, minimum height=0.82cm, text centered, draw=black, thick, fill=white, font=\footnotesize},
+    decision/.style={rectangle, rounded corners=2pt, text width=5.5cm, minimum height=0.82cm, text centered, draw=black, thick, fill=gray!10, font=\footnotesize\bfseries},
+    arrow/.style={thick, ->}
+]
+    \node[startstop] (start)   at (0, 0)      {Incoming \texttt{offerLease(mac, host, reqIp)} [Acquire \texttt{synchronized} Lock]};
+    \node[decision]  (dec1)    at (0, -1.35)  {1. Is \texttt{mac} in \texttt{staticReservations}?};
+    \node[process]   (act1)    at (7.6, -1.35){Return Static VIP (\texttt{.5} or \texttt{.6})};
+    \node[decision]  (dec2)    at (0, -2.70)  {2. Is \texttt{mac} in \texttt{ipByMac} \& Not \texttt{DECLINED}?};
+    \node[process]   (act2)    at (7.6, -2.70){Refresh Existing IP (30s Offer)};
+    \node[decision]  (dec3)    at (0, -4.05)  {3. Is \texttt{reqIp} in Pool \& Free / Expired?};
+    \node[process]   (act3)    at (7.6, -4.05){Create 30s Offer for \texttt{reqIp}};
+    \node[decision]  (dec4)    at (0, -5.40)  {4. Scan \texttt{ipPool} (\texttt{.10}--\texttt{.150}): Any IP Free?};
+    \node[process]   (act4)    at (7.6, -5.40){Allocate First Free IP \& Update Maps};
+    \node[startstop] (exhaust) at (0, -6.75)  {Return \texttt{null} (Pool Exhausted) [Release \texttt{synchronized} Lock]};
+
+    \draw[arrow] (start.south) -- (dec1.north);
+    \draw[arrow] (dec1.east)   -- node[midway, above, font=\scriptsize] {Yes} (act1.west);
+    \draw[arrow] (dec1.south)  -- node[midway, left, font=\scriptsize]  {No}  (dec2.north);
+    \draw[arrow] (dec2.east)   -- node[midway, above, font=\scriptsize] {Yes} (act2.west);
+    \draw[arrow] (dec2.south)  -- node[midway, left, font=\scriptsize]  {No}  (dec3.north);
+    \draw[arrow] (dec3.east)   -- node[midway, above, font=\scriptsize] {Yes} (act3.west);
+    \draw[arrow] (dec3.south)  -- node[midway, left, font=\scriptsize]  {No}  (dec4.north);
+    \draw[arrow] (dec4.east)   -- node[midway, above, font=\scriptsize] {Yes} (act4.west);
+    \draw[arrow] (dec4.south)  -- node[midway, left, font=\scriptsize]  {No}  (exhaust.north);
+\end{tikzpicture}%
+}
+\caption{Thread-safe 4-stage IP allocation priority inside \texttt{LeaseManager.offerLease()}.}
+\label{fig:lease_flowchart}
+\end{figure}
+
+\subsection{Dual-Engine Rate Limiting and Starvation Defense (\texttt{RateLimiter.java})}
+In a \textbf{DHCP Starvation Attack}, an adversary floods the LAN with \texttt{DHCPDISCOVER} frames carrying randomly spoofed \texttt{chaddr} MAC addresses (\texttt{DE:AD:BE:EF:XX:XX}) to exhaust the entire dynamic IP pool within seconds. Because every spoofed frame uses a new MAC address, a per-MAC limiter alone cannot stop a distributed flood. \texttt{RateLimiter.java} therefore enforces a **Two-Level Gate** (\textbf{Global Cluster Gate} followed by \textbf{Per-MAC Gate}) with two runtime-switchable algorithms (Figure~\ref{fig:ratelimiter_flow}):
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Token Bucket Algorithm:} Maintains a global bucket ($B_{\text{global}}=30$, refill rate $R_{\text{global}}=15\text{ tokens/s}$) and per-MAC buckets ($B_{\text{mac}}=20$, $R_{\text{mac}}=10\text{ tokens/s}$), updating tokens lazily via $T_{\text{new}} = \min(B_{\max},\, T_{\text{curr}} + \Delta t \times R)$ before decrementing $1.0$ token per allowed packet.
+    \item \textbf{Weighted Sliding Window Counter:} Eliminates fixed-window boundary bursts by blending the previous 1-second window count ($C_{\text{prev}}$) with the current window count ($C_{\text{curr}}$) using the fractional window progress $\omega = (t_{\text{now}} - t_{\text{start}}) / 1000\text{ ms}$:
+    \[
+    C_{\text{estimated}} = C_{\text{prev}} \times (1.0 - \omega) + C_{\text{curr}}
+    \]
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.94\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    block/.style={rectangle, rounded corners, text width=5.0cm, minimum height=0.82cm, text centered, draw=black, thick, fill=gray!15, font=\footnotesize\bfseries},
+    proc/.style={rectangle, text width=5.0cm, minimum height=0.85cm, text centered, draw=black, thick, fill=white, font=\footnotesize},
+    dec/.style={rectangle, rounded corners=2pt, text width=4.2cm, minimum height=0.85cm, text centered, draw=black, thick, fill=gray!10, font=\footnotesize\bfseries},
+    drop/.style={rectangle, rounded corners, text width=4.0cm, minimum height=0.85cm, text centered, draw=black, thick, fill=gray!30, font=\footnotesize\bfseries},
+    arrow/.style={thick, ->}
+]
+    \node[block] (in)       at (0, 0)         {Incoming \texttt{BOOTREQUEST} (\texttt{clientMac})};
+    \node[dec]   (alg)      at (0, -1.35)     {Check Active\\Rate-Limiting Algorithm};
+    \node[proc]  (tb1)      at (-4.8, -2.90)  {\textbf{Token Bucket:} Refill Global \& MAC};
+    \node[proc]  (sw1)      at (4.8, -2.90)   {\textbf{Sliding Window:} $C_{\text{prev}}(1-\omega)+C_{\text{curr}}$};
+    \node[dec]   (gcheck)   at (0, -4.45)     {1. Global Cluster Quota Available?};
+    \node[dec]   (mcheck)   at (0, -5.85)     {2. Per-MAC Client Quota Available?};
+    \node[drop]  (dropnode) at (6.6, -5.15)   {DROP Packet (\texttt{totalDropped++})};
+    \node[block] (passnode) at (0, -7.20)     {ALLOW \& Forward to Router (\texttt{totalAllowed++})};
+
+    \draw[arrow] (in.south)   -- (alg.north);
+    \draw[arrow] (alg.west)   -| node[pos=0.38, above=2pt, font=\scriptsize] {\texttt{TOKEN\_BUCKET}} (tb1.north);
+    \draw[arrow] (alg.east)   -| node[pos=0.38, above=2pt, font=\scriptsize] {\texttt{SLIDING\_WINDOW}} (sw1.north);
+    \draw[arrow] (tb1.south)  -- (-4.8, -3.65) -| (gcheck.north);
+    \draw[arrow] (sw1.south)  -- (4.8, -3.65)  -| (gcheck.north);
+    \draw[arrow] (gcheck.east)  -| node[pos=0.25, above, font=\scriptsize] {No} (dropnode.north);
+    \draw[arrow] (gcheck.south) -- node[midway, left, font=\scriptsize]    {Yes} (mcheck.north);
+    \draw[arrow] (mcheck.east)  -| node[pos=0.25, below, font=\scriptsize] {No} (dropnode.south);
+    \draw[arrow] (mcheck.south) -- node[midway, left, font=\scriptsize]    {Yes} (passnode.north);
+\end{tikzpicture}%
+}
+\caption{Two-level Dual-Engine Rate Limiter execution flowchart inside \texttt{RateLimiter.java}.}
+\label{fig:ratelimiter_flow}
+\end{figure}
+
 \subsection{Consistent Hashing Ring and 1.8s Automatic Failover}
-To guarantee that a client's \texttt{DHCPDISCOVER} and subsequent \texttt{DHCPREQUEST} always land on the same backend server without maintaining centralized session state, \texttt{ConsistentHashRouter.java} maps the cluster onto a 64-bit MD5 ring (\texttt{TreeMap<Long, Integer>}). Each physical server ($N=3$) is replicated across \textbf{32 virtual nodes} ($32 \times 3 = 96$ ring coordinates) to eliminate hash skew. For an incoming client MAC address, the router computes $h = \text{MD5}_{64}(\texttt{"CLIENT-"} \mathbin{\Vert} \texttt{chaddr})$ and walks clockwise via \texttt{ring.ceilingEntry(h)} (wrapping around to \texttt{ring.firstEntry()} at $2^{64}-1$).
+To guarantee that a client's \texttt{DHCPDISCOVER} and subsequent \texttt{DHCPREQUEST} always land on the same backend server without maintaining centralized session state, \texttt{ConsistentHashRouter.java} maps the cluster onto a 64-bit MD5 ring (\texttt{TreeMap<Long, Integer>}). Unlike naive modulo hashing ($\text{hash}(\text{MAC}) \bmod N$), which remaps $\frac{N-1}{N}$ of all clients when a node fails, Consistent Hashing remaps only $\frac{1}{N}$ of keys. Each physical server ($N=3$) is replicated across \textbf{32 virtual nodes} ($32 \times 3 = 96$ ring points) to eliminate hash skew. For an incoming client MAC address, the router computes $h = \text{MD5}_{64}(\texttt{"CLIENT-"} \mathbin{\Vert} \texttt{chaddr})$ and walks clockwise via \texttt{ring.ceilingEntry(h)} (wrapping around to \texttt{ring.firstEntry()} at $2^{64}-1$). It also supports live switching to \texttt{ROUND\_ROBIN} and \texttt{LEAST\_LOADED} scheduling.
 
 A background health checker pings all nodes every \textbf{700 ms} using \texttt{CLUSTER\_HEALTH\_PING (102)}. If a node fails to reply with \texttt{CLUSTER\_HEALTH\_PONG (103)} within \textbf{1800 ms}, its 32 virtual nodes are evicted from the ring and its clients automatically fail over clockwise to the next healthy node, as shown in Figure~\ref{fig:consistent_hash_ring}.
 
@@ -224,52 +486,47 @@ A background health checker pings all nodes every \textbf{700 ms} using \texttt{
 \centering
 \resizebox{0.96\textwidth}{!}{%
 \begin{tikzpicture}[
+    x=1cm, y=1cm,
     >=Stealth,
     vnode/.style={circle, draw=black, thick, fill=gray!20, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
     deadnode/.style={circle, draw=black, thick, dashed, fill=gray!45, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
-    clientpt/.style={rectangle, draw=black, thick, fill=white, rounded corners=2pt, font=\scriptsize, inner sep=3pt},
-    info/.style={draw=black, thick, rounded corners=3pt, fill=gray!10, text width=6.4cm, align=left, font=\footnotesize, inner sep=7pt}
+    clientpt/.style={rectangle, draw=black, thick, fill=white, rounded corners=2pt, font=\scriptsize, inner sep=2.5pt},
+    info/.style={draw=black, thick, rounded corners=3pt, fill=gray!10, text width=6.2cm, align=left, font=\footnotesize, inner sep=7pt}
 ]
-    % Hash Ring Circle
-    \draw[thick, dashed] (0,0) circle (2.35cm);
-    \node[font=\footnotesize\bfseries, align=center] at (0,0) {64-Bit MD5\\Consistent Hash Ring\\(\texttt{TreeMap<Long,Int>})};
+    \draw[thick, dashed] (0,0) circle (2.3cm);
+    \node[font=\scriptsize\bfseries, align=center] at (0,0) {64-Bit MD5\\Hash Ring\\(\texttt{TreeMap})};
 
-    % Virtual Nodes around the ring
-    \node[vnode] (n1a) at (90:2.35cm)  {N1};
-    \node[vnode] (n2a) at (30:2.35cm)  {N2};
-    \node[vnode] (n3a) at (330:2.35cm) {N3};
-    \node[deadnode] (n1b) at (270:2.35cm) {N1};
-    \node[vnode] (n2b) at (210:2.35cm) {N2};
-    \node[vnode] (n3b) at (150:2.35cm) {N3};
+    \node[vnode]    (n1a) at (90:2.3cm)  {N1};
+    \node[vnode]    (n2a) at (30:2.3cm)  {N2};
+    \node[vnode]    (n3a) at (330:2.3cm) {N3};
+    \node[deadnode] (n1b) at (270:2.3cm) {N1};
+    \node[vnode]    (n2b) at (210:2.3cm) {N2};
+    \node[vnode]    (n3b) at (150:2.3cm) {N3};
 
-    % Labels outside ring
-    \node[font=\scriptsize, above=2pt of n1a] {\texttt{Node-1\#v1} (:6701)};
-    \node[font=\scriptsize, right=3pt of n2a] {\texttt{Node-2\#v1} (:6702)};
-    \node[font=\scriptsize, right=3pt of n3a] {\texttt{Node-3\#v1} (:6703)};
-    \node[font=\scriptsize, below=2pt of n1b] {\texttt{Node-1\#v2} (Evicted on Crash)};
-    \node[font=\scriptsize, left=3pt of n2b]  {\texttt{Node-2\#v2} (:6702)};
-    \node[font=\scriptsize, left=3pt of n3b]  {\texttt{Node-3\#v2} (:6703)};
+    \node[font=\scriptsize, anchor=south] at (0, 2.68)     {\texttt{Node-1\#v1 (:6701)}};
+    \node[font=\scriptsize, anchor=west]  at (2.38, 1.25)  {\texttt{Node-2\#v1 (:6702)}};
+    \node[font=\scriptsize, anchor=west]  at (2.38, -1.25) {\texttt{Node-3\#v1 (:6703)}};
+    \node[font=\scriptsize, anchor=north] at (0, -2.68)    {\texttt{Node-1\#v2 (Evicted)}};
+    \node[font=\scriptsize, anchor=east]  at (-2.38, -1.25){\texttt{Node-2\#v2 (:6702)}};
+    \node[font=\scriptsize, anchor=east]  at (-2.38, 1.25) {\texttt{Node-3\#v2 (:6703)}};
 
-    % Normal Client Lookup
-    \filldraw[black] (66:2.35cm) circle (2.2pt);
-    \node[clientpt] (c1) at (66:3.65cm) {\texttt{Hash(Client-A MAC)}};
-    \draw[->] (c1) -- (66:2.45cm);
-    \draw[thick, ->] (64:1.85cm) arc (64:34:1.85cm);
+    \filldraw[black] (62:2.3cm) circle (2.2pt);
+    \node[clientpt, anchor=west] (c1) at (1.85, 2.50) {\texttt{Hash(Client-A)}};
+    \draw[->] (c1.west) -- (62:2.38cm);
+    \draw[thick, ->] (60:1.75cm) arc (60:34:1.75cm);
 
-    % Failover Client Lookup (Skipping crashed N1 at 270 deg -> N2 at 210 deg)
-    \filldraw[black] (296:2.35cm) circle (2.2pt);
-    \node[clientpt] (c2) at (305:3.85cm) {\texttt{Hash(Client-B MAC)}};
-    \draw[->] (c2) -- (296:2.45cm);
-    \draw[thick, dashed, ->] (294:1.85cm) arc (294:214:1.85cm);
+    \filldraw[black] (300:2.3cm) circle (2.2pt);
+    \node[clientpt, anchor=west] (c2) at (1.85, -2.50) {\texttt{Hash(Client-B)}};
+    \draw[->] (c2.west) -- (300:2.38cm);
+    \draw[thick, dashed, ->] (298:1.75cm) arc (298:214:1.75cm);
 
-    % Explanatory Box on the Right
-    \node[info] at (7.5, 0.9) {
-        \textbf{1. Virtual Node Uniformity:}\\
-        Each server inserts $V=32$ virtual nodes (\texttt{"DHCP-NODE-" + port + "-VN-" + i}), yielding $O(\log M)$ lookup via \texttt{ring.ceilingEntry(hash)}.
+    \node[info] at (8.9, 1.15) {
+        \textbf{1. Virtual Node Placement ($V=32$):}\\
+        Each server inserts 32 keys (\texttt{"NODE-" + port + "-VN-" + i}) onto the MD5 ring. Lookup runs in $O(\log M)$ time via \texttt{ring.ceilingEntry(hash)}.
     };
-    \node[info] at (7.5, -1.2) {
-        \textbf{2. Heartbeat Eviction \& Failover:}\\
-        When \texttt{Node-1} misses $>1800\text{ ms}$ of \texttt{HEALTH\_PING}s, its 32 vnodes are removed. \texttt{Client-B} walks clockwise past evicted \texttt{N1} directly to \texttt{Node-2}.
+    \node[info] at (8.9, -1.25) {
+        \textbf{2. 700ms Heartbeat \& 1.8s Failover:}\\
+        When \texttt{Node-1} misses $>1800\text{ ms}$ of \texttt{HEALTH\_PING}s, its 32 vnodes are evicted. \texttt{Client-B} walks clockwise past \texttt{N1\#v2} directly to \texttt{Node-2}.
     };
 \end{tikzpicture}%
 }
@@ -278,55 +535,56 @@ A background health checker pings all nodes every \textbf{700 ms} using \texttt{
 \end{figure}
 
 \subsection{Active-Active Peer Gossip Lease Synchronization}
-Crucially, the dynamic IP pool (\texttt{.10}--\texttt{.150}) is \textbf{not} statically partitioned into mutually exclusive sub-ranges across the three servers; instead, all three nodes operate as an \textbf{Active-Active cluster sharing the unified 141-IP pool}. Whenever any node mutates a lease (\texttt{offerLease}, \texttt{commitLease}, \texttt{releaseLease}, or \texttt{declineLease}), its thread-safe \texttt{LeaseManager} (\texttt{synchronized} mutators over \texttt{ConcurrentHashMap} tables) writes to its local Write-Ahead Log (\texttt{data/leases\_nodeX.db}) and immediately broadcasts a UDP \texttt{CLUSTER\_PEER\_SYNC (101)} datagram carrying the pipe-delimited record inside \textbf{Option 225 (\texttt{OPT\_SYNC\_PAYLOAD})}.
+Crucially, the dynamic IP pool (\texttt{.10}--\texttt{.150}) is \textbf{not} statically partitioned into mutually exclusive sub-ranges across the three servers; instead, all three nodes operate as an \textbf{Active-Active cluster sharing the unified 141-IP pool}. Statically splitting the subnet would strand one-third of the address space whenever a node fails and would prevent a surviving node from renewing leases issued by a crashed peer.
 
-As depicted in Figure~\ref{fig:active_active_gossip}, peer nodes receive the gossip datagram and invoke \texttt{applyPeerSync()} in under $1\text{ ms}$. This guarantees: (1) zero duplicate IP assignments across nodes, (2) seamless D-O-R-A completion even under Round-Robin or Least-Loaded routing, and (3) zero-downtime lease renewal when a node crashes and its clients fail over to a peer.
+Whenever any node mutates a lease (\texttt{offerLease}, \texttt{commitLease}, \texttt{releaseLease}, or \texttt{declineLease}), its \texttt{LeaseManager} flushes the update to its local Write-Ahead Log (\texttt{data/leases\_nodeX.db}) and immediately broadcasts a UDP \texttt{CLUSTER\_PEER\_SYNC (101)} datagram carrying \texttt{record.serialize()} inside \textbf{Option 225 (\texttt{OPT\_SYNC\_PAYLOAD})}. As depicted in Figure~\ref{fig:active_active_gossip}, peer nodes receive the gossip datagram and invoke \texttt{applyPeerSync()} in under $1\text{ ms}$. This guarantees: (1) zero duplicate IP allocations across nodes, (2) seamless D-O-R-A completion even under Round-Robin or Least-Loaded routing where \texttt{DISCOVER} and \texttt{REQUEST} hit different servers, and (3) zero-downtime lease renewal when a node crashes and its clients fail over to a peer.
 
 \begin{figure}[H]
 \centering
 \resizebox{0.96\textwidth}{!}{%
 \begin{tikzpicture}[
+    x=1cm, y=1cm,
     >=Stealth,
-    nodebox/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=4.0cm, minimum height=1.7cm, align=center, font=\footnotesize},
-    lbbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=1.1cm, align=center, font=\footnotesize\bfseries},
+    nodebox/.style={draw=black, thick, rounded corners=3pt, fill=white, text width=4.5cm, minimum height=1.65cm, align=center, font=\footnotesize},
+    lbbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, text width=3.2cm, minimum height=1.15cm, align=center, font=\footnotesize\bfseries},
     arr/.style={thick, ->},
     gossip/.style={thick, dashed, ->}
 ]
     \node[lbbox] (lb) at (0, 0) {L4 Load Balancer\\(\texttt{UDP :67 / :6700})};
 
-    \node[nodebox] (n1) at (4.8, 0) {
+    \node[nodebox] (n1) at (6.6, 0) {
         \textbf{\texttt{DHCP-Node-1 (:6701)}}\\[2pt]
         \texttt{commitLease(.10)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node1.db}
     };
 
-    \node[nodebox] (n2) at (11.2, 1.35) {
+    \node[nodebox] (n2) at (16.6, 1.45) {
         \textbf{\texttt{DHCP-Node-2 (:6702)}}\\[2pt]
         \texttt{applyPeerSync(record)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node2.db}
     };
 
-    \node[nodebox] (n3) at (11.2, -1.35) {
+    \node[nodebox] (n3) at (16.6, -1.45) {
         \textbf{\texttt{DHCP-Node-3 (:6703)}}\\[2pt]
         \texttt{applyPeerSync(record)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node3.db}
     };
 
-    \draw[arr] (lb.east) -- node[above, font=\scriptsize] {\texttt{BOOTREQUEST}} node[below, font=\scriptsize] {(\texttt{.10})} (n1.west);
+    \draw[arr] (lb.east) -- node[midway, above, font=\scriptsize] {\texttt{BOOTREQUEST}} node[midway, below, font=\scriptsize] {(\texttt{yiaddr=.10})} (n1.west);
 
-    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, above, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n2.west);
-    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, below, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n3.west);
+    \draw[gossip] (n1.east) -- (9.6, 0) |- node[pos=0.75, above=2pt, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC (Opt 225)}} node[pos=0.75, below=2pt, font=\scriptsize] {\texttt{.10 | MAC | ACTIVE}} (n2.west);
+    \draw[gossip] (n1.east) -- (9.6, 0) |- node[pos=0.75, above=2pt, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC (Opt 225)}} node[pos=0.75, below=2pt, font=\scriptsize] {\texttt{.10 | MAC | ACTIVE}} (n3.west);
 \end{tikzpicture}%
 }
 \caption{Active-Active UDP Gossip Replication (\texttt{CLUSTER\_PEER\_SYNC}, Option 225) synchronizing the unified IP pool across all server nodes.}
 \label{fig:active_active_gossip}
 \end{figure}
 
-\subsection{DHCP Cluster Control Center UI and Specific Operational Cases}
-The DHCP module provides a real-time web control center on \texttt{http://localhost:8080} with interactive hover tooltips, chaos engineering controls, and one-click Wireshark \texttt{.pcap} export (\texttt{/api/pcap?filter=dhcp} via \texttt{PcapRecorder.java}). Figures~\ref{fig:dhcp_shot_1}--\ref{fig:dhcp_shot_4} show the four core operational scenarios captured from the live dashboard:
+\subsection{Wireshark Packet Capture (\texttt{PcapRecorder.java}) and UI Dashboard Cases}
+Every UDP datagram transmitted or received across the cluster is intercepted by \texttt{PcapRecorder.java}, which wraps the binary BOOTP/DHCP payload inside complete \textbf{Ethernet II (\texttt{LINKTYPE\_ETHERNET = 1}) + IPv4 + UDP} headers with computed RFC 791/768 checksums and serves standard \texttt{.pcap} files at \texttt{/api/pcap?filter=dhcp} for direct analysis in Wireshark. Figures~\ref{fig:dhcp_shot_1}--\ref{fig:dhcp_shot_4} show the four core operational scenarios captured from the live DHCP Cluster Control Center (\texttt{http://localhost:8080}):
 
 \begin{figure}[H]
 \centering
@@ -357,25 +615,393 @@ The DHCP module provides a real-time web control center on \texttt{http://localh
 \end{figure}
 
 % ==============================================================================
+\section{Telnet Remote-Management Server Architecture and Mechanisms}
+\label{sec:telnet}
+The router \texttt{JU-Main-R} is managed through a Telnet server written from RFC 854/855 and the option RFCs (857, 858, 859, 860, 1073, 1079, 1091, 1143, 1184). It is a real TCP server: Windows \texttt{telnet.exe}, PuTTY and our own client all log in to it. Its job in the campus LAN is the \emph{victim} of the story: the clear-text login that ARP poisoning steals, and the CLI from which the administrator switches Dynamic ARP Inspection on.
+
+\subsection{Remote Log-in and the Network Virtual Terminal}
+Client and server cannot assume the same keyboard, character set or end-of-line convention, so both translate to the \textbf{Network Virtual Terminal} (NVT): 7-bit ASCII data, \texttt{CR LF} as end of line (a bare \texttt{CR} is sent as \texttt{CR NUL}), and in-band control introduced by the byte \textbf{IAC (255)}. A data byte 255 is therefore sent twice (\texttt{FF FF}). On the server the shell expects a terminal, so a \textbf{pseudo-terminal driver} sits between the Telnet server and the shell; the main project's replay draws exactly this path for every segment (Figure~\ref{fig:telnet_stack}).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.88\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    layer/.style={draw=black, thick, rounded corners=2pt, fill=white, minimum width=3.8cm, minimum height=0.65cm, align=center, font=\footnotesize},
+    hl/.style={layer, fill=gray!18, font=\footnotesize\bfseries},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
+]
+    \node[font=\footnotesize\bfseries] at (0, 0.85) {admin-laptop (192.168.1.11)};
+    \node[layer] (t)  at (0, 0)     {Terminal (keyboard, screen)};
+    \node[layer] (td) at (0, -0.95) {Terminal driver};
+    \node[hl]    (tc) at (0, -1.90) {Telnet client: NVT encode};
+    \node[layer] (t1) at (0, -2.85) {TCP (ephemeral port)};
+    \node[layer] (i1) at (0, -3.80) {IP 192.168.1.11};
+    \node[layer] (e1) at (0, -4.75) {Ethernet \texttt{3C:52:82:AD:00:01}};
+
+    \node[font=\footnotesize\bfseries] at (10.5, 0.85) {JU-Main-R (192.168.1.1)};
+    \node[layer] (sh) at (10.5, 0)     {IOS-style shell (\texttt{CommandShell})};
+    \node[hl]    (pt) at (10.5, -0.95) {Pseudo-terminal driver (line editor)};
+    \node[hl]    (ts) at (10.5, -1.90) {Telnet server: NVT decode};
+    \node[layer] (t2) at (10.5, -2.85) {TCP 2323 (real port 23)};
+    \node[layer] (i2) at (10.5, -3.80) {IP 192.168.1.1};
+    \node[layer] (e2) at (10.5, -4.75) {Ethernet \texttt{00:1A:2B:00:01:01}};
+
+    \foreach \a/\b in {t/td, td/tc, tc/t1, t1/i1, i1/e1} \draw[->, thick] (\a) -- (\b);
+    \foreach \a/\b in {e2/i2, i2/t2, t2/ts, ts/pt, pt/sh} \draw[->, thick] (\a) -- (\b);
+    \draw[->, thick] (e1.south) -- (0, -5.65) -- node[lbl, midway, below] {CSE-Switch: frame forwarded to MAC in laptop's ARP cache (port 4, or port 5 if poisoned)} (10.5, -5.65) -- (e2.south);
+    \draw[<->, dashed] (tc.east) -- node[lbl, above] {\texttt{IAC DO ECHO} = \texttt{FF FD 01}} node[lbl, below] {keys, one per segment} (ts.west);
+\end{tikzpicture}%
+}
+\caption{Remote log-in through the campus LAN: every keystroke goes down the laptop's stack, across the ARP switch, and up the router's stack to the pseudo-terminal driver.}
+\label{fig:telnet_stack}
+\end{figure}
+
+\subsection{End-to-End Telnet Session: Negotiation, Login and a Command}
+Figure~\ref{fig:telnet_session} is the exact opening of a session as the verification suite records it. The server speaks first and offers to echo and to suppress go-ahead, which together give \emph{character-at-a-time} mode, then asks for the terminal type, window size and speed. The client's answers and the two sub-negotiations follow; only then does the login prompt appear.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.1cm, minimum height=0.85cm, align=center, font=\footnotesize\bfseries},
+    msg/.style={thick, ->},
+    note/.style={draw=black, dashed, fill=white, font=\scriptsize, align=center, inner sep=3.5pt},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
+]
+    \node[actor] (cl)  at (0, 0)    {Telnet Client\\(admin-laptop)};
+    \node[actor] (rel) at (5.4, 0)  {LanRelay 2325\\or LB 2330};
+    \node[actor] (vty) at (10.8, 0) {VTY Line\\(\texttt{TelnetSession})};
+    \node[actor] (sh)  at (16.2, 0) {CommandShell\\+ \texttt{CampusHooks}};
+    \foreach \x in {0,5.4,10.8,16.2} \draw[thick, gray!70] (\x, -0.45) -- (\x, -11.9);
+
+    \draw[msg] (0, -1.0)    -- node[lbl, above] {1. TCP SYN / SYN-ACK / ACK} (5.4, -1.0);
+    \draw[msg] (5.4, -1.65) -- node[lbl, above] {new TCP connection, bytes copied both ways} (10.8, -1.65);
+
+    \draw[msg] (10.8, -2.4) -- node[lbl, above] {2. \texttt{IAC WILL ECHO}, \texttt{IAC WILL SGA} (\texttt{FF FB 01 FF FB 03})} (0, -2.4);
+    \draw[msg] (10.8, -3.1) -- node[lbl, above] {\texttt{IAC DO TTYPE}, \texttt{DO NAWS}, \texttt{DO TSPEED} (\texttt{FF FD 18 FF FD 1F FF FD 20})} (0, -3.1);
+    \draw[msg] (0, -3.8)    -- node[lbl, above] {3. \texttt{IAC DO ECHO}, \texttt{DO SGA}, \texttt{WILL TTYPE}, \texttt{WILL NAWS}, \texttt{WILL TSPEED}} (10.8, -3.8);
+    \draw[msg] (10.8, -4.5) -- node[lbl, above] {4. \texttt{IAC SB TTYPE SEND IAC SE}} (0, -4.5);
+    \draw[msg] (0, -5.2)    -- node[lbl, above] {\texttt{IAC SB TTYPE IS "VT100" IAC SE}, \ \texttt{IAC SB NAWS 0 100 0 30 IAC SE}} (10.8, -5.2);
+
+    \draw[msg] (10.8, -5.95)-- node[lbl, above] {5. \texttt{Username:}} (0, -5.95);
+    \draw[msg] (0, -6.65)   -- node[lbl, above] {\texttt{a}, \texttt{d}, \texttt{m}, \texttt{i}, \texttt{n}, \texttt{CR LF}: one TCP segment per key, each echoed} (10.8, -6.65);
+    \draw[msg] (10.8, -7.35)-- node[lbl, above] {\texttt{Password:} (the server now echoes nothing)} (0, -7.35);
+    \draw[msg] (0, -8.05)   -- node[lbl, above] {\texttt{c}, \texttt{i}, \texttt{s}, \texttt{c}, \texttt{o}: still clear text on the wire} (10.8, -8.05);
+    \draw[msg] (10.8, -8.75)-- node[lbl, above] {6. check PBKDF2 / RADIUS} (16.2, -8.75);
+    \draw[msg] (10.8, -9.4) -- node[lbl, above] {\texttt{JU-Main-R\#} (privilege 15)} (0, -9.4);
+
+    \draw[msg] (0, -10.1)   -- node[lbl, above] {7. \texttt{show ip dhcp binding}} (10.8, -10.1);
+    \draw[msg] (10.8, -10.6)-- node[lbl, above] {parse \& invoke hook} (16.2, -10.6);
+    \node[note] at (13.5, -11.05) {\texttt{hooks.showDhcpBinding()} $\rightarrow$ live DHCP leases};
+    \draw[msg] (16.2, -11.65)-- node[lbl, above] {8. the lease table, returned as NVT text} (0, -11.65);
+\end{tikzpicture}%
+}
+\caption{A complete Telnet session on the campus LAN: option negotiation (RFC 855/857/858/1073/1091), sub-negotiation, the clear-text login, and a command answered from another module.}
+\label{fig:telnet_session}
+\end{figure}
+
+\subsection{The NVT Decoder as a State Machine}
+TCP delivers a byte stream with no message boundaries, so \texttt{IAC DO NAWS} can arrive as \texttt{FF} at the end of one segment and \texttt{FD 1F} at the start of the next. The decoder (\texttt{TelnetCodec.java}) therefore keeps its state between reads and consumes \textbf{one byte at a time} (Figure~\ref{fig:nvt_fsm}). The verification suite feeds the same stream through it in \textbf{2000 random segmentations} and checks that every one decodes identically.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    st/.style={circle, draw=black, thick, fill=gray!15, minimum size=1.6cm, align=center, font=\scriptsize\bfseries, inner sep=1pt},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt, align=center},
+    arr/.style={thick, ->}
+]
+    \node[st, fill=gray!35] (data) at (0, 0)       {DATA};
+    \node[st]               (iac)  at (4.4, 0)     {IAC};
+    \node[st]               (neg)  at (8.8, 2.0)   {NEGO-\\TIATE};
+    \node[st]               (sbo)  at (8.8, -2.0)  {SB\_\\OPTION};
+    \node[st]               (sbd)  at (13.4, -2.0) {SB\_DATA};
+    \node[st]               (sbi)  at (13.4, 2.0)  {SB\_IAC};
+
+    \draw[arr] (data) to[loop left, looseness=5] node[lbl, left] {other byte:\\\texttt{onData}} (data);
+    \draw[arr] (data.east) -- node[lbl, above] {255 (IAC)} (iac.west);
+    \draw[arr] (iac.south west) to[bend left=32] node[lbl, below] {255 $\rightarrow$ 0xFF; AYT/EC/IP/NOP $\rightarrow$ \texttt{onCommand}} (data.south east);
+
+    \draw[arr] (iac.north east) -- node[lbl, above left] {251--254 (WILL..DONT)} (neg.south west);
+    \draw[arr] (iac.south east) -- node[lbl, below left] {250 (SB)} (sbo.north west);
+
+    % Separated upper return paths at y = 3.3 and y = 4.2 -> zero overlap
+    \draw[arr] (neg.north) -- (8.8, 3.3) -| node[lbl, pos=0.25, above] {option byte: \texttt{onNegotiation(verb, opt)} $\rightarrow$ RFC 1143} (data.north east);
+    \draw[arr] (sbo.east) -- node[lbl, below] {option code} (sbd.west);
+    \draw[arr] (sbd) to[loop below, looseness=5] node[lbl, below] {other byte: buffer it} (sbd);
+
+    \draw[arr] ([xshift=-2.5mm]sbd.north) -- node[lbl, left] {255 (IAC)} ([xshift=-2.5mm]sbi.south);
+    \draw[arr] ([xshift=2.5mm]sbi.south)  -- node[lbl, right] {255: literal 0xFF} ([xshift=2.5mm]sbd.north);
+    \draw[arr] (sbi.north) -- (13.4, 4.2) -| node[lbl, pos=0.25, above] {240 (SE): \texttt{onSubnegotiation(opt, bytes)} (TTYPE, NAWS, STATUS, LINEMODE)} (data.north west);
+\end{tikzpicture}%
+}
+\caption{The RFC 854 decoder: six states, one byte per step, so commands split across TCP segments are still decoded correctly.}
+\label{fig:nvt_fsm}
+\end{figure}
+
+\noindent The encoder does the reverse: data byte 0xFF $\rightarrow$ \texttt{FF FF}, bare \texttt{CR} $\rightarrow$ \texttt{CR NUL}. Commands embedded in data are honoured in place: the textbook segment \texttt{c a t \_ f i l e a IAC EC 1} runs \texttt{cat file1}.
+
+\subsection{Option Negotiation with the RFC 1143 Q-Method}
+The simple rule ``answer every \texttt{DO} with \texttt{WILL}'' loops forever when both sides change an option at the same moment: each treats the other's request as new and answers it with another request. \texttt{OptionNegotiator.java} implements RFC 1143: for every option and each side it keeps one of four states and a one-bit queue, and it \textbf{never answers a message that only confirms its current state}.
+
+\begin{table}[H]
+\centering
+\caption{The Q-method states, and what the server does on receiving \texttt{WILL}}
+\small
+\begin{tabularx}{\textwidth}{@{}llY@{}}
+\toprule
+\textbf{State} & \textbf{Meaning} & \textbf{On \texttt{WILL} received} \\ \midrule
+\texttt{NO} & option off & if policy allows: go \texttt{YES}, send \texttt{DO} (``approve the offer''); else send \texttt{DONT} \\
+\texttt{YES} & option on & nothing: already on, so \textbf{no reply and no loop} \\
+\texttt{WANTYES} & we sent \texttt{DO}, waiting & our \texttt{DO} was acknowledged: go \texttt{YES} (or \texttt{WANTNO} if a change was queued) \\
+\texttt{WANTNO} & we sent \texttt{DONT}, waiting & error case of RFC 1143: go \texttt{NO}, or \texttt{YES} if the queue says so \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent Every message is also labelled with its textbook meaning: the same bytes \texttt{IAC WILL ECHO} mean ``\emph{offering to enable}'' from state \texttt{NO} but ``\emph{accepting a request to enable}'' when they answer our \texttt{DO}. \texttt{LoopExperiment.java} makes both ends flip ECHO simultaneously: naive endpoints exchange messages until the experiment's cap, the Q-method finishes in \textbf{four messages} with both ends agreeing.
+
+\shot[0.86\textwidth]{telnet_05_negotiation_meanings.png}{Every WILL/WONT/DO/DONT of the opening negotiation on the live session, labelled with its textbook meaning.}
+\shot[0.86\textwidth]{telnet_08_rfc1143_loop_experiment.png}{The loop experiment: naive endpoints loop until the cap; the RFC 1143 Q-method converges in four messages.}
+
+\begin{table}[H]
+\centering
+\caption{Options implemented}
+\small
+\begin{tabularx}{\textwidth}{@{}llcY@{}}
+\toprule
+\textbf{Option} & \textbf{RFC} & \textbf{Code} & \textbf{Use} \\ \midrule
+ECHO & 857 & 1 & The server echoes keystrokes; at \texttt{Password:} it echoes nothing \\
+SUPPRESS-GO-AHEAD & 858 & 3 & With ECHO: character-at-a-time mode \\
+STATUS & 859 & 5 & \texttt{SB STATUS SEND} answered with the options believed on \\
+TIMING-MARK & 860 & 6 & \texttt{tmping}: round-trip time measured with the protocol itself \\
+TERMINAL-TYPE & 1091 & 24 & The client's list is cycled until it repeats \\
+NAWS & 1073 & 31 & Window size; the full-screen \texttt{top} redraws on resize \\
+TERMINAL-SPEED & 1079 & 32 & Reported by the client \\
+LINEMODE & 1184 & 34 & Accepted for the LINEMODE experiment (Section~\ref{sec:linemode}) \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{VTY Lines, the IOS-Style Shell and Brute-Force Protection}
+\texttt{VtyPool} accepts at most \textbf{five} concurrent sessions, like \texttt{line vty 0 4}; a sixth connection gets a refusal and is closed. The shell implements the IOS command tree: abbreviations (\texttt{sh ip int br}), \texttt{?} help, Tab completion, \texttt{\% Invalid input} with a \texttt{\^{}} marker, user EXEC (\texttt{>}), privileged EXEC (\texttt{\#}) and configuration mode, \texttt{enable}, \texttt{hostname}, \texttt{banner motd}, \texttt{username \ldots{} secret}, \texttt{write memory}, \texttt{show users}, \texttt{show telnet} (the live RFC 1143 state of each option) and a full-screen \texttt{top}. Secrets are stored as \textbf{PBKDF2-SHA256} hashes (Cisco type 8) and compared in constant time. Accounts: \texttt{admin/cisco} (privilege 15), \texttt{student/ju2026} (privilege 1), enable secret \texttt{class}.
+
+\texttt{LoginGuard} implements \texttt{login block-for 30 attempts 3 within 60}: a sliding window of failure times; three failures within 60 s put the router into \emph{quiet mode} for 30 s, during which new connections are refused. The dashboard's dictionary-attack bot is stopped after three guesses.
+
+\shot[0.8\textwidth]{telnet_10_bruteforce_quiet_mode.png}{The dictionary attack is stopped after three guesses and the quiet-mode countdown starts.}
+
+\subsection{Why Telnet Must Not Cross an Untrusted Network: Sniffing vs TLS}
+Telnet has no encryption. A wire tap (\texttt{WireTap.java}) relays the bytes unchanged, runs the same NVT decoder on both directions and rebuilds what is typed after the \texttt{Username:} and \texttt{Password:} prompts, recovering \texttt{admin / cisco} exactly as Wireshark's \emph{Follow TCP Stream} does. The second listener wraps the same server in \textbf{TLS} with a self-signed certificate generated by \texttt{keytool}; through the TLS tap only record headers and lengths are visible. In the campus story the attacker plays the wire tap after ARP poisoning (steps 6--7), and TLS is the defence in depth (step 10).
+
+\shot[0.86\textwidth]{telnet_09_sniffer_plaintext_vs_tls.png}{Plaintext Telnet: the password is on the wire. Telnet over TLS: only encrypted records.}
+
+\subsection{High Availability: A Router Cluster with Session Resume}
+A TCP connection cannot be moved to another machine, so when a router dies its Telnet sessions die with it. What \emph{can} move is the session's \emph{state}. Three routers R1--R3 run the same VTY server behind one layer-4 load balancer on TCP \textbf{2330} (Figure~\ref{fig:telnet_ha}):
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Health checking}: each node sends a UDP heartbeat to the balancer every 400 ms (port 2340); a node silent for \textbf{1.5 s} is removed from the rotation and returns when its heartbeats do.
+    \item \textbf{Scheduling}: least connections (default), round robin, or a rendezvous hash of the client address.
+    \item \textbf{State replication}: after login and after every command the node sends a snapshot (user, privilege, mode, command history, last screen) as one UDP datagram to its peers (2341--2343); the newest timestamp wins; logout deletes it everywhere; a restarted node pulls the whole table from a peer (anti-entropy).
+    \item \textbf{Resume}: after a drop the user reconnects to 2330, lands on a healthy node and types \texttt{resume} at \texttt{Username:}; the session continues in the same mode with the same history.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    box/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=3.0cm, minimum height=1.0cm, align=center, font=\footnotesize},
+    lb/.style={box, fill=gray!20, font=\footnotesize\bfseries},
+    dead/.style={box, dashed, fill=gray!45},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt, align=center}
+]
+    \node[box]  (c)    at (0, 0)     {Client\\(any computer)};
+    \node[lb]   (lb)   at (4.6, 0)   {Load Balancer\\TCP 2330};
+    \node[dead] (r1)   at (9.8, 2.3) {R1 :2331\\\textbf{killed}};
+    \node[box]  (r2)   at (9.8, 0)   {R2 :2332\\resumed session};
+    \node[box]  (r3)   at (9.8, -2.3){R3 :2333};
+    \node[box, fill=gray!10, text width=4.3cm, align=left, font=\scriptsize] (snap) at (15.8, 0) {\textbf{Snapshot} (one UDP datagram)\\\texttt{token, user=admin, priv=15,}\\\texttt{mode=CONFIG, history=[show}\\\texttt{clock, configure terminal],}\\\texttt{screen, timestamp}};
+
+    \draw[->, thick] (c.east) -- node[lbl, above] {TCP} (lb.west);
+    \draw[->, thick, dashed, gray] (lb.north east) -- node[lbl, above left, pos=0.52] {before crash} (r1.west);
+    \draw[->, thick] (lb.east) -- node[lbl, above] {after: \texttt{resume}} (r2.west);
+    \draw[->, thick] (lb.south east) -- (r3.west);
+
+    % Clean bottom orthogonal heartbeat path (below r3, zero crossing!)
+    \draw[->, dashed, thick] (r3.south) -- (9.8, -3.25) -| node[lbl, pos=0.25, below] {heartbeat every 400 ms (UDP 2340)} (lb.south);
+
+    % Clean vertical replication arrows between R1 <-> R2 <-> R3
+    \draw[<->, dotted, very thick] (r1.south) -- node[lbl, right] {UDP 2341--2343} (r2.north);
+    \draw[<->, dotted, very thick] (r2.south) -- node[lbl, right] {replication} (r3.north);
+
+    \draw[->, thick] (snap.west) -- (r2.east);
+\end{tikzpicture}%
+}
+\caption{The HA cluster: one public port, three routers, heartbeats and snapshot replication. After R1 is killed, the client's next connection lands on R2, which already holds the snapshot.}
+\label{fig:telnet_ha}
+\end{figure}
+
+\noindent \textbf{Measured failover.} The administrator logs in through 2330 and lands on R1, runs \texttt{show clock} and enters configuration mode; the snapshot is on all three nodes. R1 is killed: the client's TCP connection drops at once; \textbf{1.5 s} later the balancer has removed R1; the reconnection lands on R2 and \texttt{resume} continues \emph{in configuration mode} with both commands in the history. Because the balancer only copies bytes, it can also read the plaintext, so it doubles as the sniffer for the second laptop: the whole demonstration (sniffing, failover, RADIUS, chat) runs from another computer through this one port.
+
+\shot[0.9\textwidth]{telnet_13_ha_cluster_failover.png}{The cluster after R1 was killed: R1 is out of the rotation and the sessions continue on R2 and R3.}
+
+\subsection{AAA: Central Login and Accounting with RADIUS}
+Local passwords on every router do not scale and leave no record of who did what. The router therefore acts as a RADIUS client (the NAS, RFC 2865) of a RADIUS server written for this project (UDP 1812, accounting RFC 2866 on 1813), enabled from the CLI with \texttt{aaa authentication login default group radius local} (Figure~\ref{fig:radius_flow}).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.3cm, minimum height=0.85cm, align=center, font=\footnotesize\bfseries},
+    msg/.style={thick, ->},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt},
+    note/.style={draw=black, dashed, fill=white, font=\scriptsize, align=center, inner sep=3.5pt}
+]
+    \node[actor] (u)   at (0, 0)    {Administrator\\(VTY client)};
+    \node[actor] (nas) at (6.0, 0)  {Router = NAS\\(\texttt{RadiusClient})};
+    \node[actor] (srv) at (13.2, 0) {RADIUS Server\\UDP 1812 / 1813};
+    \foreach \x in {0,6.0,13.2} \draw[thick, gray!70] (\x, -0.45) -- (\x, -9.2);
+
+    \draw[msg] (0, -1.0)    -- node[lbl, above] {\texttt{netops} / \texttt{radius123}} (6.0, -1.0);
+    \draw[msg] (6.0, -1.75) -- node[lbl, above] {1. Access-Request (code 1): User-Name, \textbf{hidden} User-Password,} node[lbl, below] {NAS-IP, NAS-Port, Calling-Station-Id = laptop's IP} (13.2, -1.75);
+    \draw[msg] (13.2, -2.85)-- node[lbl, above] {2. Access-Accept (code 2), Cisco AV-pair \texttt{shell:priv-lvl=15}} (6.0, -2.85);
+    \node[note] at (9.6, -3.70) {check Response Authenticator $= \mathrm{MD5}(\mathit{Code}\|\mathit{ID}\|\mathit{Len}\|\mathit{RA}\|\mathit{Attrs}\|S)$};
+    \draw[msg] (6.0, -4.45) -- node[lbl, above] {\texttt{JU-Main-R\#}} (0, -4.45);
+    \draw[msg] (6.0, -5.20) -- node[lbl, above] {3. Accounting-Request \textbf{Start} (code 4, Acct-Session-Id)} (13.2, -5.20);
+    \draw[msg] (13.2, -5.90)-- node[lbl, above] {Accounting-Response (code 5)} (6.0, -5.90);
+    \draw[msg] (0, -6.60)   -- node[lbl, above] {\texttt{show users}} (6.0, -6.60);
+    \draw[msg] (6.0, -7.30) -- node[lbl, above] {4. \textbf{Interim-Update} with the command in an AV-pair} (13.2, -7.30);
+    \draw[msg] (0, -8.00)   -- node[lbl, above] {\texttt{exit}} (6.0, -8.00);
+    \draw[msg] (6.0, -8.70) -- node[lbl, above] {5. \textbf{Stop}: Session-Time, Input/Output-Octets, Terminate-Cause} (13.2, -8.70);
+    \node[note] at (6.6, -9.65) {no reply in 1 s: retransmit 3 times, then fall back to local users; Access-Reject is final};
+\end{tikzpicture}%
+}
+\caption{A RADIUS login and its accounting records, as exchanged by the router and the server.}
+\label{fig:radius_flow}
+\end{figure}
+
+\noindent RADIUS does not encrypt the packet; it protects it with a shared secret $S$. The password is hidden in 16-byte blocks, $c_1 = p_1 \oplus \mathrm{MD5}(S \,\|\, \mathit{RA})$ and $c_i = p_i \oplus \mathrm{MD5}(S \,\|\, c_{i-1})$, where $\mathit{RA}$ is the random Request Authenticator; every reply carries an MD5 over the packet and $S$, so a router configured with the wrong secret (or a forged reply) is detected and discarded. Verified cases: a RADIUS-only user logs in with privilege 15 from the AV-pair; a wrong password gets Access-Reject with no local fallback; with the server offline the router retransmits three times and then uses its local users; the wrong secret fails the authenticator check; Start, Interim-Update and Stop are recorded.
+
+\shot[0.9\textwidth]{telnet_15_radius_aaa.png}{The RADIUS packets between the router and the server, decoded field by field.}
+
+\subsection{LINEMODE, Nagle's Algorithm and Tinygrams}
+\label{sec:linemode}
+In character mode every key is one byte of data in a 40-byte TCP/IP header (a \emph{tinygram}), and its echo is another. A scripted client typed the same three commands (28 keystrokes) into the real server three times through a link with RTT 200 ms that counts every segment:
+
+\begin{table}[H]
+\centering
+\caption{Character mode vs Nagle's algorithm (RFC 896) vs LINEMODE (RFC 1184), measured}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & \textbf{Character mode} & \textbf{+ Nagle} & \textbf{LINEMODE} \\ \midrule
+Segments client $\rightarrow$ server & 29 & 12 & 4 \\
+Segments server $\rightarrow$ client & 38 & 32 & 10 \\
+Bytes on the wire (with headers) & 3074 & 2154 & 923 \\
+Header share of the traffic & 87\% & 82\% & 61\% \\
+Average echo delay per key & 218 ms & 309 ms & 0 ms (local) \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Nagle's rule halved the client's segments but made each echo wait for the previous one; LINEMODE sent one segment per command and cut the traffic to under a third, at the price of losing per-key features such as \texttt{?} help and Tab completion.
+
+\shot[0.9\textwidth]{telnet_17_linemode_experiment.png}{The three modes measured side by side, with a timeline of every segment.}
+
+\subsection{Group Chat between VTY Lines and a Host OS Shell}
+Contributed by Soham Neogi and integrated into the cluster. \texttt{chat} (or \texttt{chat \#netops}) turns a VTY line into a group-chat client: each message goes to every line in the room with an id, a delivery count and a \texttt{PLAIN}/\texttt{TLS} badge, with private messages (\texttt{/dm}), quoted replies (\texttt{/reply}), reactions (\texttt{/react}) and a ``typing\ldots'' indicator built from the keystrokes that character mode delivers one by one. The hub is \textbf{one object shared by every router} (\texttt{ChatHub.SHARED}), so two laptops that the balancer sends to different nodes still meet in one room, listed as \texttt{vty0@R1} and \texttt{vty0@R2}. Every chat message also appears in the 2330 sniffer: the same lesson as the stolen password. \texttt{!<cmd>} runs a command on the host operating system and streams the output back over the NVT (8-second limit, 64\,KB cap).
+
+\begin{figure}[H]
+\centering
+\resizebox{0.82\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    box/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=2.7cm, minimum height=0.9cm, align=center, font=\footnotesize},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
+]
+    \node[box] (a)  at (0, 1.2)  {Laptop A};
+    \node[box] (b)  at (0, -1.2) {Laptop B};
+    \node[box, fill=gray!20] (lb) at (4.0, 0) {LB 2330\\(sniffs plaintext)};
+    \node[box] (r1) at (8.0, 1.2)  {R1: vty0};
+    \node[box] (r2) at (8.0, -1.2) {R2: vty0};
+    \node[box, fill=gray!15, font=\footnotesize\bfseries] (hub) at (12.4, 0) {ChatHub.SHARED\\room \#general};
+    \draw[->, thick] (a.east) -- (lb.north west);
+    \draw[->, thick] (b.east) -- (lb.south west);
+    \draw[->, thick] (lb.north east) -- (r1.west);
+    \draw[->, thick] (lb.south east) -- (r2.west);
+    \draw[<->, thick] (r1.east) -- node[lbl, above, sloped] {[\#7] hello} (hub.north west);
+    \draw[<->, thick] (r2.east) -- node[lbl, below, sloped] {delivered(2)} (hub.south west);
+\end{tikzpicture}%
+}
+\caption{One chat room across cluster nodes: the balancer places the two laptops on different routers, the shared hub joins them.}
+\end{figure}
+
+\subsection{Telnet Inside the Campus LAN}
+In the main project the same server is the management interface of \texttt{JU-Main-R}. Through the \texttt{CampusHooks} interface the CLI reads and changes the other two modules (\texttt{show ip dhcp binding}, \texttt{show ip arp}, \texttt{show mac address-table}, \texttt{ip arp inspection vlan 1}), and \texttt{LanRelay} carries its bytes as frames across the ARP switch, so ARP poisoning really decides who receives them (Section~\ref{sec:links}).
+
+\shot[0.9\textwidth]{03_telnet_live_tables.png}{Step 5: the administrator's Telnet session prints the live DHCP leases and ARP table of the other two modules.}
+\shot[0.9\textwidth]{06_tls_and_trace.png}{Step 10: on a poisoned LAN, Telnet over TLS leaks only encrypted records.}
+
+\begin{table}[H]
+\centering
+\caption{Telnet module source files}
+\small
+\begin{tabularx}{\textwidth}{@{}lY@{}}
+\toprule
+\textbf{File} & \textbf{Responsibility} \\ \midrule
+\texttt{protocol/TelnetCodec.java} & RFC 854 decoder state machine and encoder \\
+\texttt{protocol/OptionNegotiator.java} & RFC 1143 Q-method, every message labelled with its meaning \\
+\texttt{server/VtyPool.java}, \texttt{TelnetSession.java} & Five VTY lines; one session: login, line editor, history, options \\
+\texttt{server/CommandShell.java}, \texttt{DeviceConfig.java} & IOS-style command tree and modes; users, PBKDF2 secrets, \texttt{write memory} \\
+\texttt{server/LoginGuard.java} & \texttt{login block-for}: brute-force quiet mode \\
+\texttt{server/ChatHub.java} & Shared group chat (Soham Neogi) \\
+\texttt{tap/WireTap.java} & Sniffing relay and credential reconstruction \\
+\texttt{cluster/Balancer.java}, \texttt{Node.java} & HA load balancer, heartbeats, replication, resume \\
+\texttt{aaa/Radius*.java} & RADIUS packets, client (NAS) and server \\
+\texttt{server/CampusHooks.java} & The interface the main project implements \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent The Telnet module's own suite has \textbf{70 checks, all passing}: 35 for the protocol, server and security, 11 for the cluster, 9 for RADIUS, 5 for LINEMODE and 10 for the chat and shell.
+
+% ==============================================================================
 \section{Integration Architecture}
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[node distance=0.8cm, box/.style={draw, rounded corners=2pt, minimum width=2.8cm, minimum height=0.9cm, align=center, font=\small}, >=Stealth]
-\node[box] (bus) {\texttt{campus.Bus}\\(CampusHooks)};
-\node[box, above left=0.8cm and 0.9cm of bus] (dhcp) {DHCP cluster\\LB 6700, nodes 6701--3\\LeaseManager};
-\node[box, above right=0.8cm and 0.9cm of bus] (arp) {ARP lab\\EthernetSwitch, hosts\\DhcpSnoopingTable, DAI};
-\node[box, below right=0.8cm and 0.9cm of bus] (tel) {Telnet server\\VtyPool 2323 / 9923\\CommandShell};
-\node[box, below left=0.8cm and 0.9cm of bus] (relay) {LanRelay\\2325 / 9925};
-\node[box, left=0.8cm of relay] (cl) {Admin's\\Telnet client};
-\draw[->] (dhcp) -- node[left, font=\footnotesize, align=right]{leases} (bus);
-\draw[->] (bus) -- node[right, font=\footnotesize, align=left]{bindings,\\laptop on port 6} (arp);
-\draw[->] (bus.west) -| node[above, pos=0.2, font=\footnotesize]{DECLINE} (dhcp.south);
-\draw[->] (cl) -- (relay); \draw[->] (relay) -- node[below, font=\footnotesize]{TCP} (tel);
-\draw[->, dashed] (relay) -- node[left, font=\footnotesize]{frames} (bus);
-\draw[->] (tel) -- node[right, font=\footnotesize]{CLI hooks} (bus);
-\end{tikzpicture}
-\caption{How the three modules are joined.}
+\resizebox{0.96\textwidth}{!}{%
+\begin{tikzpicture}[
+    x=1cm, y=1cm,
+    >=Stealth,
+    box/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=3.6cm, minimum height=1.15cm, align=center, font=\footnotesize},
+    busbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=1.2cm, align=center, font=\footnotesize\bfseries},
+    arr/.style={thick, ->},
+    darr/.style={thick, dashed, ->}
+]
+    \node[busbox] (bus)   at (0, 0)       {\texttt{campus.Bus}\\(\texttt{CampusHooks})};
+    \node[box]    (dhcp)  at (-5.5, 2.1)  {\textbf{DHCP Cluster}\\LB :6700, Nodes :6701--3\\\texttt{LeaseManager}};
+    \node[box]    (arp)   at (5.5, 2.1)   {\textbf{ARP Lab}\\Switch \texttt{CSE-Switch}\\\texttt{DhcpSnoopingTable}, DAI};
+    \node[box]    (relay) at (-5.5, -2.1) {\textbf{\texttt{LanRelay}}\\TCP :2325 / TLS :9925};
+    \node[box]    (cl)    at (-10.2, -2.1){\textbf{Admin Laptop}\\Telnet Client};
+    \node[box]    (tel)   at (5.5, -2.1)  {\textbf{Telnet Server}\\\texttt{VtyPool} :2323 / :9923\\\texttt{CommandShell}};
+
+    \draw[arr] (dhcp.east) -| (-0.6, 0.6) node[pos=0.25, above, font=\scriptsize] {Active leases (\texttt{syncLeases})};
+    \draw[arr] (-1.7, 0.2) -| (dhcp.south) node[pos=0.25, below, font=\scriptsize] {\texttt{DHCPDECLINE} (conflict)};
+    \draw[arr] (0.6, 0.6) |- (arp.west) node[pos=0.75, above, font=\scriptsize] {Snooping bindings (Port 6)};
+    \draw[arr]  (cl.east) -- node[midway, above, font=\scriptsize] {TCP} (relay.west);
+    \draw[darr] (relay.north) |- (-1.7, -0.25) node[pos=0.72, above, font=\scriptsize] {Ethernet frames (\texttt{telnetBytes})};
+    \draw[arr]  (relay.east) -- node[midway, below, font=\scriptsize] {Proxied TCP stream} (tel.west);
+    \draw[arr]  (tel.north) |- (1.7, -0.25) node[pos=0.72, above, font=\scriptsize] {Router CLI hooks};
+\end{tikzpicture}%
+}
+\caption{How the three modules (DHCP, ARP, and Telnet) are joined across \texttt{campus.Bus} and \texttt{LanRelay}.}
+\label{fig:integration_arch}
 \end{figure}
 
 \noindent \texttt{run.bat} compiles the three modules from their own folders together with the integration package:
@@ -405,6 +1031,7 @@ javac --release 11 -encoding UTF-8 -d out ^
 
 % ==============================================================================
 \section{Implementation of the Links}
+\label{sec:links}
 
 \subsection{DHCP $\rightarrow$ ARP: Leases Become Snooping Bindings}
 The bus reads every DHCP node's \texttt{LeaseManager}. Each ACTIVE lease is added to the switch's \texttt{DhcpSnoopingTable}. When a lease is DECLINED, its binding is removed and any static binding it had displaced (Host-A's, in the story) is restored.
@@ -526,6 +1153,63 @@ The next Telnet login is not intercepted; on a poisoned LAN a TLS session leaks 
 After Restart the story begins again from an empty lease database \\ \bottomrule
 \end{tabularx}
 \end{table}
+
+% ==============================================================================
+\section{Extra Protocols Implemented}
+\label{sec:extra}
+Beyond the ARP--DHCP--Telnet basket, six further application- and network-layer protocols were implemented by Subham Bhat as stand-alone modules, each in pure Java 11 from its RFCs, each with a live dashboard and an automated verification suite, and each interoperating with standard tools (Python's standard library, Windows \texttt{nslookup}, \texttt{curl}, Wireshark, real mail providers). \texttt{run\_all.bat} at the repository root starts all of them together with the main project, and \texttt{run\_all.bat stop} stops them.
+
+\begin{table}[H]
+\centering
+\caption{The six further modules}
+\small
+\begin{tabularx}{\textwidth}{@{}llYr@{}}
+\toprule
+\textbf{Module} & \textbf{Dashboard} & \textbf{What runs for real} & \textbf{Checks} \\ \midrule
+Mail & 8083 & SMTP \textbf{server} and client, POP3 and IMAP4rev1 servers, MIME, STARTTLS & 39 \\
+DNS & 8084 & Four-level authoritative hierarchy, caching resolver on port 53, cache-poisoning experiment & 31 \\
+RARP--BOOTP & 8085 & RARP frames on a simulated two-LAN Ethernet, BOOTP over UDP with a relay agent & 19 \\
+FTP & 8086 & RFC 959 server and client, active and passive mode, FTPS, bounce-attack protection & 32 \\
+HTTP & 8087 & HTTP/1.1 origin server, browser-like client, WAN emulator, caching proxy & 52 \\
+Routing & 8088 & Dijkstra, Bellman--Ford, OSPF and BGP with real RIPv2, OSPF and BGP packets & 30 \\ \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Mail: An SMTP Server, not only a Client}
+Usually an SMTP exercise means writing a client for an existing server. Here the \textbf{server side} was written as well: a thread per connection runs the SMTP state machine (\texttt{EHLO} $\rightarrow$ \texttt{MAIL FROM} $\rightarrow$ \texttt{RCPT TO} $\rightarrow$ \texttt{DATA}), answering out-of-order commands with \texttt{503}, unknown users with \texttt{550} and relay attempts by unauthenticated clients with \texttt{554}. \texttt{DATA} is read until a line with a single dot, dot-stuffing is undone, \texttt{Return-Path} and \texttt{Received} headers are added, and the message is stored as an \texttt{.eml} file in the user's mailbox; outside mail is relayed through a smart host or bounced with a delivery status notification. ESMTP extensions include \texttt{SIZE}, \texttt{STARTTLS} (state reset after the handshake, RFC 3207) and \texttt{AUTH PLAIN/LOGIN}. POP3 (with maildrop locking) and IMAP4rev1 (folders, \texttt{SEARCH}, \texttt{IDLE} push) read the same mailboxes, and the clients also work against Gmail and Outlook over TLS.
+
+\shot[0.86\textwidth]{mail_01_architecture.png}{Mail: user agent, SMTP push to the server, mailbox, POP3/IMAP pull, animated by real traffic.}
+\shot[0.86\textwidth]{mail_02_smtp_send_transcript.png}{The SMTP conversation of one message, every reply code explained.}
+
+\subsection{DNS: The Hierarchy, Both Resolution Methods, and Poisoning}
+Four real authoritative servers on their own loopback addresses (a lab root, \texttt{edu.}, \texttt{myuniv.edu.}, \texttt{cse.myuniv.edu.}) serve BIND-style zone files in the RFC 1035 wire format with name compression. Iterative and recursive resolution are animated message by message. A caching resolver on port 53 answers Windows \texttt{nslookup}, with TTL countdown, negative caching, bailiwick checks, and TC=1 truncation with TCP fallback. A cache-poisoning experiment sends 65,536 forged replies: a 2008-style resolver with a fixed source port is poisoned; a modern resolver with random ports and IDs is not.
+
+\shot[0.86\textwidth]{dns_02_tree_walk.png}{DNS: walking the tree with an empty cache, root $\rightarrow$ \texttt{edu} $\rightarrow$ \texttt{myuniv} $\rightarrow$ \texttt{cse}.}
+\shot[0.86\textwidth]{dns_07_cache_poisoning.png}{The cache-poisoning experiment against an old and a modern resolver.}
+
+\subsection{RARP and BOOTP: The Ancestors of DHCP}
+RARP (EtherType \texttt{0x8035}, opcodes 3 and 4) runs as real 60-byte frames on a simulated Ethernet of two LANs joined by a router; its server answers from an \texttt{/etc/ethers} table. Because RARP is a layer-2 broadcast it \textbf{cannot cross the router}, so the workstation on the far LAN never gets an answer. BOOTP fixes this over real UDP: the 300-byte message, a server with \texttt{/etc/bootptab}, client retries with back-off, and a relay agent that stamps \texttt{giaddr}, exactly the mechanism the DHCP cluster above still uses.
+
+\shot[0.86\textwidth]{rarp_03_rarp_cannot_cross_router.png}{RARP: the broadcast stops at the router; WS-4 on LAN B gets no reply.}
+\shot[0.86\textwidth]{rarp_04_bootp_via_relay.png}{BOOTP: with the relay agent on, the request reaches the boot server and WS-4 is configured.}
+
+\subsection{FTP: Two Connections}
+An RFC 959 server and client keep a \textbf{control connection} (TCP 2121) for commands and replies and open a separate \textbf{data connection} per transfer: in active mode (\texttt{PORT}/\texttt{EPRT}) the server connects back from control port $-1$; in passive mode (\texttt{PASV}/\texttt{EPSV}, RFC 2428) the client connects to a port the server opened. \texttt{TYPE A/I}, \texttt{REST}, \texttt{ABOR}, \texttt{SIZE}, \texttt{MDTM}, a home-directory jail, anonymous read-only access, \textbf{FTPS} (\texttt{AUTH TLS}, \texttt{PROT P}) and bounce-attack protection (RFC 2577) are implemented; a simulated client firewall shows why active mode fails behind NAT.
+
+\shot[0.86\textwidth]{ftp_02_two_connections.png}{FTP: the control connection and the data connection drawn separately, step by step.}
+
+\subsection{HTTP: Persistent, Pipelined, Cached}
+An HTTP/1.1 origin server with two virtual hosts supports persistent and non-persistent connections, pipelining, conditional GET (\texttt{304 Not Modified}), byte ranges, chunked transfer coding, gzip, cookies and Basic authentication. A browser-like client loads the same page with four strategies through a \textbf{WAN emulator} that adds a real RTT and bandwidth limit, so the measured load times can be compared with the textbook formulas (about $2\,\mathrm{RTT}$ per object non-persistent, one RTT per object persistent, close to one RTT in total pipelined). A caching proxy with freshness, validation and \texttt{CONNECT} tunnels works from a real browser.
+
+\shot[0.86\textwidth]{http_03_four_ways_waterfall.png}{HTTP: the same page loaded four ways, drawn as connection waterfalls with measured times.}
+\shot[0.86\textwidth]{http_05_conditional_get_304.png}{Conditional GET: the second request is answered with \texttt{304 Not Modified} and no body.}
+
+\subsection{Routing: Link State, Distance Vector and Path Vector}
+Dijkstra runs step by step on the textbook's six-router network, recording $N'$, $D(v)$ and $p(v)$ after every step; synchronous Bellman--Ford with RIP's infinity of 16 shows good news travelling fast and bad news causing \textbf{count to infinity}, and how split horizon and poison reverse help (and where they do not). The same link failure is then handled by OSPF (new Router-LSAs with higher sequence numbers, flooded, then Dijkstra again) and by BGP (AS\_PATH loop detection). Every message is a real packet between six loopback addresses: RIPv2 on UDP 520, OSPF LS Updates with correct checksums (carried in UDP, since Java cannot send IP protocol 89), and BGP OPEN/UPDATE/KEEPALIVE over a real TCP session on port 179, all decoded by Wireshark.
+
+\shot[0.86\textwidth]{routing_03_dijkstra_midway.png}{Dijkstra midway: the $N'$, $D(v)$, $p(v)$ table after each step.}
+\shot[0.86\textwidth]{routing_08_count_to_infinity_2.png}{Count to infinity between two routers, round by round, until the metric reaches 16.}
+\shot[0.86\textwidth]{routing_11_bgp_loop_rejected.png}{BGP rejects a route whose AS\_PATH already contains its own AS number.}
 
 % ==============================================================================
 \section{Conclusion}
