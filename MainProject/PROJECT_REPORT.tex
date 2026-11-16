@@ -172,49 +172,46 @@ When a client initiates address acquisition on the LAN, the Layer-4 Load Balance
 \centering
 \resizebox{0.98\textwidth}{!}{%
 \begin{tikzpicture}[
-    x=1cm, y=1cm,
     >=Stealth,
-    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=0.9cm, align=center, font=\footnotesize\bfseries},
+    actor/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=2.9cm, minimum height=0.85cm, align=center, font=\footnotesize\bfseries},
     msg/.style={thick, ->},
     gossip/.style={thick, dashed, ->},
     lbl/.style={font=\scriptsize, fill=white, inner sep=1.5pt}
 ]
-    % 4 Lifelines spaced 5.2cm apart (0, 5.2, 10.4, 15.6) -> zero label overlap
-    \node[actor] (client) at (0, 0)    {DHCP Client\\(\texttt{chaddr} / Port 68)};
-    \node[actor] (lb)     at (5.2, 0)  {L4 Load Balancer\\Relay (\texttt{giaddr})};
-    \node[actor] (node1)  at (10.4, 0) {Primary Server\\(\texttt{DHCP-Node-1})};
-    \node[actor] (peers)  at (15.6, 0) {Peer Servers\\(\texttt{Node-2, Node-3})};
+    \node[actor] (client) at (0,0) {DHCP Client\\(\texttt{chaddr} / Port 68)};
+    \node[actor] (lb)     at (4.5,0) {L4 Load Balancer\\Relay (\texttt{giaddr})};
+    \node[actor] (node1)  at (9.2,0) {Primary Node\\(\texttt{DHCP-Node-1})};
+    \node[actor] (peers)  at (13.6,0) {Peer Nodes\\(\texttt{Node-2, Node-3})};
 
-    \draw[thick, gray!70] (0, -0.45)    -- (0, -10.8);
-    \draw[thick, gray!70] (5.2, -0.45)  -- (5.2, -10.8);
-    \draw[thick, gray!70] (10.4, -0.45) -- (10.4, -10.8);
-    \draw[thick, gray!70] (15.6, -0.45) -- (15.6, -10.8);
+    \draw[thick, gray!70] (0,-0.45) -- (0,-7.8);
+    \draw[thick, gray!70] (4.5,-0.45) -- (4.5,-7.8);
+    \draw[thick, gray!70] (9.2,-0.45) -- (9.2,-7.8);
+    \draw[thick, gray!70] (13.6,-0.45) -- (13.6,-7.8);
 
-    % Step 1: DISCOVER
-    \draw[msg]    (0, -1.0)    -- node[lbl, above] {1a. \texttt{DHCPDISCOVER} (\texttt{ciaddr=0.0.0.0})} (5.2, -1.0);
-    \draw[msg]    (5.2, -1.8)  -- node[lbl, above] {1b. Stamp \texttt{giaddr}, \texttt{Hash(chaddr)}} (10.4, -1.8);
-    \draw[gossip] (10.4, -2.6) -- node[lbl, above] {1c. Gossip \texttt{OFFERED .10} (Opt 225)} (15.6, -2.6);
+    % 1. DISCOVER
+    \draw[msg] (0,-0.95) -- node[lbl, above] {1. \texttt{DHCPDISCOVER} (\texttt{ciaddr=0.0.0.0})} (4.5,-0.95);
+    \draw[msg] (4.5,-1.55) -- node[lbl, above] {Stamp \texttt{giaddr}, Route via \texttt{Hash(chaddr)}} (9.2,-1.55);
+    \draw[gossip] (9.2,-2.15) -- node[lbl, above] {\texttt{CLUSTER\_PEER\_SYNC} (\texttt{OFFERED .10})} (13.6,-2.15);
 
-    % Step 2: OFFER
-    \draw[msg]    (10.4, -3.4) -- node[lbl, above] {2a. \texttt{DHCPOFFER} (\texttt{yiaddr=.10}, Opt 51)} (5.2, -3.4);
-    \draw[msg]    (5.2, -4.2)  -- node[lbl, above] {2b. \texttt{DHCPOFFER} (\texttt{yiaddr=.10})} (0, -4.2);
+    % 2. OFFER
+    \draw[msg] (9.2,-2.8) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10}, Opt 51, 54)} (4.5,-2.8);
+    \draw[msg] (4.5,-3.4) -- node[lbl, above] {2. \texttt{DHCPOFFER} (\texttt{yiaddr=.10})} (0,-3.4);
 
-    % Step 3: REQUEST
-    \draw[msg]    (0, -5.0)    -- node[lbl, above] {3a. \texttt{DHCPREQUEST} (Opt 50=\texttt{.10})} (5.2, -5.0);
-    \draw[msg]    (5.2, -5.8)  -- node[lbl, above] {3b. Forward \texttt{DHCPREQUEST}} (10.4, -5.8);
-    \draw[gossip] (10.4, -6.6) -- node[lbl, above] {3c. \texttt{commitLease()} + WAL + Gossip \texttt{ACTIVE}} (15.6, -6.6);
+    % 3. REQUEST
+    \draw[msg] (0,-4.1) -- node[lbl, above] {3. \texttt{DHCPREQUEST} (Opt 50=\texttt{.10}, Opt 54)} (4.5,-4.1);
+    \draw[msg] (4.5,-4.7) -- node[lbl, above] {Forward \texttt{DHCPREQUEST} to Owner Node} (9.2,-4.7);
+    \draw[gossip] (9.2,-5.3) -- node[lbl, above] {\texttt{commitLease()} + WAL + Gossip (\texttt{ACTIVE .10})} (13.6,-5.3);
 
-    % Step 4: ACK
-    \draw[msg]    (10.4, -7.4) -- node[lbl, above] {4a. \texttt{DHCPACK} (\texttt{yiaddr=.10}, GW, DNS)} (5.2, -7.4);
-    \draw[msg]    (5.2, -8.2)  -- node[lbl, above] {4b. \texttt{DHCPACK} (Snooping Binding)} (0, -8.2);
+    % 4. ACK
+    \draw[msg] (9.2,-5.95) -- node[lbl, above] {4. \texttt{DHCPACK} (\texttt{yiaddr=.10}, Mask, GW, DNS)} (4.5,-5.95);
+    \draw[msg] (4.5,-6.55) -- node[lbl, above] {4. \texttt{DHCPACK} (Creates Snooping Binding)} (0,-6.55);
 
-    % Step 5: DECLINE (if ARP Probe detects conflict)
-    \draw[msg]    (0, -9.0)    -- node[lbl, above] {5a. On Conflict: \texttt{DHCPDECLINE} (\texttt{.10})} (5.2, -9.0);
-    \draw[msg]    (5.2, -9.75) -- node[lbl, above] {5b. Relay \texttt{DHCPDECLINE} to Owner} (10.4, -9.75);
-    \draw[gossip] (10.4, -10.5)-- node[lbl, above] {5c. Gossip \texttt{DECLINED} Quarantine (120s)} (15.6, -10.5);
+    % 5. DECLINE on ARP Conflict
+    \draw[msg] (0,-7.3) -- node[lbl, above] {5. On ARP Probe Conflict: \texttt{DHCPDECLINE} (Opt 50=\texttt{.10})} (9.2,-7.3);
+    \draw[gossip] (9.2,-7.65) -- node[lbl, below] {Quarantine \texttt{DECLINED} (120s) + Gossip} (13.6,-7.65);
 \end{tikzpicture}%
 }
-\caption{End-to-end DHCP D-O-R-A process, Relay Agent forwarding, Active-Active Gossip replication, and RFC 5227 \texttt{DHCPDECLINE} conflict quarantine.}
+\caption{End-to-end DHCP D-O-R-A process, Relay Agent forwarding, Gossip replication, and RFC 5227 \texttt{DHCPDECLINE} conflict quarantine.}
 \label{fig:dhcp_process_flow}
 \end{figure}
 
@@ -227,53 +224,52 @@ A background health checker pings all nodes every \textbf{700 ms} using \texttt{
 \centering
 \resizebox{0.96\textwidth}{!}{%
 \begin{tikzpicture}[
-    x=1cm, y=1cm,
     >=Stealth,
     vnode/.style={circle, draw=black, thick, fill=gray!20, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
     deadnode/.style={circle, draw=black, thick, dashed, fill=gray!45, minimum size=0.62cm, font=\scriptsize\bfseries, inner sep=1pt},
-    clientpt/.style={rectangle, draw=black, thick, fill=white, rounded corners=2pt, font=\scriptsize, inner sep=2.5pt},
-    info/.style={draw=black, thick, rounded corners=3pt, fill=gray!10, text width=6.2cm, align=left, font=\footnotesize, inner sep=7pt}
+    clientpt/.style={rectangle, draw=black, thick, fill=white, rounded corners=2pt, font=\scriptsize, inner sep=3pt},
+    info/.style={draw=black, thick, rounded corners=3pt, fill=gray!10, text width=6.4cm, align=left, font=\footnotesize, inner sep=7pt}
 ]
-    % Hash Ring Circle centered at (0,0) with radius 2.3cm
-    \draw[thick, dashed] (0,0) circle (2.3cm);
-    \node[font=\scriptsize\bfseries, align=center] at (0,0) {64-Bit MD5\\Hash Ring\\(\texttt{TreeMap})};
+    % Hash Ring Circle
+    \draw[thick, dashed] (0,0) circle (2.35cm);
+    \node[font=\footnotesize\bfseries, align=center] at (0,0) {64-Bit MD5\\Consistent Hash Ring\\(\texttt{TreeMap<Long,Int>})};
 
-    % 6 Virtual Nodes placed around the circle
-    \node[vnode]    (n1a) at (90:2.3cm)  {N1};
-    \node[vnode]    (n2a) at (30:2.3cm)  {N2};
-    \node[vnode]    (n3a) at (330:2.3cm) {N3};
-    \node[deadnode] (n1b) at (270:2.3cm) {N1};
-    \node[vnode]    (n2b) at (210:2.3cm) {N2};
-    \node[vnode]    (n3b) at (150:2.3cm) {N3};
+    % Virtual Nodes around the ring
+    \node[vnode] (n1a) at (90:2.35cm)  {N1};
+    \node[vnode] (n2a) at (30:2.35cm)  {N2};
+    \node[vnode] (n3a) at (330:2.35cm) {N3};
+    \node[deadnode] (n1b) at (270:2.35cm) {N1};
+    \node[vnode] (n2b) at (210:2.35cm) {N2};
+    \node[vnode] (n3b) at (150:2.35cm) {N3};
 
-    % Compact exterior labels (strictly within x in [-4.2, +4.2])
-    \node[font=\scriptsize, anchor=south] at (0, 2.68)     {\texttt{Node-1\#v1 (:6701)}};
-    \node[font=\scriptsize, anchor=west]  at (2.38, 1.25)  {\texttt{Node-2\#v1 (:6702)}};
-    \node[font=\scriptsize, anchor=west]  at (2.38, -1.25) {\texttt{Node-3\#v1 (:6703)}};
-    \node[font=\scriptsize, anchor=north] at (0, -2.68)    {\texttt{Node-1\#v2 (Evicted)}};
-    \node[font=\scriptsize, anchor=east]  at (-2.38, -1.25){\texttt{Node-2\#v2 (:6702)}};
-    \node[font=\scriptsize, anchor=east]  at (-2.38, 1.25) {\texttt{Node-3\#v2 (:6703)}};
+    % Labels outside ring
+    \node[font=\scriptsize, above=2pt of n1a] {\texttt{Node-1\#v1} (:6701)};
+    \node[font=\scriptsize, right=3pt of n2a] {\texttt{Node-2\#v1} (:6702)};
+    \node[font=\scriptsize, right=3pt of n3a] {\texttt{Node-3\#v1} (:6703)};
+    \node[font=\scriptsize, below=2pt of n1b] {\texttt{Node-1\#v2} (Evicted on Crash)};
+    \node[font=\scriptsize, left=3pt of n2b]  {\texttt{Node-2\#v2} (:6702)};
+    \node[font=\scriptsize, left=3pt of n3b]  {\texttt{Node-3\#v2} (:6703)};
 
-    % Client-A at 62 deg -> routes clockwise to N2 at 30 deg
-    \filldraw[black] (62:2.3cm) circle (2.2pt);
-    \node[clientpt, anchor=west] (c1) at (1.85, 2.50) {\texttt{Hash(Client-A)}};
-    \draw[->] (c1.west) -- (62:2.38cm);
-    \draw[thick, ->] (60:1.75cm) arc (60:34:1.75cm);
+    % Normal Client Lookup
+    \filldraw[black] (66:2.35cm) circle (2.2pt);
+    \node[clientpt] (c1) at (66:3.65cm) {\texttt{Hash(Client-A MAC)}};
+    \draw[->] (c1) -- (66:2.45cm);
+    \draw[thick, ->] (64:1.85cm) arc (64:34:1.85cm);
 
-    % Client-B at 300 deg -> skips evicted N1 (270 deg) clockwise to N2 (210 deg)
-    \filldraw[black] (300:2.3cm) circle (2.2pt);
-    \node[clientpt, anchor=west] (c2) at (1.85, -2.50) {\texttt{Hash(Client-B)}};
-    \draw[->] (c2.west) -- (300:2.38cm);
-    \draw[thick, dashed, ->] (298:1.75cm) arc (298:214:1.75cm);
+    % Failover Client Lookup (Skipping crashed N1 at 270 deg -> N2 at 210 deg)
+    \filldraw[black] (296:2.35cm) circle (2.2pt);
+    \node[clientpt] (c2) at (305:3.85cm) {\texttt{Hash(Client-B MAC)}};
+    \draw[->] (c2) -- (296:2.45cm);
+    \draw[thick, dashed, ->] (294:1.85cm) arc (294:214:1.85cm);
 
-    % Explanatory Boxes placed at x = 8.9 (left edge at 5.6 > 4.4 rightmost ring label) -> zero overlap!
-    \node[info] at (8.9, 1.15) {
-        \textbf{1. Virtual Node Placement ($V=32$):}\\
-        Each server inserts 32 keys (\texttt{"NODE-" + port + "-VN-" + i}) onto the MD5 ring. Lookup runs in $O(\log M)$ time via \texttt{ring.ceilingEntry(hash)}.
+    % Explanatory Box on the Right
+    \node[info] at (7.5, 0.9) {
+        \textbf{1. Virtual Node Uniformity:}\\
+        Each server inserts $V=32$ virtual nodes (\texttt{"DHCP-NODE-" + port + "-VN-" + i}), yielding $O(\log M)$ lookup via \texttt{ring.ceilingEntry(hash)}.
     };
-    \node[info] at (8.9, -1.25) {
-        \textbf{2. 700ms Heartbeat \& 1.8s Failover:}\\
-        When \texttt{Node-1} misses $>1800\text{ ms}$ of \texttt{HEALTH\_PING}s, its 32 vnodes are evicted. \texttt{Client-B} walks clockwise past \texttt{N1\#v2} directly to \texttt{Node-2}.
+    \node[info] at (7.5, -1.2) {
+        \textbf{2. Heartbeat Eviction \& Failover:}\\
+        When \texttt{Node-1} misses $>1800\text{ ms}$ of \texttt{HEALTH\_PING}s, its 32 vnodes are removed. \texttt{Client-B} walks clockwise past evicted \texttt{N1} directly to \texttt{Node-2}.
     };
 \end{tikzpicture}%
 }
@@ -290,710 +286,74 @@ As depicted in Figure~\ref{fig:active_active_gossip}, peer nodes receive the gos
 \centering
 \resizebox{0.96\textwidth}{!}{%
 \begin{tikzpicture}[
-    x=1cm, y=1cm,
     >=Stealth,
-    nodebox/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=4.0cm, minimum height=1.65cm, align=center, font=\footnotesize},
-    lbbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.2cm, minimum height=1.15cm, align=center, font=\footnotesize\bfseries},
+    nodebox/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=4.0cm, minimum height=1.7cm, align=center, font=\footnotesize},
+    lbbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=1.1cm, align=center, font=\footnotesize\bfseries},
     arr/.style={thick, ->},
     gossip/.style={thick, dashed, ->}
 ]
-    % LB at x=0 (spans -1.6..1.6), Node-1 at x=5.8 (spans 3.8..7.8), Node-2/3 at x=14.0 (spans 12.0..16.0)
     \node[lbbox] (lb) at (0, 0) {L4 Load Balancer\\(\texttt{UDP :67 / :6700})};
 
-    \node[nodebox] (n1) at (5.8, 0) {
+    \node[nodebox] (n1) at (4.8, 0) {
         \textbf{\texttt{DHCP-Node-1 (:6701)}}\\[2pt]
         \texttt{commitLease(.10)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node1.db}
     };
 
-    \node[nodebox] (n2) at (14.0, 1.35) {
+    \node[nodebox] (n2) at (11.2, 1.35) {
         \textbf{\texttt{DHCP-Node-2 (:6702)}}\\[2pt]
         \texttt{applyPeerSync(record)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node2.db}
     };
 
-    \node[nodebox] (n3) at (14.0, -1.35) {
+    \node[nodebox] (n3) at (11.2, -1.35) {
         \textbf{\texttt{DHCP-Node-3 (:6703)}}\\[2pt]
         \texttt{applyPeerSync(record)}\\
         \texttt{leasesByIp.put(.10, ACTIVE)}\\
         Flush WAL \texttt{leases\_node3.db}
     };
 
-    % Gap between lb.east (1.6) and n1.west (3.8) is 2.2cm
-    \draw[arr] (lb.east) -- node[above, font=\scriptsize] {\texttt{BOOTREQUEST}} node[below, font=\scriptsize] {(\texttt{yiaddr=.10})} (n1.west);
+    \draw[arr] (lb.east) -- node[above, font=\scriptsize] {\texttt{BOOTREQUEST}} node[below, font=\scriptsize] {(\texttt{.10})} (n1.west);
 
-    % Gap between n1.east (7.8) and n2/n3.west (12.0) is 4.2cm -> plenty of room for labels!
-    \draw[gossip] (n1.east) -- (8.3, 0) |- node[pos=0.75, above, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225)} node[pos=0.75, below, font=\scriptsize] {\texttt{192.168.10.10|MAC|ACTIVE}} (n2.west);
-    \draw[gossip] (n1.east) -- (8.3, 0) |- node[pos=0.75, above, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225)} node[pos=0.75, below, font=\scriptsize] {\texttt{192.168.10.10|MAC|ACTIVE}} (n3.west);
+    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, above, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n2.west);
+    \draw[gossip] (n1.east) -- ++(0.7,0) |- node[pos=0.72, below, font=\scriptsize] {\texttt{CLUSTER\_PEER\_SYNC} (Opt 225: \texttt{.10|MAC|ACTIVE})} (n3.west);
 \end{tikzpicture}%
 }
 \caption{Active-Active UDP Gossip Replication (\texttt{CLUSTER\_PEER\_SYNC}, Option 225) synchronizing the unified IP pool across all server nodes.}
 \label{fig:active_active_gossip}
 \end{figure}
 
-\subsection{Embedded DHCP Cluster Control Center UI Views (Specific Cases)}
-The DHCP module provides a real-time web control center on \texttt{http://localhost:8080} with interactive hover tooltips, chaos engineering controls, and one-click Wireshark \texttt{.pcap} export (\texttt{/api/pcap?filter=dhcp} via \texttt{PcapRecorder.java}). Figures~\ref{fig:dhcp_ui_case1}--\ref{fig:dhcp_ui_case4} embed the four core operational dashboard states directly inside this document:
+\subsection{DHCP Cluster Control Center UI and Specific Operational Cases}
+The DHCP module provides a real-time web control center on \texttt{http://localhost:8080} with interactive hover tooltips, chaos engineering controls, and one-click Wireshark \texttt{.pcap} export (\texttt{/api/pcap?filter=dhcp} via \texttt{PcapRecorder.java}). Figures~\ref{fig:dhcp_shot_1}--\ref{fig:dhcp_shot_4} show the four core operational scenarios captured from the live dashboard:
 
 \begin{figure}[H]
 \centering
-\resizebox{0.98\textwidth}{!}{%
-\begin{tikzpicture}[x=1cm, y=1cm]
-    % Outer Dashboard Frame
-    \fill[black!92, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-    \draw[black!55, thick, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-
-    % Top Header Bar
-    \fill[black!86] (0.06, -0.06) rectangle (17.94, -0.82);
-    \draw[black!60] (0.06, -0.82) -- (17.94, -0.82);
-    \node[fill=blue!70!black, rounded corners=2.5pt, text=white, font=\scriptsize\bfseries, inner sep=3.5pt, anchor=west] at (0.28, -0.44) {DH};
-    \node[anchor=west, font=\footnotesize\bfseries, text=white] at (0.98, -0.32) {DHCP Cluster Control Center --- Case 1: Normal D-O-R-A \& Consistent Hashing};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.98, -0.60) {RFC 2131 Binary UDP \textbullet\ 3-Node Active-Active Cluster \textbullet\ L4 Relay Load Balancer};
-
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=green!70!white, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (10.85, -0.44) {\textbullet\ Live};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (13.30, -0.44) {Routing: \textbf{Consistent Hash}};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (15.55, -0.44) {Limiter: \textbf{Token Bucket}};
-    \node[fill=blue!70!black, rounded corners=2.5pt, font=\tiny\bfseries, text=white, inner xsep=5.5pt, inner ysep=2.8pt, anchor=east] at (17.75, -0.44) {Export Wireshark .pcap};
-
-    % 6 KPI Cards
-    \fill[black!85, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.41, -1.22) {Leased Addresses};
-    \node[anchor=west, font=\normalsize\bfseries, text=white] at (0.41, -1.63) {7};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.41, -1.98) {of 143 in pool};
-    \fill[black!85, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \draw[black!60, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (3.34, -1.22) {Pool Utilization};
-    \node[anchor=west, font=\normalsize\bfseries, text=cyan!65!white] at (3.34, -1.63) {5\%};
-    \node[anchor=west, font=\tiny, text=gray!45] at (3.34, -1.98) {dynamic pool active};
-    \fill[black!85, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \draw[black!60, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.27, -1.22) {Healthy Nodes};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (6.27, -1.63) {3/3};
-    \node[anchor=west, font=\tiny, text=gray!45] at (6.27, -1.98) {all nodes operational};
-    \fill[black!85, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \draw[black!60, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (9.20, -1.22) {Allowed Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (9.20, -1.63) {28};
-    \node[anchor=west, font=\tiny, text=gray!45] at (9.20, -1.98) {passed rate limiter};
-    \fill[black!85, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \draw[black!60, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (12.13, -1.22) {Dropped Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=red!70!white] at (12.13, -1.63) {0};
-    \node[anchor=west, font=\tiny, text=gray!45] at (12.13, -1.98) {0.0\% drop rate};
-    \fill[black!85, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \draw[black!60, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (15.06, -1.22) {Gossip Syncs};
-    \node[anchor=west, font=\normalsize\bfseries, text=violet!55!white] at (15.06, -1.63) {56};
-    \node[anchor=west, font=\tiny, text=gray!45] at (15.06, -1.98) {peer replications};
-
-    % 3 Server Node Cards (y = -2.35 to -4.35)
-    % Node 1
-    \fill[black!85, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.45, -2.64) {DHCP-Node-1 (192.168.10.201:6701)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (5.75, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.14) {Routed Requests: \textbf{10}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.14) {Gossip Syncs: \textbf{18}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.56) {Offers / ACKs Sent: \textbf{5 / 5}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.56) {Traffic Share: \textbf{36\%}};
-    \fill[black!70] (0.45, -4.10) rectangle (5.75, -3.96);
-    \fill[blue!65!cyan] (0.45, -4.10) rectangle (2.35, -3.96);
-
-    % Node 2
-    \fill[black!85, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (6.35, -2.64) {DHCP-Node-2 (192.168.10.202:6702)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (11.65, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.14) {Routed Requests: \textbf{10}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.14) {Gossip Syncs: \textbf{18}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.56) {Offers / ACKs Sent: \textbf{5 / 5}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.56) {Traffic Share: \textbf{36\%}};
-    \fill[black!70] (6.35, -4.10) rectangle (11.65, -3.96);
-    \fill[blue!65!cyan] (6.35, -4.10) rectangle (8.25, -3.96);
-
-    % Node 3
-    \fill[black!85, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (12.25, -2.64) {DHCP-Node-3 (192.168.10.203:6703)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (17.55, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.14) {Routed Requests: \textbf{8}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.14) {Gossip Syncs: \textbf{20}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.56) {Offers / ACKs Sent: \textbf{4 / 4}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.56) {Traffic Share: \textbf{28\%}};
-    \fill[black!70] (12.25, -4.10) rectangle (17.55, -3.96);
-    \fill[blue!65!cyan] (12.25, -4.10) rectangle (13.75, -3.96);
-
-    % Bottom-Left: Replicated Lease Table (x = 0.25 to 10.25, y = -4.52 to -8.18)
-    \fill[black!85, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.40, -4.80) {Replicated Lease Table (7 / 143)};
-    \draw[black!60] (0.25, -5.02) -- (10.25, -5.02);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.38, -5.25) {IP ADDRESS};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (2.45, -5.25) {CLIENT MAC};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (5.05, -5.25) {HOSTNAME};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.95, -5.25) {STATE};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (8.25, -5.25) {NODE};
-    \node[anchor=east, font=\tiny\bfseries, text=gray!45] at (10.12, -5.25) {TTL};
-    \draw[black!60] (0.25, -5.42) -- (10.25, -5.42);
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -5.68) {192.168.10.5};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -5.68) {00:1A:2B:3C:4D:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -5.68) {gateway-admin-vip};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -5.68) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -5.68) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -5.68) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.09) {192.168.10.6};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.09) {00:1A:2B:3C:4D:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.09) {prod-db-primary};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.09) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.09) {STATIC-VIP};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.09) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.50) {192.168.10.10};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.50) {AA:BB:CC:00:00:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.50) {workstation-01};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.50) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.50) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.50) {116s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.91) {192.168.10.11};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.91) {AA:BB:CC:00:00:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.91) {workstation-02};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.91) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.91) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.91) {115s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.32) {192.168.10.12};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.32) {AA:BB:CC:00:00:03};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.32) {workstation-03};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.32) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.32) {DHCP-Node-3};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.32) {114s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.73) {192.168.10.13};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.73) {AA:BB:CC:00:00:04};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.73) {workstation-04};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.73) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.73) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.73) {114s};
-
-    % Bottom-Right: Real-Time Event Stream (x = 10.40 to 17.75, y = -4.52 to -8.18)
-    \fill[black!95, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \draw[black!60, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (10.55, -4.80) {Real-Time Cluster \& Packet Event Stream};
-    \draw[black!60] (10.40, -5.02) -- (17.75, -5.02);
-    \draw[cyan!80!white, very thick] (10.55, -5.24) -- (10.55, -5.49);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -5.36) {16:12:01 [LB] Started on :67 [CONSISTENT\_HASHING, 32 vnodes]};
-    \draw[green!80!white, very thick] (10.55, -5.61) -- (10.55, -5.86);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -5.73) {16:12:02 [Node-1] Static VIP 00:1A:2B:3C:4D:01 -> 192.168.10.5};
-    \draw[violet!80!white, very thick] (10.55, -5.98) -- (10.55, -6.23);
-    \node[anchor=west, font=\ttfamily\tiny, text=violet!30!white] at (10.68, -6.10) {16:12:02 [Node-1] CLUSTER\_PEER\_SYNC -> .5 replicated to peers};
-    \draw[cyan!80!white, very thick] (10.55, -6.35) -- (10.55, -6.60);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -6.47) {16:12:04 [LB] Hash(AA:BB:CC:00:00:01) -> Routed to DHCP-Node-2};
-    \draw[green!80!white, very thick] (10.55, -6.72) -- (10.55, -6.97);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -6.84) {16:12:04 [workstation-01] DHCPACK: IP=192.168.10.10, Lease=120s};
-    \draw[green!80!white, very thick] (10.55, -7.09) -- (10.55, -7.34);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -7.21) {16:12:04 [workstation-02] DHCPACK: IP=192.168.10.11 (Node-1)};
-    \draw[green!80!white, very thick] (10.55, -7.46) -- (10.55, -7.71);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -7.58) {16:12:04 [workstation-03] DHCPACK: IP=192.168.10.12 (Node-3)};
-    \draw[violet!80!white, very thick] (10.55, -7.83) -- (10.55, -8.08);
-    \node[anchor=west, font=\ttfamily\tiny, text=violet!30!white] at (10.68, -7.95) {16:12:04 [Gossip] All 3 nodes converged on 7 active leases};
-\end{tikzpicture}%
-}
-\caption{DHCP Dashboard (Case 1 --- Normal D-O-R-A \& Consistent Hashing): All 3 nodes healthy (\texttt{3/3}), static VIP reservations (\texttt{.5}, \texttt{.6}), concurrent dynamic leases distributed across the hash ring, and Active-Active Peer Gossip replication.}
-\label{fig:dhcp_ui_case1}
+\includegraphics[width=0.94\textwidth,keepaspectratio]{docs/screenshots/dhcp_01_dora_leases.png}
+\caption{DHCP Dashboard Case 1 (Normal D-O-R-A \& Consistent Hashing): All 3 nodes healthy (\texttt{3/3}), static VIP reservations (\texttt{.5}, \texttt{.6}), concurrent client leases distributed via the Consistent Hash Ring, and 298 Active-Active Peer Gossip replications.}
+\label{fig:dhcp_shot_1}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\resizebox{0.98\textwidth}{!}{%
-\begin{tikzpicture}[x=1cm, y=1cm]
-    % Outer Dashboard Frame
-    \fill[black!92, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-    \draw[black!55, thick, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-
-    % Top Header Bar
-    \fill[black!86] (0.06, -0.06) rectangle (17.94, -0.82);
-    \draw[black!60] (0.06, -0.82) -- (17.94, -0.82);
-    \node[fill=blue!70!black, rounded corners=2.5pt, text=white, font=\scriptsize\bfseries, inner sep=3.5pt, anchor=west] at (0.28, -0.44) {DH};
-    \node[anchor=west, font=\footnotesize\bfseries, text=white] at (0.98, -0.32) {DHCP Cluster Control Center --- Case 2: DHCPDECLINE ARP Conflict Quarantine};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.98, -0.60) {RFC 2131 Binary UDP \textbullet\ 3-Node Active-Active Cluster \textbullet\ L4 Relay Load Balancer};
-
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=green!70!white, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (10.85, -0.44) {\textbullet\ Live};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (13.30, -0.44) {Routing: \textbf{Consistent Hash}};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (15.55, -0.44) {Limiter: \textbf{Token Bucket}};
-    \node[fill=blue!70!black, rounded corners=2.5pt, font=\tiny\bfseries, text=white, inner xsep=5.5pt, inner ysep=2.8pt, anchor=east] at (17.75, -0.44) {Export Wireshark .pcap};
-
-    % 6 KPI Cards
-    \fill[black!85, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.41, -1.22) {Leased Addresses};
-    \node[anchor=west, font=\normalsize\bfseries, text=white] at (0.41, -1.63) {8};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.41, -1.98) {of 143 in pool};
-    \fill[black!85, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \draw[black!60, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (3.34, -1.22) {Pool Utilization};
-    \node[anchor=west, font=\normalsize\bfseries, text=cyan!65!white] at (3.34, -1.63) {6\%};
-    \node[anchor=west, font=\tiny, text=gray!45] at (3.34, -1.98) {dynamic pool active};
-    \fill[black!85, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \draw[black!60, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.27, -1.22) {Healthy Nodes};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (6.27, -1.63) {3/3};
-    \node[anchor=west, font=\tiny, text=gray!45] at (6.27, -1.98) {all nodes operational};
-    \fill[black!85, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \draw[black!60, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (9.20, -1.22) {Allowed Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (9.20, -1.63) {34};
-    \node[anchor=west, font=\tiny, text=gray!45] at (9.20, -1.98) {passed rate limiter};
-    \fill[black!85, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \draw[black!60, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (12.13, -1.22) {Dropped Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=red!70!white] at (12.13, -1.63) {0};
-    \node[anchor=west, font=\tiny, text=gray!45] at (12.13, -1.98) {0.0\% drop rate};
-    \fill[black!85, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \draw[black!60, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (15.06, -1.22) {Gossip Syncs};
-    \node[anchor=west, font=\normalsize\bfseries, text=violet!55!white] at (15.06, -1.63) {74};
-    \node[anchor=west, font=\tiny, text=gray!45] at (15.06, -1.98) {peer replications};
-
-    % 3 Server Node Cards (y = -2.35 to -4.35)
-    % Node 1
-    \fill[black!85, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.45, -2.64) {DHCP-Node-1 (192.168.10.201:6701)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (5.75, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.14) {Routed Requests: \textbf{12}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.14) {Gossip Syncs: \textbf{24}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.56) {Offers / ACKs Sent: \textbf{6 / 6}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.56) {Traffic Share: \textbf{35\%}};
-    \fill[black!70] (0.45, -4.10) rectangle (5.75, -3.96);
-    \fill[blue!65!cyan] (0.45, -4.10) rectangle (2.30, -3.96);
-
-    % Node 2
-    \fill[black!85, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (6.35, -2.64) {DHCP-Node-2 (192.168.10.202:6702)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (11.65, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.14) {Routed Requests: \textbf{12}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.14) {Gossip Syncs: \textbf{24}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.56) {Offers / ACKs Sent: \textbf{6 / 5}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.56) {Traffic Share: \textbf{35\%}};
-    \fill[black!70] (6.35, -4.10) rectangle (11.65, -3.96);
-    \fill[blue!65!cyan] (6.35, -4.10) rectangle (8.20, -3.96);
-
-    % Node 3
-    \fill[black!85, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (12.25, -2.64) {DHCP-Node-3 (192.168.10.203:6703)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (17.55, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.14) {Routed Requests: \textbf{10}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.14) {Gossip Syncs: \textbf{26}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.56) {Offers / ACKs Sent: \textbf{5 / 4}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.56) {Traffic Share: \textbf{30\%}};
-    \fill[black!70] (12.25, -4.10) rectangle (17.55, -3.96);
-    \fill[blue!65!cyan] (12.25, -4.10) rectangle (13.85, -3.96);
-
-    % Bottom-Left: Replicated Lease Table (x = 0.25 to 10.25, y = -4.52 to -8.18)
-    \fill[black!85, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.40, -4.80) {Replicated Lease Table (8 / 143)};
-    \draw[black!60] (0.25, -5.02) -- (10.25, -5.02);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.38, -5.25) {IP ADDRESS};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (2.45, -5.25) {CLIENT MAC};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (5.05, -5.25) {HOSTNAME};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.95, -5.25) {STATE};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (8.25, -5.25) {NODE};
-    \node[anchor=east, font=\tiny\bfseries, text=gray!45] at (10.12, -5.25) {TTL};
-    \draw[black!60] (0.25, -5.42) -- (10.25, -5.42);
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -5.68) {192.168.10.5};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -5.68) {00:1A:2B:3C:4D:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -5.68) {gateway-admin-vip};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -5.68) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -5.68) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -5.68) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.09) {192.168.10.10};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.09) {AA:BB:CC:00:00:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.09) {workstation-01};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.09) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.09) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.09) {108s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.50) {192.168.10.11};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.50) {AA:BB:CC:00:00:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.50) {workstation-02};
-    \node[anchor=west, fill=cyan!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.50) {OFFERED};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.50) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.50) {27s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.91) {192.168.10.12};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.91) {CONFLICT-11:22:03};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.91) {arp-conflict};
-    \node[anchor=west, fill=red!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.91) {DECLINED};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.91) {DHCP-Node-3};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.91) {118s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.32) {192.168.10.13};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.32) {AA:BB:CC:00:00:04};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.32) {workstation-04};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.32) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.32) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.32) {106s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.73) {192.168.10.15};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.73) {AA:BB:CC:11:22:03};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.73) {admin-laptop};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.73) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.73) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.73) {119s};
-
-    % Bottom-Right: Real-Time Event Stream (x = 10.40 to 17.75, y = -4.52 to -8.18)
-    \fill[black!95, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \draw[black!60, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (10.55, -4.80) {Real-Time Cluster \& Packet Event Stream};
-    \draw[black!60] (10.40, -5.02) -- (17.75, -5.02);
-    \draw[cyan!80!white, very thick] (10.55, -5.24) -- (10.55, -5.49);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -5.36) {16:12:18 [printer-01] Sent DHCPINFORM (ciaddr=192.168.10.250)};
-    \draw[green!80!white, very thick] (10.55, -5.61) -- (10.55, -5.86);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -5.73) {16:12:18 [Node-2] DHCPACK for INFORM: GW=.1, DNS=8.8.8.8};
-    \draw[orange!80!white, very thick] (10.55, -5.98) -- (10.55, -6.23);
-    \node[anchor=west, font=\ttfamily\tiny, text=orange!30!white] at (10.68, -6.10) {16:12:20 [CLIENT 11:22:03] ARP Probe (0.0.0.0) found conflict on .12!};
-    \draw[orange!80!white, very thick] (10.55, -6.35) -- (10.55, -6.60);
-    \node[anchor=west, font=\ttfamily\tiny, text=orange!30!white] at (10.68, -6.47) {16:12:20 [CLIENT 11:22:03] Sent DHCPDECLINE (Opt 53=4, Opt 50=.12)};
-    \draw[red!80!white, very thick] (10.55, -6.72) -- (10.55, -6.97);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -6.84) {16:12:20 [Node-3] QUARANTINE: 192.168.10.12 marked DECLINED (120s)};
-    \draw[violet!80!white, very thick] (10.55, -7.09) -- (10.55, -7.34);
-    \node[anchor=west, font=\ttfamily\tiny, text=violet!30!white] at (10.68, -7.21) {16:12:20 [Node-3] CLUSTER\_PEER\_SYNC -> .12 DECLINED on Node-1,2};
-    \draw[cyan!80!white, very thick] (10.55, -7.46) -- (10.55, -7.71);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -7.58) {16:12:21 [admin-laptop] New DHCPDISCOVER -> Skipped quarantined .12};
-    \draw[green!80!white, very thick] (10.55, -7.83) -- (10.55, -8.08);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -7.95) {16:12:21 [admin-laptop] DHCPACK: Assigned clean IP 192.168.10.15};
-\end{tikzpicture}%
-}
-\caption{DHCP Dashboard (Case 2 --- \texttt{DHCPDECLINE} ARP Conflict Quarantine \& \texttt{DHCPINFORM}): Client detects an L2 ARP conflict on \texttt{192.168.10.12} and sends \texttt{DHCPDECLINE}; the cluster quarantines \texttt{.12} in the \texttt{DECLINED} state via Gossip Sync and assigns a clean address (\texttt{.15}).}
-\label{fig:dhcp_ui_case2}
+\includegraphics[width=0.94\textwidth,keepaspectratio]{docs/screenshots/dhcp_02_decline_quarantine.png}
+\caption{DHCP Dashboard Case 2 (\texttt{DHCPDECLINE} ARP Conflict Quarantine \& \texttt{DHCPINFORM}): Client detects an L2 ARP conflict on \texttt{192.168.10.12} and transmits \texttt{DHCPDECLINE} (Option 53=4); the cluster quarantines \texttt{.12} in the red \texttt{DECLINED} state for 120s via Gossip Sync and assigns \texttt{.13} to the next client.}
+\label{fig:dhcp_shot_2}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\resizebox{0.98\textwidth}{!}{%
-\begin{tikzpicture}[x=1cm, y=1cm]
-    % Outer Dashboard Frame
-    \fill[black!92, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-    \draw[black!55, thick, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-
-    % Top Header Bar
-    \fill[black!86] (0.06, -0.06) rectangle (17.94, -0.82);
-    \draw[black!60] (0.06, -0.82) -- (17.94, -0.82);
-    \node[fill=blue!70!black, rounded corners=2.5pt, text=white, font=\scriptsize\bfseries, inner sep=3.5pt, anchor=west] at (0.28, -0.44) {DH};
-    \node[anchor=west, font=\footnotesize\bfseries, text=white] at (0.98, -0.32) {DHCP Cluster Control Center --- Case 3: Node-1 Crash \& 1.8s Automatic Failover};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.98, -0.60) {RFC 2131 Binary UDP \textbullet\ 3-Node Active-Active Cluster \textbullet\ L4 Relay Load Balancer};
-
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=green!70!white, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (10.85, -0.44) {\textbullet\ Live};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (13.30, -0.44) {Routing: \textbf{Consistent Hash}};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (15.55, -0.44) {Limiter: \textbf{Token Bucket}};
-    \node[fill=blue!70!black, rounded corners=2.5pt, font=\tiny\bfseries, text=white, inner xsep=5.5pt, inner ysep=2.8pt, anchor=east] at (17.75, -0.44) {Export Wireshark .pcap};
-
-    % 6 KPI Cards
-    \fill[black!85, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.41, -1.22) {Leased Addresses};
-    \node[anchor=west, font=\normalsize\bfseries, text=white] at (0.41, -1.63) {9};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.41, -1.98) {of 143 in pool};
-    \fill[black!85, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \draw[black!60, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (3.34, -1.22) {Pool Utilization};
-    \node[anchor=west, font=\normalsize\bfseries, text=cyan!65!white] at (3.34, -1.63) {6\%};
-    \node[anchor=west, font=\tiny, text=gray!45] at (3.34, -1.98) {dynamic pool active};
-    \fill[black!85, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \draw[black!60, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.27, -1.22) {Healthy Nodes};
-    \node[anchor=west, font=\normalsize\bfseries, text=orange!90!white] at (6.27, -1.63) {2/3};
-    \node[anchor=west, font=\tiny, text=gray!45] at (6.27, -1.98) {degraded - failover active};
-    \fill[black!85, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \draw[black!60, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (9.20, -1.22) {Allowed Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (9.20, -1.63) {46};
-    \node[anchor=west, font=\tiny, text=gray!45] at (9.20, -1.98) {passed rate limiter};
-    \fill[black!85, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \draw[black!60, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (12.13, -1.22) {Dropped Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=red!70!white] at (12.13, -1.63) {0};
-    \node[anchor=west, font=\tiny, text=gray!45] at (12.13, -1.98) {0.0\% drop rate};
-    \fill[black!85, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \draw[black!60, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (15.06, -1.22) {Gossip Syncs};
-    \node[anchor=west, font=\normalsize\bfseries, text=violet!55!white] at (15.06, -1.63) {98};
-    \node[anchor=west, font=\tiny, text=gray!45] at (15.06, -1.98) {peer replications};
-
-    % 3 Server Node Cards (y = -2.35 to -4.35)
-    % Node 1
-    \fill[black!85, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \draw[red!75!black, thick, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.45, -2.64) {DHCP-Node-1 (192.168.10.201:6701)};
-    \node[anchor=east, fill=red!75!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (5.75, -2.64) {OFFLINE};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.14) {Routed Requests: \textbf{12}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.14) {Gossip Syncs: \textbf{24}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.56) {Offers / ACKs Sent: \textbf{6 / 6}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.56) {Traffic Share: \textbf{26\%}};
-    \fill[black!70] (0.45, -4.10) rectangle (5.75, -3.96);
-    \fill[blue!65!cyan] (0.45, -4.10) rectangle (1.83, -3.96);
-
-    % Node 2
-    \fill[black!85, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (6.35, -2.64) {DHCP-Node-2 (192.168.10.202:6702)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (11.65, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.14) {Routed Requests: \textbf{19}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.14) {Gossip Syncs: \textbf{36}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.56) {Offers / ACKs Sent: \textbf{10 / 9}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.56) {Traffic Share: \textbf{41\%}};
-    \fill[black!70] (6.35, -4.10) rectangle (11.65, -3.96);
-    \fill[blue!65!cyan] (6.35, -4.10) rectangle (8.53, -3.96);
-
-    % Node 3
-    \fill[black!85, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (12.25, -2.64) {DHCP-Node-3 (192.168.10.203:6703)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (17.55, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.14) {Routed Requests: \textbf{15}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.14) {Gossip Syncs: \textbf{38}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.56) {Offers / ACKs Sent: \textbf{8 / 7}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.56) {Traffic Share: \textbf{33\%}};
-    \fill[black!70] (12.25, -4.10) rectangle (17.55, -3.96);
-    \fill[blue!65!cyan] (12.25, -4.10) rectangle (14.00, -3.96);
-
-    % Bottom-Left: Replicated Lease Table (x = 0.25 to 10.25, y = -4.52 to -8.18)
-    \fill[black!85, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.40, -4.80) {Replicated Lease Table (9 / 143)};
-    \draw[black!60] (0.25, -5.02) -- (10.25, -5.02);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.38, -5.25) {IP ADDRESS};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (2.45, -5.25) {CLIENT MAC};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (5.05, -5.25) {HOSTNAME};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.95, -5.25) {STATE};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (8.25, -5.25) {NODE};
-    \node[anchor=east, font=\tiny\bfseries, text=gray!45] at (10.12, -5.25) {TTL};
-    \draw[black!60] (0.25, -5.42) -- (10.25, -5.42);
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -5.68) {192.168.10.5};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -5.68) {00:1A:2B:3C:4D:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -5.68) {gateway-admin-vip};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -5.68) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -5.68) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -5.68) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.09) {192.168.10.10};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.09) {AA:BB:CC:00:00:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.09) {workstation-01};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.09) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.09) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.09) {98s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.50) {192.168.10.11};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.50) {AA:BB:CC:00:00:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.50) {workstation-02};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.50) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.50) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.50) {119s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.91) {192.168.10.12};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.91) {CONFLICT-11:22:03};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.91) {arp-conflict};
-    \node[anchor=west, fill=red!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.91) {DECLINED};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.91) {DHCP-Node-3};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.91) {104s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.32) {192.168.10.16};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.32) {AA:BB:CC:00:00:06};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.32) {workstation-06};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.32) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.32) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.32) {117s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.73) {192.168.10.17};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.73) {AA:BB:CC:00:00:07};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.73) {workstation-07};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.73) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.73) {DHCP-Node-3};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.73) {117s};
-
-    % Bottom-Right: Real-Time Event Stream (x = 10.40 to 17.75, y = -4.52 to -8.18)
-    \fill[black!95, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \draw[black!60, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (10.55, -4.80) {Real-Time Cluster \& Packet Event Stream};
-    \draw[black!60] (10.40, -5.02) -- (17.75, -5.02);
-    \draw[red!80!white, very thick] (10.55, -5.24) -- (10.55, -5.49);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -5.36) {16:12:35 [DHCP-Node-1] CHAOS ALERT: Simulated CRASH (offline)};
-    \draw[red!80!white, very thick] (10.55, -5.61) -- (10.55, -5.86);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -5.73) {16:12:36 [LB] FAILOVER: 192.168.10.201:6701 missed heartbeats!};
-    \draw[orange!80!white, very thick] (10.55, -5.98) -- (10.55, -6.23);
-    \node[anchor=west, font=\ttfamily\tiny, text=orange!30!white] at (10.68, -6.10) {16:12:36 [LB] Evicted 32 vnodes of Node-1 from Consistent Hash Ring};
-    \draw[cyan!80!white, very thick] (10.55, -6.35) -- (10.55, -6.60);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -6.47) {16:12:37 [workstation-02] Renew DHCPREQUEST (.11) -> Re-routed Node-2};
-    \draw[violet!80!white, very thick] (10.55, -6.72) -- (10.55, -6.97);
-    \node[anchor=west, font=\ttfamily\tiny, text=violet!30!white] at (10.68, -6.84) {16:12:37 [Node-2] Found Gossip-synced lease .11 -> Renewed DHCPACK!};
-    \draw[green!80!white, very thick] (10.55, -7.09) -- (10.55, -7.34);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -7.21) {16:12:38 [workstation-06] DHCPACK: Assigned .16 via surviving Node-2};
-    \draw[green!80!white, very thick] (10.55, -7.46) -- (10.55, -7.71);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -7.58) {16:12:38 [workstation-07] DHCPACK: Assigned .17 via surviving Node-3};
-    \draw[violet!80!white, very thick] (10.55, -7.83) -- (10.55, -8.08);
-    \node[anchor=west, font=\ttfamily\tiny, text=violet!30!white] at (10.68, -7.95) {16:12:38 [Gossip] Zero-downtime failover verified across surviving ring};
-\end{tikzpicture}%
-}
-\caption{DHCP Dashboard (Case 3 --- Chaos Node Crash \& 1.8s Automatic Failover): \texttt{DHCP-Node-1} crashes (\texttt{OFFLINE}); after 1800 ms of missed heartbeats, the Load Balancer evicts its 32 virtual nodes (\texttt{2/3 degraded}) and seamlessly renews leases on \texttt{Node-2} and \texttt{Node-3} using Gossip-replicated state.}
-\label{fig:dhcp_ui_case3}
+\includegraphics[width=0.94\textwidth,keepaspectratio]{docs/screenshots/dhcp_03_node_crash_failover.png}
+\caption{DHCP Dashboard Case 3 (Chaos Node Crash \& 1.8s Automatic Failover): \texttt{DHCP-Node-1} is crashed (\texttt{OFFLINE}); after 1800 ms of missed heartbeats, the Load Balancer evicts its 32 virtual nodes (\texttt{2/3 degraded - failover active}) and seamlessly renews existing leases on \texttt{DHCP-Node-2} and \texttt{DHCP-Node-3} using Gossip-replicated state.}
+\label{fig:dhcp_shot_3}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\resizebox{0.98\textwidth}{!}{%
-\begin{tikzpicture}[x=1cm, y=1cm]
-    % Outer Dashboard Frame
-    \fill[black!92, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-    \draw[black!55, thick, rounded corners=4pt] (0, 0) rectangle (18.0, -8.35);
-
-    % Top Header Bar
-    \fill[black!86] (0.06, -0.06) rectangle (17.94, -0.82);
-    \draw[black!60] (0.06, -0.82) -- (17.94, -0.82);
-    \node[fill=blue!70!black, rounded corners=2.5pt, text=white, font=\scriptsize\bfseries, inner sep=3.5pt, anchor=west] at (0.28, -0.44) {DH};
-    \node[anchor=west, font=\footnotesize\bfseries, text=white] at (0.98, -0.32) {DHCP Cluster Control Center --- Case 4: Starvation Flood vs. Rate Limiter \& PCAP Export};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.98, -0.60) {RFC 2131 Binary UDP \textbullet\ 3-Node Active-Active Cluster \textbullet\ L4 Relay Load Balancer};
-
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=green!70!white, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (10.85, -0.44) {\textbullet\ Live};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (13.30, -0.44) {Routing: \textbf{Consistent Hash}};
-    \node[fill=black!78, draw=black!55, rounded corners=5pt, font=\tiny, text=gray!20, inner xsep=5pt, inner ysep=2.2pt, anchor=east] at (15.55, -0.44) {Limiter: \textbf{Sliding Window}};
-    \node[fill=blue!70!black, rounded corners=2.5pt, font=\tiny\bfseries, text=white, inner xsep=5.5pt, inner ysep=2.8pt, anchor=east] at (17.75, -0.44) {Export Wireshark .pcap};
-
-    % 6 KPI Cards
-    \fill[black!85, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -0.98) rectangle (3.03, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.41, -1.22) {Leased Addresses};
-    \node[anchor=west, font=\normalsize\bfseries, text=white] at (0.41, -1.63) {11};
-    \node[anchor=west, font=\tiny, text=gray!45] at (0.41, -1.98) {of 143 in pool};
-    \fill[black!85, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \draw[black!60, rounded corners=3pt] (3.18, -0.98) rectangle (5.96, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (3.34, -1.22) {Pool Utilization};
-    \node[anchor=west, font=\normalsize\bfseries, text=cyan!65!white] at (3.34, -1.63) {8\%};
-    \node[anchor=west, font=\tiny, text=gray!45] at (3.34, -1.98) {dynamic pool active};
-    \fill[black!85, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \draw[black!60, rounded corners=3pt] (6.11, -0.98) rectangle (8.89, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.27, -1.22) {Healthy Nodes};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (6.27, -1.63) {3/3};
-    \node[anchor=west, font=\tiny, text=gray!45] at (6.27, -1.98) {all nodes operational};
-    \fill[black!85, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \draw[black!60, rounded corners=3pt] (9.04, -0.98) rectangle (11.82, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (9.20, -1.22) {Allowed Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=green!70!white] at (9.20, -1.63) {56};
-    \node[anchor=west, font=\tiny, text=gray!45] at (9.20, -1.98) {passed rate limiter};
-    \fill[black!85, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \draw[black!60, rounded corners=3pt] (11.97, -0.98) rectangle (14.75, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (12.13, -1.22) {Dropped Requests};
-    \node[anchor=west, font=\normalsize\bfseries, text=red!70!white] at (12.13, -1.63) {30};
-    \node[anchor=west, font=\tiny, text=gray!45] at (12.13, -1.98) {34.9\% drop rate};
-    \fill[black!85, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \draw[black!60, rounded corners=3pt] (14.90, -0.98) rectangle (17.68, -2.18);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (15.06, -1.22) {Gossip Syncs};
-    \node[anchor=west, font=\normalsize\bfseries, text=violet!55!white] at (15.06, -1.63) {114};
-    \node[anchor=west, font=\tiny, text=gray!45] at (15.06, -1.98) {peer replications};
-
-    % 3 Server Node Cards (y = -2.35 to -4.35)
-    % Node 1
-    \fill[black!85, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (0.25, -2.35) rectangle (5.95, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.45, -2.64) {DHCP-Node-1 (192.168.10.201:6701)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (5.75, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.14) {Routed Requests: \textbf{16}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.14) {Gossip Syncs: \textbf{32}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (0.45, -3.56) {Offers / ACKs Sent: \textbf{8 / 7}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (3.20, -3.56) {Traffic Share: \textbf{29\%}};
-    \fill[black!70] (0.45, -4.10) rectangle (5.75, -3.96);
-    \fill[blue!65!cyan] (0.45, -4.10) rectangle (1.99, -3.96);
-
-    % Node 2
-    \fill[black!85, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (6.15, -2.35) rectangle (11.85, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (6.35, -2.64) {DHCP-Node-2 (192.168.10.202:6702)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (11.65, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.14) {Routed Requests: \textbf{22}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.14) {Gossip Syncs: \textbf{40}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (6.35, -3.56) {Offers / ACKs Sent: \textbf{11 / 9}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (9.10, -3.56) {Traffic Share: \textbf{39\%}};
-    \fill[black!70] (6.35, -4.10) rectangle (11.65, -3.96);
-    \fill[blue!65!cyan] (6.35, -4.10) rectangle (8.41, -3.96);
-
-    % Node 3
-    \fill[black!85, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \draw[green!65!black, thick, rounded corners=3pt] (12.05, -2.35) rectangle (17.75, -4.35);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (12.25, -2.64) {DHCP-Node-3 (192.168.10.203:6703)};
-    \node[anchor=east, fill=green!65!black, rounded corners=2pt, font=\tiny\bfseries, text=white, inner xsep=4pt, inner ysep=1.5pt] at (17.55, -2.64) {HEALTHY};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.14) {Routed Requests: \textbf{18}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.14) {Gossip Syncs: \textbf{42}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (12.25, -3.56) {Offers / ACKs Sent: \textbf{9 / 8}};
-    \node[anchor=west, font=\tiny, text=gray!30] at (15.00, -3.56) {Traffic Share: \textbf{32\%}};
-    \fill[black!70] (12.25, -4.10) rectangle (17.55, -3.96);
-    \fill[blue!65!cyan] (12.25, -4.10) rectangle (13.95, -3.96);
-
-    % Bottom-Left: Replicated Lease Table (x = 0.25 to 10.25, y = -4.52 to -8.18)
-    \fill[black!85, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \draw[black!60, rounded corners=3pt] (0.25, -4.52) rectangle (10.25, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (0.40, -4.80) {Replicated Lease Table (11 / 143)};
-    \draw[black!60] (0.25, -5.02) -- (10.25, -5.02);
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (0.38, -5.25) {IP ADDRESS};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (2.45, -5.25) {CLIENT MAC};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (5.05, -5.25) {HOSTNAME};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (6.95, -5.25) {STATE};
-    \node[anchor=west, font=\tiny\bfseries, text=gray!45] at (8.25, -5.25) {NODE};
-    \node[anchor=east, font=\tiny\bfseries, text=gray!45] at (10.12, -5.25) {TTL};
-    \draw[black!60] (0.25, -5.42) -- (10.25, -5.42);
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -5.68) {192.168.10.5};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -5.68) {00:1A:2B:3C:4D:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -5.68) {gateway-admin-vip};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -5.68) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -5.68) {DHCP-Node-1};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -5.68) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.09) {192.168.10.6};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.09) {00:1A:2B:3C:4D:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.09) {prod-db-primary};
-    \node[anchor=west, fill=violet!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.09) {STATIC};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.09) {STATIC-VIP};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.09) {Permanent};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.50) {192.168.10.10};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.50) {AA:BB:CC:00:00:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.50) {workstation-01};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.50) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.50) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.50) {86s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -6.91) {192.168.10.11};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -6.91) {AA:BB:CC:00:00:02};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -6.91) {workstation-02};
-    \node[anchor=west, fill=green!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -6.91) {ACTIVE};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -6.91) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -6.91) {105s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.32) {192.168.10.12};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.32) {CONFLICT-11:22:03};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.32) {arp-conflict};
-    \node[anchor=west, fill=red!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.32) {DECLINED};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.32) {DHCP-Node-3};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.32) {92s};
-    \node[anchor=west, font=\ttfamily\scriptsize, text=white] at (0.38, -7.73) {192.168.10.18};
-    \node[anchor=west, font=\ttfamily\tiny, text=gray!30] at (2.45, -7.73) {DE:AD:BE:EF:00:01};
-    \node[anchor=west, font=\scriptsize, text=gray!20] at (5.05, -7.73) {rogue-bot-1};
-    \node[anchor=west, fill=cyan!75!black, rounded corners=1.5pt, inner xsep=3.5pt, inner ysep=1.2pt, font=\tiny\bfseries, text=white] at (6.95, -7.73) {OFFERED};
-    \node[anchor=west, font=\scriptsize, text=gray!30] at (8.25, -7.73) {DHCP-Node-2};
-    \node[anchor=east, font=\ttfamily\scriptsize, text=gray!20] at (10.12, -7.73) {28s};
-
-    % Bottom-Right: Real-Time Event Stream (x = 10.40 to 17.75, y = -4.52 to -8.18)
-    \fill[black!95, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \draw[black!60, rounded corners=3pt] (10.40, -4.52) rectangle (17.75, -8.18);
-    \node[anchor=west, font=\scriptsize\bfseries, text=white] at (10.55, -4.80) {Real-Time Cluster \& Packet Event Stream};
-    \draw[black!60] (10.40, -5.02) -- (17.75, -5.02);
-    \draw[green!80!white, very thick] (10.55, -5.24) -- (10.55, -5.49);
-    \node[anchor=west, font=\ttfamily\tiny, text=green!30!white] at (10.68, -5.36) {16:12:48 [DHCP-Node-1] RECOVERY: Node restored ONLINE (3/3 in ring)};
-    \draw[red!80!white, very thick] (10.55, -5.61) -- (10.55, -5.86);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -5.73) {16:12:51 [SECURITY-SIM] Launching DHCP Starvation flood (40 pkts)...};
-    \draw[red!80!white, very thick] (10.55, -5.98) -- (10.55, -6.23);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -6.10) {16:12:51 [LB] RATE LIMIT DROP: Blocked MAC DE:AD:BE:EF:00:0B};
-    \draw[red!80!white, very thick] (10.55, -6.35) -- (10.55, -6.60);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -6.47) {16:12:51 [LB] RATE LIMIT DROP: Blocked MAC DE:AD:BE:EF:00:0C};
-    \draw[red!80!white, very thick] (10.55, -6.72) -- (10.55, -6.97);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -6.84) {16:12:51 [LB] RATE LIMIT DROP: Blocked MAC DE:AD:BE:EF:00:0D};
-    \draw[red!80!white, very thick] (10.55, -7.09) -- (10.55, -7.34);
-    \node[anchor=west, font=\ttfamily\tiny, text=red!30!white] at (10.68, -7.21) {16:12:51 [LB] RATE LIMIT DROP: Blocked MAC DE:AD:BE:EF:00:0E};
-    \draw[orange!80!white, very thick] (10.55, -7.46) -- (10.55, -7.71);
-    \node[anchor=west, font=\ttfamily\tiny, text=orange!30!white] at (10.68, -7.58) {16:12:51 [LB] 30/40 flood packets dropped via SLIDING\_WINDOW\_COUNTER};
-    \draw[cyan!80!white, very thick] (10.55, -7.83) -- (10.55, -8.08);
-    \node[anchor=west, font=\ttfamily\tiny, text=cyan!30!white] at (10.68, -7.95) {16:12:52 [PCAP] Exported 114 DHCP+Gossip frames to Wireshark .pcap};
-\end{tikzpicture}%
-}
-\caption{DHCP Dashboard (Case 4 --- DHCP Starvation Flood Defense \& Wireshark PCAP Export): A 40-packet flood from spoofed MACs (\texttt{DE:AD:BE:EF:XX:XX}) is throttled by the Rate Limiter (\texttt{Dropped Requests: 30}), preserving the IP pool.}
-\label{fig:dhcp_ui_case4}
+\includegraphics[width=0.94\textwidth,keepaspectratio]{docs/screenshots/dhcp_04_starvation_defense.png}
+\caption{DHCP Dashboard Case 4 (DHCP Starvation Attack vs.\ Dual-Engine Rate Limiter): A 40-packet flood from spoofed MAC addresses (\texttt{DE:AD:BE:EF:XX:XX}) is intercepted by the Load Balancer's rate limiter (\texttt{Dropped Requests: 39}), preventing dynamic pool exhaustion.}
+\label{fig:dhcp_shot_4}
 \end{figure}
 
 % ==============================================================================
@@ -1001,41 +361,21 @@ The DHCP module provides a real-time web control center on \texttt{http://localh
 
 \begin{figure}[H]
 \centering
-\resizebox{0.96\textwidth}{!}{%
-\begin{tikzpicture}[
-    x=1cm, y=1cm,
-    >=Stealth,
-    box/.style={draw=black, thick, rounded corners=3pt, fill=white, minimum width=3.6cm, minimum height=1.15cm, align=center, font=\footnotesize},
-    busbox/.style={draw=black, thick, rounded corners=3pt, fill=gray!15, minimum width=3.4cm, minimum height=1.2cm, align=center, font=\footnotesize\bfseries},
-    arr/.style={thick, ->},
-    darr/.style={thick, dashed, ->}
-]
-    % Explicit grid coordinates: Left (-5.5), Center (0), Right (+5.5) -> zero label collisions
-    \node[busbox] (bus)   at (0, 0)       {\texttt{campus.Bus}\\(\texttt{CampusHooks})};
-    \node[box]    (dhcp)  at (-5.5, 2.1)  {\textbf{DHCP Cluster}\\LB :6700, Nodes :6701--3\\\texttt{LeaseManager}};
-    \node[box]    (arp)   at (5.5, 2.1)   {\textbf{ARP Lab}\\Switch \texttt{CSE-Switch}\\\texttt{DhcpSnoopingTable}, DAI};
-    \node[box]    (relay) at (-5.5, -2.1) {\textbf{\texttt{LanRelay}}\\TCP :2325 / TLS :9925};
-    \node[box]    (cl)    at (-10.2, -2.1){\textbf{Admin Laptop}\\Telnet Client};
-    \node[box]    (tel)   at (5.5, -2.1)  {\textbf{Telnet Server}\\\texttt{VtyPool} :2323 / :9923\\\texttt{CommandShell}};
-
-    % Top-Left <-> Center (separated upper and lower tracks)
-    \draw[arr] (dhcp.east) -| (-0.6, 0.6) node[pos=0.25, above, font=\scriptsize] {Active leases (\texttt{syncLeases})};
-    \draw[arr] (-1.7, 0.2) -| (dhcp.south) node[pos=0.25, below, font=\scriptsize] {\texttt{DHCPDECLINE} (conflict)};
-
-    % Center -> Top-Right
-    \draw[arr] (0.6, 0.6) |- (arp.west) node[pos=0.75, above, font=\scriptsize] {Snooping bindings (Port 6)};
-
-    % Bottom-Left -> Relay -> Center / Telnet
-    \draw[arr]  (cl.east) -- node[midway, above, font=\scriptsize] {TCP} (relay.west);
-    \draw[darr] (relay.north) |- (-1.7, -0.25) node[pos=0.72, above, font=\scriptsize] {Ethernet frames (\texttt{telnetBytes})};
-    \draw[arr]  (relay.east) -- node[midway, below, font=\scriptsize] {Proxied TCP stream} (tel.west);
-
-    % Bottom-Right -> Center
-    \draw[arr]  (tel.north) |- (1.7, -0.25) node[pos=0.72, above, font=\scriptsize] {Router CLI hooks};
-\end{tikzpicture}%
-}
-\caption{How the three modules (DHCP, ARP, and Telnet) are joined across \texttt{campus.Bus} and \texttt{LanRelay}.}
-\label{fig:integration_arch}
+\begin{tikzpicture}[node distance=0.8cm, box/.style={draw, rounded corners=2pt, minimum width=2.8cm, minimum height=0.9cm, align=center, font=\small}, >=Stealth]
+\node[box] (bus) {\texttt{campus.Bus}\\(CampusHooks)};
+\node[box, above left=0.8cm and 0.9cm of bus] (dhcp) {DHCP cluster\\LB 6700, nodes 6701--3\\LeaseManager};
+\node[box, above right=0.8cm and 0.9cm of bus] (arp) {ARP lab\\EthernetSwitch, hosts\\DhcpSnoopingTable, DAI};
+\node[box, below right=0.8cm and 0.9cm of bus] (tel) {Telnet server\\VtyPool 2323 / 9923\\CommandShell};
+\node[box, below left=0.8cm and 0.9cm of bus] (relay) {LanRelay\\2325 / 9925};
+\node[box, left=0.8cm of relay] (cl) {Admin's\\Telnet client};
+\draw[->] (dhcp) -- node[left, font=\footnotesize, align=right]{leases} (bus);
+\draw[->] (bus) -- node[right, font=\footnotesize, align=left]{bindings,\\laptop on port 6} (arp);
+\draw[->] (bus.west) -| node[above, pos=0.2, font=\footnotesize]{DECLINE} (dhcp.south);
+\draw[->] (cl) -- (relay); \draw[->] (relay) -- node[below, font=\footnotesize]{TCP} (tel);
+\draw[->, dashed] (relay) -- node[left, font=\footnotesize]{frames} (bus);
+\draw[->] (tel) -- node[right, font=\footnotesize]{CLI hooks} (bus);
+\end{tikzpicture}
+\caption{How the three modules are joined.}
 \end{figure}
 
 \noindent \texttt{run.bat} compiles the three modules from their own folders together with the integration package:
