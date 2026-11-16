@@ -1,5 +1,6 @@
 package dhcp.client;
 
+import dhcp.protocol.PcapRecorder;
 import dhcp.protocol.DhcpMessageType;
 import dhcp.protocol.DhcpPacket;
 
@@ -38,7 +39,7 @@ public class DhcpClientSimulator {
             discover.setOptionString(DhcpPacket.OPT_HOSTNAME, hostname);
 
             byte[] discBytes = discover.toBytes();
-            clientSocket.send(new DatagramPacket(discBytes, discBytes.length, lbAddr, loadBalancerPort));
+            PcapRecorder.send(clientSocket, new DatagramPacket(discBytes, discBytes.length, lbAddr, loadBalancerPort));
             log("[" + hostname + " | " + macAddress + "] Sent DHCPDISCOVER (xid=0x" + Integer.toHexString(xid) + ")");
 
             byte[] buf = new byte[1500];
@@ -67,7 +68,7 @@ public class DhcpClientSimulator {
             request.setOptionString(DhcpPacket.OPT_HOSTNAME, hostname);
 
             byte[] reqBytes = request.toBytes();
-            clientSocket.send(new DatagramPacket(reqBytes, reqBytes.length, lbAddr, loadBalancerPort));
+            PcapRecorder.send(clientSocket, new DatagramPacket(reqBytes, reqBytes.length, lbAddr, loadBalancerPort));
             log("[" + hostname + "] Sent DHCPREQUEST for IP=" + offeredIp + " (serverId=" + serverId + ")");
 
             DatagramPacket ackRaw = new DatagramPacket(buf, buf.length);
@@ -112,7 +113,7 @@ public class DhcpClientSimulator {
             release.setChaddr(macAddress);
             release.setMessageType(DhcpMessageType.DHCPRELEASE);
             byte[] bytes = release.toBytes();
-            clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
+            PcapRecorder.send(clientSocket, new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
             log("[CLIENT " + macAddress + "] Sent DHCPRELEASE for IP " + assignedIp);
         } catch (Exception e) {
             log("Failed to send DHCPRELEASE: " + e.getMessage());
@@ -130,7 +131,7 @@ public class DhcpClientSimulator {
             inform.setMessageType(DhcpMessageType.DHCPINFORM);
             inform.setOptionString(DhcpPacket.OPT_HOSTNAME, hostname);
             byte[] bytes = inform.toBytes();
-            clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
+            PcapRecorder.send(clientSocket, new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
             log("[" + hostname + " | " + macAddress + "] Sent DHCPINFORM (ciaddr=" + clientIp + ")");
 
             byte[] buf = new byte[1500];
@@ -158,7 +159,7 @@ public class DhcpClientSimulator {
             decline.setMessageType(DhcpMessageType.DHCPDECLINE);
             decline.setOptionIp(DhcpPacket.OPT_REQUESTED_IP, conflictedIp);
             byte[] bytes = decline.toBytes();
-            clientSocket.send(new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
+            PcapRecorder.send(clientSocket, new DatagramPacket(bytes, bytes.length, InetAddress.getByName("127.0.0.1"), loadBalancerPort));
             log("[CLIENT " + macAddress + "] Sent DHCPDECLINE (ARP Conflict reported for IP " + conflictedIp + ")");
         } catch (Exception e) {
             log("Failed to send DHCPDECLINE: " + e.getMessage());
@@ -178,7 +179,7 @@ public class DhcpClientSimulator {
                 pkt.setMessageType(DhcpMessageType.DHCPDISCOVER);
                 pkt.setOptionString(DhcpPacket.OPT_HOSTNAME, "rogue-bot-" + i);
                 byte[] bytes = pkt.toBytes();
-                attackSocket.send(new DatagramPacket(bytes, bytes.length, lbAddr, loadBalancerPort));
+                PcapRecorder.send(attackSocket, new DatagramPacket(bytes, bytes.length, lbAddr, loadBalancerPort));
             }
         } catch (Exception e) {
             log("[SECURITY-SIM] Error: " + e.getMessage());

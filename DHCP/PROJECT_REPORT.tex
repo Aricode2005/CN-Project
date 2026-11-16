@@ -889,6 +889,29 @@ $ javac -d out src/dhcp/protocol/*.java src/dhcp/model/*.java src/dhcp/cluster/*
 $ java -cp out dhcp.Main
 \end{lstlisting}
 
+\subsection{Wireshark Packet Capture and PCAP Export}
+All internal cluster traffic (client--load balancer, load balancer--node, heartbeats, and gossip sync) can be analysed in Wireshark through two complementary mechanisms:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{On-the-wire capture (Docker sidecar):} The \texttt{dhcp-packet-capture} container runs \texttt{tcpdump} in the host network namespace on the cluster bridge, which Docker Compose names \texttt{dhcp\_br0} through the \texttt{com.docker.network.bridge.name} driver option. It writes rotating libpcap files into \texttt{DHCP/captures/}.
+    \item \textbf{In-application recorder (\texttt{PcapRecorder.java}):} Every \texttt{socket.send()} in the load balancer, server nodes, and client simulator goes through \texttt{PcapRecorder.send()}. The recorder keeps the last 50{,}000 datagrams in memory. On request it rebuilds a valid IPv4 header (with header checksum) and a UDP header (with pseudo-header checksum) and emits a libpcap file with \texttt{LINKTYPE\_RAW (101)}. The file is served at \texttt{/api/pcap} and through the dashboard's \emph{Download .pcap} button.
+\end{enumerate}
+Because the cluster's internal ports (6700--6703) are non-standard, Wireshark's \emph{Decode As} feature (or \texttt{tshark -d udp.port==6701,dhcp}) maps them to the DHCP/BOOTP dissector. The custom cluster messages then appear as Option~53 values 101 (gossip sync), 102 (heartbeat ping), and 103 (heartbeat pong).
+
+\begin{lstlisting}[language=bash, caption={Capturing and exporting internal cluster traffic for Wireshark.}]
+# Docker: recreate the network once so the bridge is named dhcp_br0
+$ docker compose down
+$ docker compose up --build -d
+$ docker logs dhcp-packet-capture        # "Recording all traffic on dhcp_br0"
+$ dir captures                           # dhcp_cluster_YYYYMMDD_HHMMSS.pcap
+
+# Dashboard export (Docker or native mode)
+$ curl.exe -o dhcp_cluster.pcap http://localhost:8080/api/pcap
+
+# Decode the internal ports as DHCP with tshark
+$ tshark -r dhcp_cluster.pcap -d udp.port==6700,dhcp -d udp.port==6701,dhcp \
+    -d udp.port==6702,dhcp -d udp.port==6703,dhcp
+\end{lstlisting}
+
 \subsection{Observations and Empirical Results}
 \begin{lstlisting}[numbers=none, caption={Observed D-O-R-A packet stream, failover, and starvation defense output logs.}]
 15:13:43.301 [workstation-38 | AA:BB:CC:00:00:26] Sent DHCPDISCOVER (xid=0x5c4a1e9)

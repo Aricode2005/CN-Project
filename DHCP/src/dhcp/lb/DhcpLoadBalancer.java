@@ -1,5 +1,6 @@
 package dhcp.lb;
 
+import dhcp.protocol.PcapRecorder;
 import dhcp.protocol.DhcpMessageType;
 import dhcp.protocol.DhcpPacket;
 
@@ -66,6 +67,7 @@ public class DhcpLoadBalancer {
     public void setSubnetPrefix(String subnetPrefix) {
         this.subnetPrefix = subnetPrefix.endsWith(".") ? subnetPrefix : subnetPrefix + ".";
         detectLanServerIp();
+        PcapRecorder.setLocalIp(lanServerIp);
     }
 
     private void detectLanServerIp() {
@@ -103,6 +105,7 @@ public class DhcpLoadBalancer {
     public void start() throws SocketException {
         if (running.getAndSet(true)) return;
         detectLanServerIp();
+        PcapRecorder.setLocalIp(lanServerIp);
 
         socket = new DatagramSocket(null);
         socket.setReuseAddress(true);
@@ -134,6 +137,7 @@ public class DhcpLoadBalancer {
             try {
                 DatagramPacket raw = new DatagramPacket(buf, buf.length);
                 socket.receive(raw);
+                PcapRecorder.recordReceived(socket, raw, lanServerIp);
 
                 DhcpPacket packet = DhcpPacket.fromBytes(raw.getData(), raw.getLength());
                 DhcpMessageType type = packet.getMessageType();
@@ -193,7 +197,7 @@ public class DhcpLoadBalancer {
                     byte[] outBytes = packet.toBytes();
                     DatagramPacket forward = new DatagramPacket(
                             outBytes, outBytes.length, InetAddress.getByName(targetHost), targetBackendPort);
-                    socket.send(forward);
+                    PcapRecorder.send(socket, forward);
                 } else if (packet.getOp() == DhcpPacket.BOOTREPLY) {
                     if (clusterNodes != null) {
                         for (dhcp.cluster.DhcpServerNode n : clusterNodes) {
@@ -222,18 +226,18 @@ public class DhcpLoadBalancer {
                         if (!isNak && !broadcastFlag && ciaddr != null && !ciaddr.equals("0.0.0.0")) {
                             DatagramPacket toUnicastClient = new DatagramPacket(
                                      outBytes, outBytes.length, InetAddress.getByName(ciaddr), 68);
-                            outSock.send(toUnicastClient);
+                            PcapRecorder.send(outSock, toUnicastClient);
                             log("LAN UNICAST REPLY -> Sent " + packet.getMessageType() + " (yiaddr=" + packet.getYiaddr()
                                     + ") to " + ciaddr + ":68 for MAC " + packet.getChaddr());
                         } else {
                             String subnetBroadcast = subnetPrefix + "255";
                             DatagramPacket toSubnetBcast = new DatagramPacket(
                                     outBytes, outBytes.length, InetAddress.getByName(subnetBroadcast), 68);
-                            outSock.send(toSubnetBcast);
+                            PcapRecorder.send(outSock, toSubnetBcast);
 
                             DatagramPacket toGlobalBcast = new DatagramPacket(
                                     outBytes, outBytes.length, InetAddress.getByName("255.255.255.255"), 68);
-                            outSock.send(toGlobalBcast);
+                            PcapRecorder.send(outSock, toGlobalBcast);
                             log("LAN BROADCAST REPLY -> Sent " + packet.getMessageType() + " (yiaddr=" + packet.getYiaddr()
                                     + ", ServerID=" + lanServerIp + ") to " + subnetBroadcast + ":68 & 255.255.255.255:68 for MAC " + packet.getChaddr());
                         }
@@ -241,7 +245,7 @@ public class DhcpLoadBalancer {
                         byte[] outBytes = packet.toBytes();
                         DatagramPacket toSimClient = new DatagramPacket(
                                 outBytes, outBytes.length, InetAddress.getByName("127.0.0.1"), clientPort);
-                        socket.send(toSimClient);
+                        PcapRecorder.send(socket, toSimClient);
                     }
                 }
             } catch (IOException e) {
@@ -275,7 +279,7 @@ public class DhcpLoadBalancer {
                 byte[] bytes = ping.toBytes();
                 DatagramPacket dp = new DatagramPacket(
                         bytes, bytes.length, InetAddress.getByName(host), backendPort);
-                socket.send(dp);
+                PcapRecorder.send(socket, dp);
             } catch (IOException ignored) {
             }
         }

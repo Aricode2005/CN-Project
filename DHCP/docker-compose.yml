@@ -70,9 +70,26 @@ services:
       dhcp_lan:
         ipv4_address: 192.168.10.200
 
+  packet-capture:
+    build:
+      context: ./capture
+    container_name: dhcp-packet-capture
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      CAPTURE_IFACE: dhcp_br0
+      CAPTURE_ROTATE_SECONDS: "600"
+    volumes:
+      - ./captures:/captures
+    restart: unless-stopped
+
 networks:
   dhcp_lan:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: dhcp_br0
     ipam:
       config:
         - subnet: 192.168.10.0/24

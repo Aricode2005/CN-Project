@@ -323,6 +323,41 @@ Executes:
 
 ---
 
+### Method D: Capture Internal Traffic in Wireshark (.pcap Export)
+
+All internal cluster traffic can be captured and exported as a standard Wireshark `.pcap` file. This includes client ↔ load balancer, load balancer ↔ nodes, 700 ms heartbeats and gossip sync. There are three ways to do it:
+
+#### Option 1: Docker sidecar (whole cluster, recorded on the wire)
+`docker compose up` also starts a `dhcp-packet-capture` container. It runs `tcpdump` on the cluster bridge `dhcp_br0` and writes rotating pcap files (a new one every 10 minutes) into `DHCP/captures/`.
+```powershell
+docker compose down                 # required once so the network is recreated with the bridge name dhcp_br0
+docker compose up --build -d
+docker logs dhcp-packet-capture     # should show: Recording all traffic on dhcp_br0 ...
+dir captures                        # dhcp_cluster_YYYYMMDD_HHMMSS.pcap -> open in Wireshark
+```
+Live streaming straight into Wireshark (run this in **cmd.exe**, not PowerShell, because PowerShell corrupts binary pipes):
+```cmd
+docker exec dhcp-packet-capture tcpdump -i dhcp_br0 -U -s 0 -w - | "C:\Program Files\Wireshark\Wireshark.exe" -k -i -
+```
+
+#### Option 2: Dashboard export (Docker or native mode)
+The dashboard at http://localhost:8080 has a **Wireshark Packet Capture** panel with **Download .pcap**, **Pause/Resume** and **Clear** buttons. It records every UDP datagram sent inside the load balancer's JVM; in native mode that is the entire cluster. Command-line download:
+```powershell
+curl.exe -o dhcp_cluster.pcap http://localhost:8080/api/pcap
+```
+
+#### Option 3: Live loopback capture (native mode)
+Install Wireshark with **Npcap** and start a capture on **Adapter for loopback traffic capture**, using the capture filter `udp portrange 6700-6703`.
+
+#### Decoding the internal ports as DHCP
+Wireshark only decodes DHCP automatically on UDP 67/68. In native mode the cluster uses ports 6700–6703, so go to **Analyze → Decode As…** and map `UDP port` 6700, 6701, 6702 and 6703 to **DHCP/BOOTP**. With tshark:
+```powershell
+tshark -r dhcp_cluster.pcap -d udp.port==6700,dhcp -d udp.port==6701,dhcp -d udp.port==6702,dhcp -d udp.port==6703,dhcp
+```
+Useful display filters: `dhcp.option.dhcp == 1` (DISCOVER), `dhcp.option.dhcp == 5` (ACK), `dhcp.option.dhcp == 101` (gossip sync), `dhcp.option.dhcp == 102 || dhcp.option.dhcp == 103` (heartbeat ping/pong).
+
+---
+
 ## 5. Live Demonstration & Viva Guide (For Presentations)
 
 ### Step 1: Open the Portals

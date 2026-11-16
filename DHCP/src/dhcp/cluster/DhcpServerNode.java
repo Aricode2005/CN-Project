@@ -1,5 +1,6 @@
 package dhcp.cluster;
 
+import dhcp.protocol.PcapRecorder;
 import dhcp.model.LeaseRecord;
 import dhcp.protocol.DhcpMessageType;
 import dhcp.protocol.DhcpPacket;
@@ -271,7 +272,7 @@ public class DhcpServerNode {
         for (InetSocketAddress peer : peerEndpoints) {
             try {
                 DatagramPacket dp = new DatagramPacket(bytes, bytes.length, peer.getAddress(), peer.getPort());
-                socket.send(dp);
+                PcapRecorder.send(socket, dp);
             } catch (IOException ignored) {
             }
         }
@@ -281,7 +282,7 @@ public class DhcpServerNode {
         try {
             byte[] bytes = packet.toBytes();
             DatagramPacket dp = new DatagramPacket(bytes, bytes.length, addr, port);
-            socket.send(dp);
+            PcapRecorder.send(socket, dp);
         } catch (IOException e) {
             log("Failed to send UDP reply: " + e.getMessage());
         }
@@ -305,7 +306,7 @@ public class DhcpServerNode {
                 toggle.setMessageType(DhcpMessageType.CLUSTER_CHAOS_TOGGLE);
                 byte[] bytes = toggle.toBytes();
                 DatagramPacket dp = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(serverIp), udpPort);
-                tmp.send(dp);
+                PcapRecorder.send(tmp, dp);
             } catch (IOException ignored) {
             }
         }
