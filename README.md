@@ -21,6 +21,11 @@ The three modules also run **together as one campus LAN** in **[MainProject](./M
 
 Run `MainProject\run.bat` and open http://localhost:8089 (18 end-to-end checks with `--verify`).
 
+**Everything at once:** double-click `run_all.bat` in this folder.
+- It starts the main project together with Mail, DNS, RARP-BOOTP, FTP, HTTP and Routing, each in its own window, and opens all ten dashboards (ports 8080–8089).
+- The main project also brings up Telnet's HA cluster on 2330, RADIUS and the group chat, so the standalone ARP, DHCP and Telnet labs are not needed. They would clash on the same ports.
+- `run_all.bat stop` closes everything.
+
 | Module | Protocol & RFCs | Ports | Description |
 |:---|:---|:---|:---|
 | **[ARP](./ARP)** | RFC 826, RFC 5227, RFC 1027 | HTTP **8082** (Dashboard & Wire Sniffer) | Address Resolution Protocol (ARP), L2 Switch CAM Learning, Address Conflict Detection (ACD), Proxy ARP, MITM Poisoning, and Dynamic ARP Inspection (DAI). |
@@ -95,7 +100,7 @@ cd DHCP
 ```powershell
 cd Telnet
 .\run.bat           # Start server, wire tap, and dashboard
-.\run.bat --verify  # Run 59 automated checks
+.\run.bat --verify  # Run 70 automated checks
 ```
 
 ---

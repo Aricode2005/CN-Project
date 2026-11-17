@@ -246,7 +246,8 @@ const NS = 'http://www.w3.org/2000/svg';
 function el(t, a, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
 const SWC = { x:470, y:300 };                                            // the switch
 const DEV = { 1:{x:150,y:95}, 2:{x:380,y:95}, 3:{x:610,y:95}, 4:{x:790,y:300}, 5:{x:470,y:470}, 6:{x:120,y:300} };
-const CL = { lb:{x:870,y:175}, n:{1:{x:780,y:62},2:{x:870,y:62},3:{x:960,y:62}} };
+const CL = { lb:{x:915,y:175}, n:{1:{x:780,y:62},2:{x:870,y:62},3:{x:960,y:62}} };
+const RA = { x:915, y:300 };                                             // the DHCP relay agent (ip helper-address), drawn as its own box beside the router
 const COL = { dhcp:'#3d8fe8', arp:'#e8b82e', tel:'#3fb67d', bad:'#e55050' };
 const PORTN = { 1:'Fa0/1', 2:'Fa0/2', 3:'Fa0/3', 4:'Fa0/4', 5:'Fa0/5', 6:'Fa0/6' };
 const DEVPORT = { 1:'Fa0', 2:'Fa0', 3:'Fa0', 4:'Fa0/0', 5:'Fa0', 6:'Fa0' };
@@ -256,7 +257,9 @@ const portPath = p => [DEV[p], SWC];
 const pin = p => SWC;
 const rev = l => l.slice().reverse();
 const route = (from, to) => [DEV[from], SWC, DEV[to]];
-const routerToLb = () => [DEV[4], CL.lb];
+const routerToRa = () => [DEV[4], RA];
+const raToLb = () => [RA, CL.lb];
+const routerToLb = () => [DEV[4], RA, CL.lb];
 const lbToNode = n => [CL.lb, CL.n[n]];
 
 let S = null, NAMES = {};
@@ -308,13 +311,24 @@ function drawMap(s) {
   // links
   devs.forEach(d => { el('line', { x1:DEV[d.port].x, y1:DEV[d.port].y, x2:SWC.x, y2:SWC.y, class:'link' }, svg); linkLights(svg, DEV[d.port], SWC);
     portLabel(svg, SWC, DEV[d.port], PORTN[d.port], 82); if (d.port === 4) portLabel(svg, DEV[4], SWC, 'Fa0/0', 66); });
-  el('line', { x1:DEV[4].x, y1:DEV[4].y, x2:CL.lb.x, y2:CL.lb.y, class:'link' }, svg); linkLights(svg, DEV[4], CL.lb);
+  // router -> relay agent -> load balancer -> three DHCP servers. Three separate roles:
+  //   relay agent   (ip helper-address on the router's LAN side) catches the client's broadcast, sets giaddr, sends it on as a unicast
+  //   load balancer picks one server node (consistent hashing)
+  //   DHCP nodes    hold the leases
+  el('line', { x1:DEV[4].x, y1:DEV[4].y, x2:RA.x, y2:RA.y, class:'link' }, svg); linkLights(svg, DEV[4], RA);
+  el('line', { x1:RA.x, y1:RA.y, x2:CL.lb.x, y2:CL.lb.y, class:'link' }, svg); linkLights(svg, RA, CL.lb);
   [1, 2, 3].forEach(n => el('line', { x1:CL.lb.x, y1:CL.lb.y, x2:CL.n[n].x, y2:CL.n[n].y, class:'link', 'stroke-dasharray':'4 3' }, svg));
-  // the DHCP cluster: three servers behind a relay/load balancer, reached through the router (like "ip helper-address")
   [1, 2, 3].forEach(n => { const g = el('g', { id:'node' + n }, svg); iconServer(g, CL.n[n], false); const t = el('text', { x:CL.n[n].x, y:CL.n[n].y + 42, 'text-anchor':'middle', class:'lbl2' }, svg); t.textContent = 'Node-' + n; });
   const lb = el('g', {}, svg); el('rect', { x:CL.lb.x - 30, y:CL.lb.y - 14, width:60, height:28, rx:4, fill:'#3b6fb6', stroke:'#1d3a63', 'stroke-width':2 }, lb);
   const lbt = el('text', { x:CL.lb.x, y:CL.lb.y + 5, 'text-anchor':'middle', fill:'#fff', 'font-size':12, 'font-weight':700, 'font-family':'IBM Plex Mono' }, lb); lbt.textContent = 'LB';
-  const lbl = el('text', { x:CL.lb.x + 38, y:CL.lb.y + 4, class:'lbl2' }, svg); lbl.textContent = 'relay';
+  const lbl = el('text', { x:CL.lb.x - 38, y:CL.lb.y + 4, 'text-anchor':'end', class:'lbl2' }, svg); lbl.textContent = 'load balancer';
+  // the relay agent: its own box, not the router
+  const ra = el('g', { id:'relay' }, svg);
+  el('rect', { x:RA.x - 36, y:RA.y - 15, width:72, height:30, rx:15, fill:'#fff', stroke:'#3b6fb6', 'stroke-width':2.5, 'stroke-dasharray':'5 3', class:'ra-box' }, ra);
+  const rat = el('text', { x:RA.x, y:RA.y + 5, 'text-anchor':'middle', fill:'#1d3a63', 'font-size':12, 'font-weight':700, 'font-family':'IBM Plex Mono' }, ra); rat.textContent = 'RELAY';
+  const ral = el('text', { x:RA.x, y:RA.y + 34, 'text-anchor':'middle', class:'lbl' }, svg); ral.textContent = 'Relay agent';
+  const rag = el('text', { x:RA.x, y:RA.y + 50, 'text-anchor':'middle', class:'lbl2' }, svg); rag.textContent = 'giaddr 192.168.1.1';
+  el('text', { x:RA.x + 2, y:RA.y - 46, 'text-anchor':'middle', class:'verdict', id:'vRA', stroke:'#fff', 'stroke-width':4, 'paint-order':'stroke' }, svg);
   // the switch
   const sg = el('g', {}, svg); iconSwitch(sg, SWC);
   const sl = el('text', { x:SWC.x - 56, y:SWC.y + 24, 'text-anchor':'end', class:'lbl' }, svg); sl.textContent = 'CSE-Switch';
@@ -411,6 +425,18 @@ function flash(port, color, verdict, vcolor) {
   const v = $('v' + port); if (v && verdict) { v.textContent = verdict; v.setAttribute('fill', vcolor || 'var(--ink)'); d.classList.add('show'); setTimeout(() => d.classList.remove('show'), 1800 * K()); }
   if (verdict) settle(port, color, !/not for me|ignored|dropped/.test(verdict));
 }
+/* the relay agent lights up and says what it did to the packet */
+async function raFlash(color, text) {
+  const box = document.querySelector('#relay .ra-box'), v = $('vRA');
+  if (box) { box.setAttribute('fill', '#dbe9fb'); box.setAttribute('stroke', cssColor(color)); }
+  if (v) {
+    v.textContent = '';
+    text.split('\n').forEach((line, k) => { const t = el('tspan', { x:v.getAttribute('x'), dy: k ? 15 : 0 }, v); t.textContent = line; });
+    v.setAttribute('fill', 'var(--dhcp)'); v.style.opacity = 1;
+  }
+  if (!SKIP && !reduced) await wait(900);
+  setTimeout(() => { if (box) { box.setAttribute('fill', '#fff'); box.setAttribute('stroke', '#3b6fb6'); } if (v) v.style.opacity = 0; }, 1400 * K());
+}
 function nodeLit(n, on) { const g = $('node' + n); if (!g) return; const r = g.querySelector('rect'); if (r) r.setAttribute('fill', on ? '#7fb3f0' : '#dfe4ea'); }
 function dropMark() { settle('sw', COL.bad, false); const g = $('pk'); const t = el('text', { x:SWC.x, y:SWC.y - 44, 'text-anchor':'middle', fill:'var(--bad)', 'font-size':16, 'font-weight':700, 'font-family':'IBM Plex Mono' }, g); t.textContent = 'DAI: dropped'; setTimeout(() => t.remove(), 1600 * K()); }
 
@@ -469,18 +495,23 @@ async function playDhcp(r, i, n) {
     ['Ethernet ' + (up ? 'dst FF:FF:FF:FF:FF:FF' : 'dst 3C:52:82:AD:00:01'), 'IP ' + (up ? '0.0.0.0 → 255.255.255.255' : 'server → client'), 'UDP ' + (up ? '68 → 67' : '67 → 68'), 'DHCP ' + r.msg], r.fields, i, n);
   const label = DHCP_LABEL[r.msg];
   if (up) {
-    // a layer-2 broadcast: the switch floods it out of every port; only the router (the relay) acts on it
+    // a layer-2 broadcast: the switch floods it out of every port; the PCs ignore it, the router's LAN interface hands it to the
+    // relay agent, which sets giaddr and sends it on as a UNICAST to the load balancer, which picks one server node
     await fly(portPath(6), col, label, 650);
     const others = devices(S).filter(d => d.port !== 6).map(d => d.port);
     await Promise.all(others.map(p => fly([pin(6), pin(p)].concat(rev(portPath(p))), col, label, 900)));
-    others.forEach(p => flash(p, col, p === 4 ? 'relays to the server' : 'not for me: ignored', p === 4 ? 'var(--dhcp)' : 'var(--muted)'));
-    await fly(routerToLb(), col, label + ' (giaddr set)', 650);
+    others.forEach(p => flash(p, col, p === 4 ? 'to the relay agent' : 'not for me: ignored', p === 4 ? 'var(--dhcp)' : 'var(--muted)'));
+    await fly(routerToRa(), col, label + ' (broadcast)', 550);
+    await raFlash(col, 'broadcast → unicast\ngiaddr = 192.168.1.1');
+    await fly(raToLb(), col, label + ' (unicast)', 550);
     await fly(lbToNode(node), col, 'hash → N' + node, 500);
     nodeLit(node, true); await wait(300); nodeLit(node, false);
   } else {
     nodeLit(node, true);
     await fly(rev(lbToNode(node)), col, label, 500);
-    await fly(rev(routerToLb()), col, label, 650);
+    await fly(rev(raToLb()), col, label + ' (to giaddr)', 550);
+    await raFlash(col, 'relays the reply\nto the client');
+    await fly(rev(routerToRa()), col, label, 550);
     await fly(route(4, 6), col, label, 1100);
     flash(6, col, label.replace('DHCP', '') + ' ' + (r.ip || ''), 'var(--dhcp)');
     nodeLit(node, false);

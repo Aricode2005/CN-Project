@@ -12,7 +12,7 @@ import telnet.tap.WireTap;
 /**
  * MAIN PROJECT: ARP + DHCP + Telnet running as one campus LAN (192.168.1.0/24).
  *
- *   DHCP cluster   UDP 6700 (load balancer / relay) + 6701-6703 (nodes)      dashboard http://localhost:8080
+ *   DHCP cluster   UDP 6700 (load balancer; the router JU-Main-R is the relay agent) + 6701-6703 (nodes)      dashboard http://localhost:8080
  *   Telnet router  TCP 2323 (plain), 9923 (TLS), wire taps 2324 / 9924       dashboard http://localhost:8081
  *   ARP lab        simulated switch: hosts, router JU-Main-R, attacker       dashboard http://localhost:8082
  *   LAN relay      TCP 2325 → 2323 and 9925 → 9923: Telnet sessions that also cross the simulated LAN
@@ -54,6 +54,19 @@ public final class Main {
         telDash.start();
         CampusHooks.Holder.hooks = bus;                               // the router CLI can now see DHCP and ARP
 
+        // ---- Telnet extras, so one launch also covers the Telnet dashboard's chapters 08-11 (2330, RADIUS, chat)
+        telnet.cluster.Cluster cluster = null;
+        if (!verify) {
+            telnet.aaa.RadiusServer radiusServer = new telnet.aaa.RadiusServer(cfg.radiusAuthPort, cfg.radiusAcctPort, cfg.radiusKey);
+            try { radiusServer.start(); } catch (java.io.IOException e) { telnet.core.Hub.I.log("[RADIUS] could not start the server: " + e.getMessage()); }
+            telnet.aaa.RadiusClient radius = new telnet.aaa.RadiusClient(cfg);
+            telnet.aaa.RadiusClient.I = radius; telnet.aaa.RadiusClient.SERVER = radiusServer;
+            pool.radius = radius; pool.events.add(radius);
+            cluster = new telnet.cluster.Cluster(cfg, dhcpData);
+            for (VtyPool cp : cluster.pools()) { cp.radius = radius; cp.events.add(radius); }
+            try { cluster.start(); } catch (java.io.IOException e) { telnet.core.Hub.I.log("[CLUSTER] could not start: " + e.getMessage()); cluster = null; }
+        }                               // the router CLI can now see DHCP and ARP
+
         // ---- the cable between the admin laptop and the router
         LanRelay plain = new LanRelay(Story.PLAIN_RELAY, telnet.Main.TELNET, false, bus).start();
         LanRelay secure = tls ? new LanRelay(Story.TLS_RELAY, telnet.Main.TLS, true, bus).start() : null;
@@ -75,6 +88,7 @@ public final class Main {
         System.out.println("  ARP dashboard ..... http://localhost:" + ARP_HTTP);
         System.out.println("  Telnet by hand .... telnet 127.0.0.1 " + Story.PLAIN_RELAY + "   (admin / cisco)   then:  show ip dhcp binding | show ip arp | show mac address-table");
         System.out.println("                      conf t  ->  ip arp inspection vlan 1        (this session also crosses the simulated LAN)");
+        if (cluster != null) System.out.println("  Telnet extras ..... telnet <this PC> " + telnet.cluster.Cluster.LB_PORT + "  (HA cluster, RADIUS, group chat: Telnet dashboard chapters 08-11)");
         System.out.println("  Press Enter to stop.");
         System.in.read();
         dash.stop(); plain.stop(); if (secure != null) secure.stop(); telDash.stop(); pool.shutdown(); arpDash.stop(); bus.shutdown();
