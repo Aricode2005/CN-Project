@@ -917,11 +917,11 @@ public final class TelnetSession implements Runnable {
 
     private void printChatMembers() {
         print("Online VTY sessions (Group: " + chatRoom + "):\n");
-        for (TelnetSession s : pool.sessions()) {
+        for (TelnetSession s : VtyPool.allSessions()) {
             String where = s.mode == Mode.CHAT ? "in " + s.chatRoom : "mode: " + s.mode;
             String typ = s.isTypingInChat() ? " [typing...]" : "";
-            print(String.format("  vty%-2d  %-10s  [%-5s]  %-14s  status: \"%s\"%s\n",
-                    s.line, s.user.isEmpty() ? "(login)" : s.user, ChatHub.badge(s.transport), where, s.chatStatus, typ));
+            print(String.format("  %-9s  %-10s  [%-5s]  %-14s  status: \"%s\"%s\n",
+                    ChatHub.where(s), s.user.isEmpty() ? "(login)" : s.user, ChatHub.badge(s.transport), where, s.chatStatus, typ));
         }
     }
 

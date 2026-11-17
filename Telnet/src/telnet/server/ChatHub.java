@@ -97,14 +97,24 @@ public final class ChatHub {
         }
     }
 
-    private final VtyPool pool;
+    /** One chat for every router: the standalone router (2323) and the HA cluster nodes behind 2330 share it,
+     *  so users the load balancer put on different nodes still talk in the same rooms. */
+    public static final ChatHub SHARED = new ChatHub();
+
+    private static List<TelnetSession> sessions() { return VtyPool.allSessions(); }
+
+    /** "vty0" on the standalone router, "vty0@R2" on cluster node R2 (line numbers repeat across nodes). */
+    public static String where(TelnetSession s) {
+        String n = s.pool() == null ? "" : s.pool().node;
+        return "vty" + s.line + (n == null || n.isEmpty() ? "" : "@" + n);
+    }
+
     private final AtomicInteger msgIds = new AtomicInteger();
     private final CopyOnWriteArrayList<ChatMessage> messages = new CopyOnWriteArrayList<>();
     private final Set<String> knownRooms = ConcurrentHashMap.newKeySet();
     private final SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm:ss");
 
-    public ChatHub(VtyPool pool) {
-        this.pool = pool;
+    private ChatHub() {
         knownRooms.add("#general");
         knownRooms.add("#netops");
         knownRooms.add("#security");
@@ -119,7 +129,7 @@ public final class ChatHub {
 
     public Set<String> rooms() {
         Set<String> all = new LinkedHashSet<>(knownRooms);
-        for (TelnetSession s : pool.sessions()) {
+        for (TelnetSession s : sessions()) {
             if (s.mode == TelnetSession.Mode.CHAT && s.chatRoom != null) all.add(s.chatRoom);
         }
         return all;
@@ -128,7 +138,7 @@ public final class ChatHub {
     public List<TelnetSession> membersInRoom(String room) {
         String r = normalizeRoom(room);
         List<TelnetSession> list = new ArrayList<>();
-        for (TelnetSession s : pool.sessions()) {
+        for (TelnetSession s : sessions()) {
             if (s.mode == TelnetSession.Mode.CHAT && r.equals(s.chatRoom)) list.add(s);
         }
         return list;
@@ -233,10 +243,11 @@ public final class ChatHub {
             try { lineNo = Integer.parseInt(spec); } catch (NumberFormatException ignored) { }
         }
         if (lineNo >= 0) {
-            TelnetSession t = pool.byLine(lineNo);
+            TelnetSession t = sender.pool().byLine(lineNo);          // own router first, then any node
+            if (t == null || t.user.isEmpty()) for (TelnetSession x : sessions()) if (x.line == lineNo && !x.user.isEmpty()) { t = x; break; }
             if (t != null && !t.user.isEmpty()) targets.add(t);
         } else {
-            for (TelnetSession s : pool.sessions()) {
+            for (TelnetSession s : sessions()) {
                 if (s.user.equalsIgnoreCase(spec)) targets.add(s);
             }
         }
@@ -286,10 +297,11 @@ public final class ChatHub {
         String who = isMe ? "You (" + m.sender + "@vty" + m.senderLine + ")"
                 : (m.senderLine >= 0 ? m.sender + "@vty" + m.senderLine : m.sender + "@web");
         String secBadge = badge(m.transport);
-        String ticks = m.deliveredCount > 1 ? "✓✓(" + m.deliveredCount + ")" : "✓";
+        // plain ASCII: the NVT is 7-bit, so a Telnet terminal would show "??" for check marks
+        String ticks = m.deliveredCount > 1 ? "delivered(" + m.deliveredCount + ")" : "sent";
         StringBuilder sb = new StringBuilder();
         if (m.replyToId > 0 && m.replyPreview != null) {
-            sb.append("           ╭─ ↩ #").append(m.replyToId).append(' ').append(m.replyPreview).append("\n");
+            sb.append("           > re #").append(m.replyToId).append(' ').append(m.replyPreview).append("\n");
         }
         if ("dm".equals(m.kind)) {
             String dmHdr = "[" + ts + "] [DM #" + m.id + "] " + who + " -> " + m.dmTarget + " [" + secBadge + "]: ";
@@ -331,6 +343,7 @@ public final class ChatHub {
                 boolean typing = s.isTypingInChat();
                 mems.add(Json.obj(
                         "line", s.line,
+                        "node", s.pool() == null ? "" : s.pool().node,
                         "user", s.user,
                         "transport", s.transport,
                         "status", s.chatStatus,

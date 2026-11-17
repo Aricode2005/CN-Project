@@ -50,7 +50,7 @@ public final class VtyPool {
     public VtyPool(DeviceConfig cfg, File dhcpDataDir) {
         this.cfg = cfg;
         this.guard = new LoginGuard(cfg);
-        this.chat = new ChatHub(this);
+        this.chat = ChatHub.SHARED;
         this.dhcpDataDir = dhcpDataDir;
         ALL.add(this);
         // Every 5 s measure each session's round-trip time with RFC 860 TIMING-MARK

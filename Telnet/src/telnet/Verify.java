@@ -313,6 +313,39 @@ final class Verify {
         cl.control("revive", node, "");
         Thread.sleep(1500);
         check("revived node rejoins the rotation", cl.healthy(node), node);
+
+        // Group chat through the one demo port: two users on different cluster nodes share #general.
+        TelnetClient a = clusterLogin("admin", "cisco"), b = clusterLogin("student", "ju2026");
+        String na = nodeOf(a), nb = nodeOf(b);
+        long ja = a.expect(0, "#", 4000), jb = b.expect(0, ">", 4000);
+        a.line("chat"); ja = a.expect(ja, "]> ", 3000);
+        b.line("chat"); jb = b.expect(jb, "]> ", 3000);
+        b.line("hello from the other router");
+        long got = a.expect(ja, "hello from the other router", 3000);
+        check("group chat crosses cluster nodes behind port 2330", got > 0 && !na.equals(nb), na + " <-> " + nb);
+        a.line("/quit"); b.line("/quit"); Thread.sleep(300);
+        a.close(); b.close();
+    }
+
+    private static TelnetClient clusterLogin(String u, String pw) throws Exception {
+        TelnetClient c = new TelnetClient("127.0.0.1", Cluster.LB_PORT, false, null, new String[]{"XTERM"}, 80, 24, true, null);
+        long m = c.expect(0, "Username: ", 6000);
+        c.line(u); m = c.expect(m, "Password: ", 3000); c.line(pw);
+        c.expect(m, "Session token", 4000);
+        return c;
+    }
+
+    /** The "[#N]" id on the chat line that carries {@code text}. */
+    private static String msgId(String out, String text) {
+        Matcher m = Pattern.compile("\\[#(\\d+)\\][^\\n]*" + Pattern.quote(text)).matcher(out);
+        String id = "?";
+        while (m.find()) id = m.group(1);
+        return id;
+    }
+
+    private static String nodeOf(TelnetClient c) {
+        Matcher nm = Pattern.compile("cluster node (R\\d)").matcher(c.since(0));
+        return nm.find() ? nm.group(1) : "?";
     }
 
     // ------------------------------------------------------------------ 6
@@ -408,12 +441,15 @@ final class Verify {
         long rx1 = c1.expect(joinNotice, "Hello group from TLS!", 3000);
         check("group message broadcast across VTY terminals with delivery count", rx1 > 0 && c1.since(joinNotice).contains("(2)"), "");
 
-        c1.line("/reply 2 Hi admin, loud and clear!");
+        // the chat is shared by every router (cluster tests already posted), so read the ids instead of assuming them
+        String hid = msgId(c1.since(joinNotice), "Hello group from TLS!");
+        c1.line("/reply " + hid + " Hi admin, loud and clear!");
         long rep2 = c2.expect(j2, "Hi admin, loud and clear!", 3000);
-        check("quoted /reply delivered to peer with original snippet", rep2 > 0 && c2.since(j2).contains("#2"), "");
+        check("quoted /reply delivered to peer with original snippet", rep2 > 0 && c2.since(j2).contains("#" + hid), "");
 
-        c2.line("/react 3 +1");
-        long react1 = c1.expect(rx1, "reacted +1 to #3", 3000);
+        String rid = msgId(c2.since(j2), "Hi admin, loud and clear!");
+        c2.line("/react " + rid + " +1");
+        long react1 = c1.expect(rx1, "reacted +1 to #" + rid, 3000);
         check("/react broadcasts reaction update to room members", react1 > 0, "");
 
         c1.line("/dm admin Secret DM test");

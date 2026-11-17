@@ -1371,14 +1371,14 @@ function renderChat(s) {
   if (!s.chat) return;
   const rooms = s.chat.rooms || [];
   const roomObj = rooms.find(r => r.name === activeChatRoom) || { name: activeChatRoom, members: [] };
-  const typingUsers = roomObj.members.filter(m => m.typing).map(m => `${m.user}@vty${m.line}`);
+  const typingUsers = roomObj.members.filter(m => m.typing).map(m => `${m.user}@vty${m.line}${m.node ? '@' + m.node : ''}`);
   $('chatTyping').textContent = typingUsers.length ? `✍️ ${typingUsers.join(', ')} is typing…` : '';
 
   const allInChat = [];
   rooms.forEach(r => r.members.forEach(m => allInChat.push(Object.assign({ room: r.name }, m))));
   $('chatMembers').innerHTML = allInChat.length
     ? allInChat.map(m => `<div style="padding:4px 0;border-bottom:1px solid var(--rule-2);display:flex;justify-content:space-between;gap:8px">
-        <span><b style="color:var(--cyan)">${esc(m.user)}@vty${m.line}</b> <span class="st ${m.transport === 'telnets' ? 'YES' : 'WANTYES'}">${m.transport === 'telnets' ? '🔒 TLS' : '⚠ PLAIN'}</span></span>
+        <span><b style="color:var(--cyan)">${esc(m.user)}@vty${m.line}${m.node ? '@' + esc(m.node) : ''}</b> <span class="st ${m.transport === 'telnets' ? 'YES' : 'WANTYES'}">${m.transport === 'telnets' ? '🔒 TLS' : '⚠ PLAIN'}</span></span>
         <span style="color:var(--ink-2)">${esc(m.room)} · "${esc(m.status)}" ${m.typing ? '<b style="color:var(--good)">[typing…]</b>' : ''}</span>
       </div>`).join('')
     : '<div style="color:var(--muted)">No VTY terminals currently in <code>chat</code> mode. Open a terminal and type <code>chat</code>!</div>';

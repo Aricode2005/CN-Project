@@ -553,6 +553,13 @@ Command answer time (Enter $\rightarrow$ prompt) & 217 ms & 268 ms & 218 ms \\ \
 
 \shot[0.9\textwidth]{17_linemode_experiment.png}{Chapter 10: the three modes measured side by side, with a timeline of every segment.}
 
+\subsection{Group Chat between VTY Lines and a Host OS Shell}
+Contributed by Soham Neogi and integrated into the demo. Typing \texttt{chat} (or \texttt{chat \#netops}) turns a VTY line into a group-chat client (\texttt{Mode.CHAT}). Each message goes to every line in the room with an id, a delivery count and a \texttt{PLAIN}/\texttt{TLS} badge. There are also private messages (\texttt{/dm}), quoted replies (\texttt{/reply}), reactions (\texttt{/react}) and a ``typing\ldots'' indicator, taken from the keystrokes that character mode delivers one at a time. Chapter 11 of the dashboard shows the rooms and members, and can post into a room.
+
+The chat is \textbf{one shared hub for every router}: the stand-alone router on 2323 and the three cluster nodes behind 2330. Two laptops that the load balancer puts on different nodes still talk in the same room, and a member list shows \texttt{vty0@R1}, \texttt{vty0@R2}. Because 2330 carries plaintext, every chat message also appears, byte by byte, in the sniffer. This is the same lesson as the stolen password.
+
+\texttt{shell}, \texttt{exec <cmd>} or \texttt{!<cmd>} runs a real command on the host operating system (\texttt{cmd.exe /c} on Windows, \texttt{/bin/sh -c} elsewhere) and streams its output back over the NVT. This is remote log-in in the sense of the textbook. Each command has an 8-second limit and output is cut at 64\,KB.
+
 % ==============================================================================
 \section{Experiments, Verification and Results}
 
@@ -560,7 +567,7 @@ Command answer time (Enter $\rightarrow$ prompt) & 217 ms & 268 ms & 218 ms \\ \
 \begin{lstlisting}[language=bash, caption={Starting the lab, running the checks, and connecting by hand.}]
 cd Telnet
 run.bat                 # compile and start server, taps and dashboard (http://localhost:8081)
-run.bat --verify        # 59 automated end-to-end checks
+run.bat --verify        # 70 automated end-to-end checks
 run.bat client          # console client through the wire tap
 telnet localhost 2323   # any Telnet client works (Windows: enable "Telnet Client")
 telnet <this-PC> 2330   # from a second computer: the whole demo through one port
@@ -568,7 +575,7 @@ telnet <this-PC> 2330   # from a second computer: the whole demo through one por
 \end{lstlisting}
 
 \subsection{Automated Verification}
-\texttt{Verify.java} starts the real server, taps, cluster and RADIUS server, and drives them over TCP and UDP. All \textbf{59 checks pass}: 35 for the protocol, server and security, 10 for the cluster, 9 for RADIUS and 5 for the LINEMODE experiment. A selection:
+\texttt{Verify.java} starts the real server, taps, cluster and RADIUS server, and drives them over TCP and UDP. All \textbf{70 checks pass}: 35 for the protocol, server and security, 11 for the cluster (including group chat between two nodes), 9 for RADIUS, 5 for the LINEMODE experiment and 10 for the group chat and host shell. A selection:
 
 \begin{table}[H]
 \centering

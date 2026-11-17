@@ -11,7 +11,7 @@ bit layout, and the password crossing the wire in clear text (and not crossing i
 
 ```
 run.bat              REM compile + start everything, then open http://localhost:8081
-run.bat --verify     REM automated test suite (69 checks)
+run.bat --verify     REM automated test suite (70 checks)
 run.bat client       REM console Telnet client through the wire tap
 ```
 
@@ -68,7 +68,8 @@ user), `clear line`, `debug telnet`, `tmping` (RTT via TIMING-MARK), `top` (full
 NAWS: it reflows when you resize), `cat file1`, `dir`, `shell` / `bash` / `exec <cmd>` / `!<cmd>`
 (spawns a real Host OS shell over the Telnet NVT pseudoterminal so a remote laptop can execute real OS
 commands), and `chat` / `show chat` (WhatsApp-style multi-terminal VTY group chat with rooms, DMs,
-quoted replies, reactions, delivery ticks, and live per-keystroke typing indicators).
+quoted replies, reactions, delivery ticks, and live per-keystroke typing indicators). The chat is one
+hub shared by every router, so users the 2330 load balancer puts on different cluster nodes share the same rooms.
 Passwords are PBKDF2-SHA256 hashes (Cisco type 8), compared in constant time.
 
 **Tap (`telnet.tap`)**: relays bytes unchanged, decodes them for the dashboard, reconstructs what
