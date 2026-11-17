@@ -89,9 +89,10 @@
     \begin{tabular}{@{}ll@{}}
     Hrishikesh Bhanja & ARP module \\[0.35em]
     Aritra Dutta & DHCP module \\[0.35em]
-    Subham Bhat & Telnet module and the integration \\[0.35em]
-    Soham Neogi & Integrated RFC 1143 and OS shell in
-    Telnet module\\
+    Subham Bhat & Telnet module, the integration, \\
+     & and the six extra protocol modules \\[0.35em]
+    Soham Neogi & Group chat and host OS shell \\
+     & in the Telnet module \\
     \end{tabular}}\\[1.4em]
     {\large
     \textbf{Class:} BCSE III\\[0.55em]
@@ -212,7 +213,7 @@ Figure~\ref{fig:system_arch} shows every process and port of the complete projec
     \draw[arr]      (ha.south west)  -- node[lbl, below right, pos=0.5] {R1--R3} (chat.north east);
     \draw[arr]      (ha.south)       -- node[lbl, right, pos=0.5] {Access-Request} (rad.north);
 
-    \draw[arr, dashed] (browser.west) -- (-2.1, 7.4) |- node[lbl, pos=0.28, right] {HTTP 8083--8088} (mods.west);
+    \draw[arr, dashed] (browser.west) -- (-2.1, 7.4) |- node[lbl, pos=0.28, left, align=right] {HTTP\\8083--8088} (mods.west);
 \end{tikzpicture}%
 }
 \caption{The complete project: the main project's single process (integration layer on top, the three basket modules and the Telnet extras below) and the six stand-alone modules.}
@@ -244,7 +245,7 @@ admin-laptop & Fa0/6 & from DHCP & \texttt{3C:52:82:AD:00:01} & The newcomer \\ 
 \section{Distributed DHCP Cluster Architecture and Mechanisms}
 \label{sec:dhcp}
 
-\noindent The DHCP subsystem replaces a fragile single-server daemon with a fault-tolerant, horizontally scalable \textbf{3-Node Active-Active DHCP Cluster} fronted by a **Layer-4 UDP Load Balancer, BOOTP Relay Agent, and Anti-Starvation Firewall**.
+\noindent The DHCP subsystem replaces a fragile single-server daemon with a fault-tolerant, horizontally scalable \textbf{3-Node Active-Active DHCP Cluster} fronted by a \textbf{Layer-4 UDP Load Balancer, BOOTP Relay Agent, and Anti-Starvation Firewall}.
 
 \subsection{236-Byte BOOTP Header, Backward Compatibility, and 4-Byte Magic Cookie}
 DHCP (RFC 2131) is built directly upon the legacy \textbf{Bootstrap Protocol (BOOTP, RFC 951)} frame format so that existing Layer-3 BOOTP relay routers (\texttt{ip helper-address}) and UDP port \texttt{67}/\texttt{68} sockets operate without modification. Every packet serialized by \texttt{DhcpPacket.java} begins with a fixed \textbf{236-byte BOOTP header}, followed at byte offset \texttt{236--239} by the mandatory \textbf{4-byte Magic Cookie} (\texttt{99.130.83.99} / \texttt{0x63825363}) and variable-length \textbf{Type-Length-Value (TLV)} options (RFC 2132), zero-padded to a minimum of \textbf{300 bytes} (RFC 1542) so strict OS network stacks never drop short replies as runt frames.
@@ -432,7 +433,7 @@ Because UDP worker threads, the 2-second expiration reaper thread, and HTTP dash
 \end{figure}
 
 \subsection{Dual-Engine Rate Limiting and Starvation Defense (\texttt{RateLimiter.java})}
-In a \textbf{DHCP Starvation Attack}, an adversary floods the LAN with \texttt{DHCPDISCOVER} frames carrying randomly spoofed \texttt{chaddr} MAC addresses (\texttt{DE:AD:BE:EF:XX:XX}) to exhaust the entire dynamic IP pool within seconds. Because every spoofed frame uses a new MAC address, a per-MAC limiter alone cannot stop a distributed flood. \texttt{RateLimiter.java} therefore enforces a **Two-Level Gate** (\textbf{Global Cluster Gate} followed by \textbf{Per-MAC Gate}) with two runtime-switchable algorithms (Figure~\ref{fig:ratelimiter_flow}):
+In a \textbf{DHCP Starvation Attack}, an adversary floods the LAN with \texttt{DHCPDISCOVER} frames carrying randomly spoofed \texttt{chaddr} MAC addresses (\texttt{DE:AD:BE:EF:XX:XX}) to exhaust the entire dynamic IP pool within seconds. Because every spoofed frame uses a new MAC address, a per-MAC limiter alone cannot stop a distributed flood. \texttt{RateLimiter.java} therefore enforces a \textbf{Two-Level Gate} (\textbf{Global Cluster Gate} followed by \textbf{Per-MAC Gate}) with two runtime-switchable algorithms (Figure~\ref{fig:ratelimiter_flow}):
 \begin{enumerate}[leftmargin=2em]
     \item \textbf{Token Bucket Algorithm:} Maintains a global bucket ($B_{\text{global}}=30$, refill rate $R_{\text{global}}=15\text{ tokens/s}$) and per-MAC buckets ($B_{\text{mac}}=20$, $R_{\text{mac}}=10\text{ tokens/s}$), updating tokens lazily via $T_{\text{new}} = \min(B_{\max},\, T_{\text{curr}} + \Delta t \times R)$ before decrementing $1.0$ token per allowed packet.
     \item \textbf{Weighted Sliding Window Counter:} Eliminates fixed-window boundary bursts by blending the previous 1-second window count ($C_{\text{prev}}$) with the current window count ($C_{\text{curr}}$) using the fractional window progress $\omega = (t_{\text{now}} - t_{\text{start}}) / 1000\text{ ms}$:
